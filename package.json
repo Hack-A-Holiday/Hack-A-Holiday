@@ -1,0 +1,30 @@
+{
+  "name": "autonomous-travel-companion",
+  "version": "1.0.0",
+  "description": "AI-powered autonomous travel planning system",
+  "scripts": {
+    "dev": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "deploy": "npm run deploy --workspace=infrastructure",
+    "start": "npm run start --workspace=frontend"
+  },
+  "workspaces": [
+    "frontend",
+    "backend",
+    "infrastructure"
+  ],
+  "keywords": [
+    "travel",
+    "ai",
+    "aws",
+    "bedrock",
+    "lambda"
+  ],
+  "author": "Travel Companion Team",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^24.5.2",
+    "joi": "^18.0.1"
+  }
+}
