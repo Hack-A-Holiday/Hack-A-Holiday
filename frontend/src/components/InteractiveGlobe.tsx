@@ -36,7 +36,7 @@ export default function InteractiveGlobe({
   onDestinationSelect,
   selectedDestination,
   searchQuery = ''
-}: GlobeProps) {
+}: Readonly<GlobeProps>) {
   const globeRef = useRef<any>();
   const [isClient, setIsClient] = useState(false);
   
@@ -55,16 +55,14 @@ export default function InteractiveGlobe({
   }, [searchQuery]);
 
   // Convert destinations to points with proper lat/lng
-  const globePoints = useMemo(() => {
-    return filteredDestinations.map(dest => ({
-      ...dest,
-      lat: dest.lat,
-      lng: dest.lng,
-      size: selectedDestination?.id === dest.id ? 0.8 : 0.4,
-      color: getCategoryColor(dest.category),
-      label: `${getCategoryEmoji(dest.category)} ${dest.name}`,
-    }));
-  }, [filteredDestinations, selectedDestination]);
+  const globeData = filteredDestinations.map(dest => ({
+    lat: dest.latitude,
+    lng: dest.longitude,
+    name: dest.name,
+    country: dest.country,
+    size: 0.5,
+    color: '#FF6B6B'
+  }));
 
   const handlePointClick = useCallback((point: any) => {
     onDestinationSelect(point);
@@ -228,7 +226,7 @@ export default function InteractiveGlobe({
         backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
         
         // Points data
-        pointsData={globePoints}
+        pointsData={globeData}
         pointLat="lat"
         pointLng="lng"
         pointColor="color"

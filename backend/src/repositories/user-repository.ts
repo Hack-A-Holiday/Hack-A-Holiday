@@ -301,7 +301,7 @@ export class UserRepository extends BaseRepository {
       SK: 'PROFILE',
     });
 
-    if (!record || !record.password) {
+    if (!record?.password) {
       return null;
     }
 

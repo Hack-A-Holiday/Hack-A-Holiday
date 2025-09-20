@@ -83,7 +83,7 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
           fontSize: '14px',
           lineHeight: '1.5'
         }}>
-          Enter your email address and we'll send you a link to reset your password
+          Enter your email address and we&apos;ll send you a link to reset your password
         </p>
       </div>
 
@@ -205,7 +205,7 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
           lineHeight: '1.4'
         }}>
           💡 <strong>Note:</strong> The reset link will expire in 1 hour for security reasons. 
-          If you don't receive an email, please check your spam folder.
+          If you don&apos;t receive an email, please check your spam folder.
         </p>
       </div>
     </div>

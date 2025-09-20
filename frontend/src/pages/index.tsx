@@ -15,7 +15,7 @@ export default function HomePage() {
   // Clear error when switching modes
   useEffect(() => {
     clearError();
-  }, [mode]);
+  }, [mode, clearError]);
 
   // Redirect to dashboard if user is already logged in
   useEffect(() => {
@@ -147,7 +147,7 @@ export default function HomePage() {
                 <div className="auth-card-header">
                   <h2 className="auth-card-title">Reset Password</h2>
                   <p className="auth-card-description">
-                    Enter your email address and we'll send you a link to reset your password
+                    Enter your email address and we&apos;ll send you a link to reset your password
                   </p>
                 </div>
 

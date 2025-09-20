@@ -203,7 +203,7 @@ export default function HomePage() {
                     color: '#666',
                     lineHeight: '1.6'
                   }}>
-                    Tell us your interests, budget, and travel dates. We'll craft 
+                    Tell us your interests, budget, and travel dates. We&apos;ll craft 
                     unique experiences tailored specifically to your preferences.
                   </p>
                 </div>

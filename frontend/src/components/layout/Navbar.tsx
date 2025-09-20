@@ -20,8 +20,8 @@ export default function Navbar() {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  const handleLogout = async () => {
-    await logout();
+  const handleLogout = () => {
+    logout();
     router.push('/');
   };
 

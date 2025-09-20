@@ -22,6 +22,20 @@ function verifySimpleToken(token: string): any {
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
 let userRepository: UserRepository;
 
+// Helper function to create standardized response
+function createResponse(statusCode: number, body: any): APIGatewayProxyResult {
+  return {
+    statusCode,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    },
+    body: JSON.stringify(body)
+  };
+}
+
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
@@ -362,7 +376,7 @@ async function handleGetCurrentUser(event: APIGatewayProxyEvent): Promise<APIGat
 
   const authHeader = event.headers.Authorization || event.headers.authorization;
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader?.startsWith('Bearer ')) {
     return {
       statusCode: 401,
       headers,
@@ -467,7 +481,7 @@ async function handleForgotPassword(event: APIGatewayProxyEvent): Promise<APIGat
 
     // In a real application, you would send an email here
     // For now, we'll return the token for testing purposes
-    // TODO: Integrate with email service (SES, SendGrid, etc.)
+    // FIXME: Integrate with email service (SES, SendGrid, etc.) when ready for production
     
     console.log(`Password reset requested for ${email}. Reset token: ${resetData.token}`);
 

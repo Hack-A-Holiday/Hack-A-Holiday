@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
+import dynamic from 'next/dynamic';
 import { useAuth } from '../contexts/AuthContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import Navbar from '../components/layout/Navbar';
-import InteractiveGlobe from '../components/InteractiveGlobe';
 import { Destination } from '../data/destinations';
+
+// Dynamic import for InteractiveGlobe to avoid SSR issues
+const InteractiveGlobe = dynamic(() => import('../components/InteractiveGlobe'), {
+  ssr: false,
+  loading: () => <div style={{ height: '600px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading globe...</div>
+});
 
 interface TripPreferences {
   destination: string;
@@ -26,7 +32,7 @@ interface ApiResponse {
 }
 
 export default function Dashboard() {
-  const { state, logout } = useAuth();
+  const { state } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
 
@@ -54,9 +60,38 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(false);
   const [globeSearchQuery, setGlobeSearchQuery] = useState('');
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Helper functions for responsive styling
+  const getContainerPadding = () => {
+    if (isMobile) return '20px 15px';
+    if (isTablet) return '30px 20px';
+    return '40px 20px';
+  };
+
+  const getTitleFontSize = () => {
+    if (isMobile) return '2.2rem';
+    if (isTablet) return '2.6rem';
+    return '3rem';
+  };
+
+  const getSubtitleFontSize = () => {
+    if (isMobile) return '1rem';
+    if (isTablet) return '1.1rem';
+    return '1.2rem';
+  };
+
+  const getContentPadding = () => {
+    if (isMobile) return '25px';
+    if (isTablet) return '35px';
+    return '40px';
+  };
+
+  const getGridColumns = () => {
+    if (isMobile) return '1fr';
+    return '1fr 1fr';
+  };
 
   const availableInterests = [
     'culture', 'history', 'museums', 'art', 'architecture',
@@ -140,21 +175,21 @@ export default function Dashboard() {
         <Navbar />
         
         <main style={{ 
-          padding: isMobile ? '20px 15px' : isTablet ? '30px 20px' : '40px 20px',
+          padding: getContainerPadding(),
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
         }}>
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
 
           <div style={{ textAlign: 'center', marginBottom: isMobile ? '30px' : '40px', color: 'white' }}>
             <h1 style={{ 
-              fontSize: isMobile ? '2.2rem' : isTablet ? '2.6rem' : '3rem', 
+              fontSize: getTitleFontSize(), 
               marginBottom: '10px',
               lineHeight: '1.2'
             }}>
               🤖 Autonomous Travel Companion
             </h1>
             <p style={{ 
-              fontSize: isMobile ? '1rem' : isTablet ? '1.1rem' : '1.2rem', 
+              fontSize: getSubtitleFontSize(), 
               opacity: 0.9,
               lineHeight: '1.4'
             }}>
@@ -166,7 +201,7 @@ export default function Dashboard() {
           <div style={{ 
             background: 'white', 
             borderRadius: '15px', 
-            padding: isMobile ? '25px' : isTablet ? '35px' : '40px',
+            padding: getContentPadding(),
             boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
           }}>
             <form onSubmit={handleSubmit}>
@@ -300,7 +335,7 @@ export default function Dashboard() {
 
               <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : '1fr 1fr', 
+                gridTemplateColumns: getGridColumns(), 
                 gap: isMobile ? '15px' : '20px', 
                 marginBottom: '25px' 
               }}>
@@ -349,10 +384,11 @@ export default function Dashboard() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                  <label htmlFor="travelers-input" style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                     Travelers
                   </label>
                   <input
+                    id="travelers-input"
                     type="number"
                     value={preferences.travelers}
                     onChange={(e) => setPreferences(prev => ({ ...prev, travelers: parseInt(e.target.value) }))}
@@ -370,10 +406,11 @@ export default function Dashboard() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                  <label htmlFor="start-date-input" style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                     Start Date
                   </label>
                   <input
+                    id="start-date-input"
                     type="date"
                     value={preferences.startDate}
                     onChange={(e) => setPreferences(prev => ({ ...prev, startDate: e.target.value }))}
@@ -389,10 +426,11 @@ export default function Dashboard() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                  <label htmlFor="travel-style-select" style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                     Travel Style
                   </label>
                   <select
+                    id="travel-style-select"
                     value={preferences.travelStyle}
                     onChange={(e) => setPreferences(prev => ({ ...prev, travelStyle: e.target.value as any }))}
                     style={{ 
@@ -411,23 +449,25 @@ export default function Dashboard() {
               </div>
 
               <div style={{ marginBottom: '25px' }}>
-                <label style={{ display: 'block', marginBottom: '15px', fontWeight: '600' }}>
-                  Interests (select multiple)
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-                  {availableInterests.map((interest) => (
-                    <label key={interest} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={preferences.interests.includes(interest)}
-                        onChange={() => handleInterestToggle(interest)}
-                      />
-                      <span style={{ textTransform: 'capitalize' }}>
-                        {interest.replace('-', ' ')}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+                  <legend style={{ display: 'block', marginBottom: '15px', fontWeight: '600' }}>
+                    Interests (select multiple)
+                  </legend>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                    {availableInterests.map((interest) => (
+                      <label key={interest} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={preferences.interests.includes(interest)}
+                          onChange={() => handleInterestToggle(interest)}
+                        />
+                        <span style={{ textTransform: 'capitalize' }}>
+                          {interest.replace('-', ' ')}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               </div>
 
               <button
