@@ -17,5 +17,10 @@ export declare class LambdaStack extends cdk.Stack {
     readonly createBookingFunction: lambda.Function;
     readonly getTripBookingsFunction: lambda.Function;
     readonly getUserBookingsFunction: lambda.Function;
+    readonly signupFunction: lambda.Function;
+    readonly loginFunction: lambda.Function;
+    readonly googleAuthFunction: lambda.Function;
+    readonly meFunction: lambda.Function;
+    readonly authFunction: lambda.Function;
     constructor(scope: Construct, id: string, props: LambdaStackProps);
 }

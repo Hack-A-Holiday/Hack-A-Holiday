@@ -21,6 +21,11 @@ export class LambdaStack extends cdk.Stack {
   public readonly createBookingFunction: lambda.Function;
   public readonly getTripBookingsFunction: lambda.Function;
   public readonly getUserBookingsFunction: lambda.Function;
+  public readonly signupFunction: lambda.Function;
+  public readonly loginFunction: lambda.Function;
+  public readonly googleAuthFunction: lambda.Function;
+  public readonly meFunction: lambda.Function;
+  public readonly authFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
@@ -97,6 +102,10 @@ export class LambdaStack extends cdk.Stack {
         BOOKINGS_TABLE_NAME: bookingsTableName,
         S3_BUCKET_NAME: s3BucketName,
         LOG_LEVEL: environment === 'prod' ? 'info' : 'debug',
+        JWT_SECRET: environment === 'prod' 
+          ? 'CHANGE_THIS_TO_A_SECURE_JWT_SECRET_IN_PRODUCTION_MINIMUM_32_CHARACTERS' 
+          : 'dev-jwt-secret-key-for-development-use-only',
+        GOOGLE_CLIENT_ID: 'your-google-oauth-client-id-from-google-console', // Replace with your actual Google Client ID
       },
       logRetention: logs.RetentionDays.ONE_WEEK,
     };
@@ -153,6 +162,61 @@ export class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/booking.getUserBookings',
       description: 'Retrieves booking history for a user',
+    });
+
+    // Authentication Lambda Functions
+    
+    // Signup Lambda Function
+    this.signupFunction = new lambda.Function(this, 'SignupFunction', {
+      ...commonLambdaProps,
+      functionName: `TravelCompanion-Signup-${environment}`,
+      code: lambda.Code.fromAsset('../backend/dist'),
+      handler: 'functions/signup.signup',
+      description: 'User registration with email and password',
+    });
+
+    // Login Lambda Function
+    this.loginFunction = new lambda.Function(this, 'LoginFunction', {
+      ...commonLambdaProps,
+      functionName: `TravelCompanion-Login-${environment}`,
+      code: lambda.Code.fromAsset('../backend/dist'),
+      handler: 'functions/login.login',
+      description: 'User authentication with email and password',
+    });
+
+    // Google OAuth Lambda Function
+    this.googleAuthFunction = new lambda.Function(this, 'GoogleAuthFunction', {
+      ...commonLambdaProps,
+      functionName: `TravelCompanion-GoogleAuth-${environment}`,
+      code: lambda.Code.fromAsset('../backend/dist'),
+      handler: 'functions/google-auth.googleAuth',
+      description: 'Google OAuth authentication',
+    });
+
+    // Me (Get Current User) Lambda Function
+    this.meFunction = new lambda.Function(this, 'MeFunction', {
+      ...commonLambdaProps,
+      functionName: `TravelCompanion-Me-${environment}`,
+      code: lambda.Code.fromAsset('../backend/dist'),
+      handler: 'functions/auth-middleware.me',
+      description: 'Get current authenticated user profile',
+    });
+
+    // Unified Auth Lambda Function (New)
+    this.authFunction = new lambda.Function(this, 'AuthFunction', {
+      ...commonLambdaProps,
+      functionName: `TravelCompanion-Auth-${environment}`,
+      code: lambda.Code.fromAsset('../backend', {
+        bundling: {
+          image: lambda.Runtime.NODEJS_18_X.bundlingImage,
+          command: [
+            'bash', '-c',
+            'cp -r /asset-input/* /asset-output/ && cd /asset-output && npm install --production'
+          ],
+        },
+      }),
+      handler: 'dist/functions/auth.handler',
+      description: 'Unified authentication handler for all auth routes with bundled dependencies',
     });
 
     // Create API Gateway
@@ -224,6 +288,55 @@ export class LambdaStack extends cdk.Stack {
 
     // GET /bookings (get user bookings)
     bookingsResource.addMethod('GET', new apigateway.LambdaIntegration(this.getUserBookingsFunction));
+
+    // Authentication endpoints
+    
+    // /auth resource
+    const authResource = this.api.root.addResource('auth');
+    
+    // POST /auth/signup (using new unified auth function)
+    const signupResource = authResource.addResource('signup');
+    signupResource.addMethod('POST', new apigateway.LambdaIntegration(this.authFunction), {
+      requestValidator: new apigateway.RequestValidator(this, 'SignupValidator', {
+        restApi: this.api,
+        validateRequestBody: true,
+        validateRequestParameters: false,
+      }),
+    });
+
+    // POST /auth/login (using new unified auth function)
+    const loginResource = authResource.addResource('login');
+    loginResource.addMethod('POST', new apigateway.LambdaIntegration(this.authFunction), {
+      requestValidator: new apigateway.RequestValidator(this, 'LoginValidator', {
+        restApi: this.api,
+        validateRequestBody: true,
+        validateRequestParameters: false,
+      }),
+    });
+
+    // POST /auth/google-user (new endpoint using unified auth function)
+    const googleUserResource = authResource.addResource('google-user');
+    googleUserResource.addMethod('POST', new apigateway.LambdaIntegration(this.authFunction), {
+      requestValidator: new apigateway.RequestValidator(this, 'GoogleUserValidator', {
+        restApi: this.api,
+        validateRequestBody: true,
+        validateRequestParameters: false,
+      }),
+    });
+
+    // POST /auth/google (legacy - keeping for compatibility)
+    const googleAuthResource = authResource.addResource('google');
+    googleAuthResource.addMethod('POST', new apigateway.LambdaIntegration(this.googleAuthFunction), {
+      requestValidator: new apigateway.RequestValidator(this, 'GoogleAuthValidator', {
+        restApi: this.api,
+        validateRequestBody: true,
+        validateRequestParameters: false,
+      }),
+    });
+
+    // GET /auth/me (using new unified auth function)
+    const meResource = authResource.addResource('me');
+    meResource.addMethod('GET', new apigateway.LambdaIntegration(this.authFunction));
 
     // Health check endpoint
     const healthResource = this.api.root.addResource('health');

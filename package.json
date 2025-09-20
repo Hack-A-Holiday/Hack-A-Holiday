@@ -25,6 +25,7 @@
   "license": "MIT",
   "dependencies": {
     "@types/node": "^24.5.2",
+    "firebase": "^12.3.0",
     "joi": "^18.0.1"
   }
 }

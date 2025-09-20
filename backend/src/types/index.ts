@@ -152,6 +152,11 @@ export interface BookingConfirmation {
 export interface UserProfile {
   id: string;
   email: string;
+  password?: string; // For normal auth users
+  googleId?: string; // For Google OAuth users
+  role: 'normal' | 'google';
+  name?: string;
+  profilePicture?: string;
   preferences: {
     defaultBudget: number;
     favoriteDestinations: string[];
@@ -163,6 +168,8 @@ export interface UserProfile {
   tripHistory: string[]; // trip IDs
   createdAt: string;
   updatedAt: string;
+  lastLoginAt?: string;
+  isEmailVerified: boolean;
 }
 
 // API Request/Response types
@@ -198,6 +205,33 @@ export interface BookingResponse {
   requestId: string;
 }
 
+// Authentication types
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface SignupRequest {
+  email: string;
+  password: string;
+  name?: string;
+  preferences?: Partial<UserProfile['preferences']>;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  user?: Omit<UserProfile, 'password'>;
+  token?: string;
+  error?: string;
+  message?: string;
+}
+
+export interface GoogleAuthRequest {
+  googleToken: string;
+  name?: string;
+  profilePicture?: string;
+}
+
 // Database record types
 export interface UserRecord {
   PK: string; // USER#${userId}
@@ -205,10 +239,17 @@ export interface UserRecord {
   GSI1PK?: string; // EMAIL#${email}
   GSI1SK?: string; // USER
   email: string;
+  password?: string; // For normal auth users
+  googleId?: string; // For Google OAuth users
+  role: 'normal' | 'google';
+  name?: string;
+  profilePicture?: string;
   preferences: UserProfile['preferences'];
   tripHistory: string[];
   createdAt: string;
   updatedAt: string;
+  lastLoginAt?: string;
+  isEmailVerified: boolean;
 }
 
 export interface TripRecord {
