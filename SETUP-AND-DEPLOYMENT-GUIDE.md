@@ -21,14 +21,14 @@ The Autonomous Travel Companion is a full-stack application that:
 
 - **Frontend**: React/Next.js with TypeScript and Tailwind CSS
 - **Backend**: AWS Lambda functions with Node.js/TypeScript
-- **AI Engine**: Amazon Bedrock with Claude 3.5 Sonnet
+- **AI Engine**: Amazon Bedrock with Claude 3.5 Sonnet v2 (latest)
 - **Database**: DynamoDB for user data and trip storage
 - **Storage**: S3 for itinerary files and assets
 - **API**: API Gateway with REST endpoints
 - **Infrastructure**: AWS CDK for Infrastructure as Code
 
 ### Key Features
-- 🤖 AI-powered trip planning using Amazon Bedrock
+- 🤖 AI-powered trip planning using Amazon Bedrock (Claude 3.5 Sonnet v2)
 - ✈️ Flight search and booking recommendations
 - 🏨 Hotel recommendations based on budget and preferences
 - 🎯 Personalized activity suggestions
@@ -64,7 +64,7 @@ The Autonomous Travel Companion is a full-stack application that:
 1. **AWS Account** with administrative access
 2. **$100 AWS Credits** (recommended for hackathon/demo)
 3. **AWS Services Access**:
-   - Amazon Bedrock (Claude 3.5 Sonnet model)
+   - Amazon Bedrock (Claude 3.5 Sonnet v2 model)
    - DynamoDB
    - Lambda
    - API Gateway
@@ -154,9 +154,16 @@ This should return your AWS account ID and user information.
 ### Step 3: Enable Required AWS Services
 
 1. **Enable Amazon Bedrock**:
-   - Go to AWS Console → Bedrock
-   - Request access to Claude 3.5 Sonnet model
-   - Wait for approval (usually instant)
+   - Go to AWS Console → Bedrock → Model access
+   - Request access to **Claude 3.5 Sonnet v2** (anthropic.claude-3-5-sonnet-20241022-v2:0) - **Recommended**
+   - Also enable Claude 3.5 Sonnet v1 as fallback (anthropic.claude-3-5-sonnet-20240620-v1:0)
+   - Wait for approval (usually instant for both models)
+   
+   **Why Claude 3.5 Sonnet v2?**
+   - Improved reasoning and planning capabilities
+   - Better structured output for travel itineraries
+   - Enhanced cost optimization logic
+   - More reliable JSON formatting
 
 2. **Verify Service Quotas**:
    - Check Lambda concurrent executions limit
@@ -189,6 +196,7 @@ AWS_ACCOUNT_ID=your-account-id-here
 API_GATEWAY_URL=
 BEDROCK_AGENT_ID=
 BEDROCK_AGENT_ALIAS_ID=TSTALIASID
+BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 
 # External API Keys (Optional - uses mock data if not provided)
 AMADEUS_API_KEY=
