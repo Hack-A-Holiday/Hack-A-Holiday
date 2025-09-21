@@ -723,7 +723,15 @@ export default function Dashboard() {
                   }}>
                     <h3 style={{ margin: '0 0 15px 0', color: '#c53030', fontSize: '18px' }}>🚨 Emergency Information</h3>
                     <div style={{ fontSize: '14px' }}>
-                      <p style={{ margin: '5px 0' }}><strong>Emergency Numbers:</strong> {result.itinerary.emergencyInfo.emergency}</p>
+                      <p style={{ margin: '5px 0' }}><strong>Emergency Numbers:</strong> {
+                        typeof result.itinerary.emergencyInfo.emergency === 'object'
+                          ? Object.entries(result.itinerary.emergencyInfo.emergency).map(([key, value]) => (
+                              <span key={key} style={{ display: 'block', marginLeft: '10px' }}>
+                                <strong>{key.charAt(0).toUpperCase() + key.slice(1)}:</strong> {String(value)}
+                              </span>
+                            ))
+                          : result.itinerary.emergencyInfo.emergency
+                      }</p>
                       <p style={{ margin: '5px 0' }}><strong>Embassy Contact:</strong> {result.itinerary.emergencyInfo.embassy}</p>
                       <p style={{ margin: '5px 0' }}><strong>Hospital:</strong> {result.itinerary.emergencyInfo.hospitalContact}</p>
                     </div>
