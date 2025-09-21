@@ -60,12 +60,18 @@ export default function InteractiveGlobe({
     lng: dest.longitude,
     name: dest.name,
     country: dest.country,
+    description: dest.description,
     size: 0.5,
-    color: '#FF6B6B'
+    color: getCategoryColor(dest.category),
+    destId: dest.id // Store the destination ID to find the full object later
   }));
 
   const handlePointClick = useCallback((point: any) => {
-    onDestinationSelect(point);
+    // Find the full destination object using the ID
+    const fullDestination = filteredDestinations.find(dest => dest.id === point.destId);
+    if (fullDestination) {
+      onDestinationSelect(fullDestination);
+    }
     
     // Auto-rotate to show the selected point
     if (globeRef.current) {
@@ -75,7 +81,7 @@ export default function InteractiveGlobe({
         altitude: 2
       }, 1000);
     }
-  }, [onDestinationSelect]);
+  }, [onDestinationSelect, filteredDestinations]);
 
   // Loading fallback
   if (!isClient) {
@@ -249,7 +255,7 @@ export default function InteractiveGlobe({
             backdrop-filter: blur(15px);
           ">
             <div style="font-weight: bold; margin-bottom: 6px; font-size: 16px;">
-              ${point.label}
+              ${point.name}
             </div>
             <div style="opacity: 0.8; font-size: 13px; margin-bottom: 4px;">
               📍 ${point.country}

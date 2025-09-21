@@ -38,6 +38,7 @@ export async function authenticateUser(
     try {
       tokenPayload = authService.verifyToken(token);
     } catch (error) {
+      console.warn('Token verification failed in middleware:', error instanceof Error ? error.message : 'Unknown error');
       return {
         user: null,
         error: createErrorResponse(401, 'Invalid or expired token', requestId),

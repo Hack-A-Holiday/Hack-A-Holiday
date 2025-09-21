@@ -68,8 +68,8 @@ export default function Navbar() {
           fontWeight: 'bold',
           fontSize: isMobile ? '1.2rem' : '1.5rem'
         }}>
-          <span style={{ marginRight: '8px' }}>✈️</span>
-          {isMobile ? 'TC' : 'Travel Companion'}
+          <span style={{ marginRight: '8px' }}>🌍</span>
+          {isMobile ? 'HT' : 'HackTravel'}
         </Link>
 
         {/* Mobile Menu Button */}

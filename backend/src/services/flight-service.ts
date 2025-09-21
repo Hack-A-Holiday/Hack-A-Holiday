@@ -26,9 +26,9 @@ export interface FlightRecommendationOptions {
 }
 
 export class FlightService {
-  private amadeuApiKey: string;
-  private amadeuApiSecret: string;
-  private rapidApiKey: string;
+  private readonly amadeuApiKey: string;
+  private readonly amadeuApiSecret: string;
+  private readonly rapidApiKey: string;
   private amadeuToken: string | null = null;
   private tokenExpiry: number = 0;
 
@@ -297,7 +297,7 @@ export class FlightService {
       const price = Math.round(basePrice * priceVariation * 0.9); // Return flights often cheaper
       
       const departureHour = 10 + (index * 4) % 12;
-      const flightDuration = this.calculateFlightDuration(destination, origin);
+      const flightDuration = this.calculateFlightDuration(origin, destination);
       const arrivalHour = (departureHour + Math.floor(flightDuration / 60)) % 24;
 
       flights.push({

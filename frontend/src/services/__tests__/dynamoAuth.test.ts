@@ -96,8 +96,8 @@ describe('DynamoDBAuthService', () => {
     })
   })
 
-  describe('googleAuth', () => {
-    it('should authenticate with Google successfully', async () => {
+  describe('storeGoogleUser', () => {
+    it('should store Google user successfully', async () => {
       const mockResponse = {
         user: { id: '123', email: 'google@example.com', name: 'Google User' },
         token: 'google-token'
@@ -108,10 +108,45 @@ describe('DynamoDBAuthService', () => {
         json: async () => mockResponse
       })
 
-      // Mock Google authentication flow
-      const result = await dynamoDBAuthService.googleAuth()
+      const googleUser = {
+        uid: 'google-uid-123',
+        email: 'google@example.com',
+        displayName: 'Google User',
+        photoURL: 'https://example.com/photo.jpg'
+      }
+
+      const result = await dynamoDBAuthService.storeGoogleUser(googleUser)
+
+      expect(fetch).toHaveBeenCalledWith('https://test-api.com/auth/google-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          googleId: 'google-uid-123',
+          email: 'google@example.com',
+          name: 'Google User',
+          profilePicture: 'https://example.com/photo.jpg'
+        })
+      })
 
       expect(result).toEqual(mockResponse)
+    })
+
+    it('should handle Google user storage errors', async () => {
+      ;(fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: 'Failed to store Google user' })
+      })
+
+      const googleUser = {
+        uid: 'google-uid-123',
+        email: 'google@example.com',
+        displayName: 'Google User'
+      }
+
+      await expect(dynamoDBAuthService.storeGoogleUser(googleUser))
+        .rejects.toThrow('Failed to store Google user')
     })
   })
 

@@ -1,0 +1,29 @@
+{
+  "TravelCompanion-DynamoDB-dev": {
+    "UsersTableArn": "arn:aws:dynamodb:us-east-1:105340476573:table/TravelCompanion-Users-dev",
+    "BookingsTableName": "TravelCompanion-Bookings-dev",
+    "UsersTableName": "TravelCompanion-Users-dev",
+    "ExportsOutputRefTripsTable02533942CDA2BE1B": "TravelCompanion-Trips-dev",
+    "BookingsTableArn": "arn:aws:dynamodb:us-east-1:105340476573:table/TravelCompanion-Bookings-dev",
+    "TripsTableName": "TravelCompanion-Trips-dev",
+    "TripsTableArn": "arn:aws:dynamodb:us-east-1:105340476573:table/TravelCompanion-Trips-dev",
+    "ExportsOutputRefBookingsTableB262848587A36CBD": "TravelCompanion-Bookings-dev",
+    "ExportsOutputRefUsersTable9725E9C857961836": "TravelCompanion-Users-dev"
+  },
+  "TravelCompanion-S3-dev": {
+    "ExportsOutputRefItineraryBucket7F87AABBB724D768": "travel-companion-itineraries-dev-105340476573",
+    "CloudFrontDistributionId": "E1GI4OTQ85NH1P",
+    "StaticWebsiteBucketName": "travel-companion-frontend-dev-105340476573",
+    "ItineraryBucketName": "travel-companion-itineraries-dev-105340476573",
+    "CloudFrontDomainName": "d2r6chvn9lyoio.cloudfront.net",
+    "LambdaS3PolicyArn": "arn:aws:iam::105340476573:policy/TravelCompanion-Lambda-S3-Policy-dev",
+    "ItineraryBucketArn": "arn:aws:s3:::travel-companion-itineraries-dev-105340476573"
+  },
+  "TravelCompanion-Lambda-dev": {
+    "TravelCompanionApiEndpoint9A0B66AC": "https://2kojttfgyb.execute-api.us-east-1.amazonaws.com/dev/",
+    "ApiGatewayUrl": "https://2kojttfgyb.execute-api.us-east-1.amazonaws.com/dev/",
+    "PlanTripFunctionArn": "arn:aws:lambda:us-east-1:105340476573:function:TravelCompanion-PlanTrip-dev",
+    "CreateBookingFunctionArn": "arn:aws:lambda:us-east-1:105340476573:function:TravelCompanion-CreateBooking-dev",
+    "ApiGatewayId": "2kojttfgyb"
+  }
+}

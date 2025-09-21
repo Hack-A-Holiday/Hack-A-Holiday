@@ -2,17 +2,26 @@ import React from 'react'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import { AuthProvider, useAuth } from '../AuthContext'
 import { dynamoDBAuthService } from '../../services/dynamoAuth'
+import { googleAuthService } from '../../services/googleAuth'
 
 // Mock the auth service
 jest.mock('../../services/dynamoAuth', () => ({
   dynamoDBAuthService: {
     login: jest.fn(),
     signup: jest.fn(),
-    googleAuth: jest.fn(),
+    storeGoogleUser: jest.fn(),
     getCurrentUser: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
     verifyResetToken: jest.fn(),
+  }
+}))
+
+// Mock the Google auth service
+jest.mock('../../services/googleAuth', () => ({
+  googleAuthService: {
+    signInWithGoogle: jest.fn(),
+    signOut: jest.fn(),
   }
 }))
 
@@ -175,12 +184,20 @@ describe('AuthContext', () => {
 
   describe('Google Auth', () => {
     it('should authenticate with Google successfully', async () => {
-      const mockResponse = {
+      const mockGoogleUser = {
+        uid: 'google-uid-123',
+        email: 'google@example.com',
+        displayName: 'Google User',
+        photoURL: 'https://example.com/photo.jpg'
+      }
+      
+      const mockAuthResponse = {
         user: { id: '123', email: 'google@example.com', name: 'Google User' },
         token: 'google-token'
       }
       
-      ;(dynamoDBAuthService.googleAuth as jest.Mock).mockResolvedValue(mockResponse)
+      ;(googleAuthService.signInWithGoogle as jest.Mock).mockResolvedValue(mockGoogleUser)
+      ;(dynamoDBAuthService.storeGoogleUser as jest.Mock).mockResolvedValue(mockAuthResponse)
 
       renderWithAuthProvider(<TestComponent />)
       
@@ -194,12 +211,13 @@ describe('AuthContext', () => {
         expect(screen.getByTestId('user')).toHaveTextContent('google@example.com')
       })
 
-      expect(dynamoDBAuthService.googleAuth).toHaveBeenCalled()
+      expect(googleAuthService.signInWithGoogle).toHaveBeenCalled()
+      expect(dynamoDBAuthService.storeGoogleUser).toHaveBeenCalledWith(mockGoogleUser)
       expect(mockPush).toHaveBeenCalledWith('/dashboard')
     })
 
     it('should handle Google auth errors', async () => {
-      ;(dynamoDBAuthService.googleAuth as jest.Mock).mockRejectedValue(new Error('Google auth failed'))
+      ;(googleAuthService.signInWithGoogle as jest.Mock).mockRejectedValue(new Error('Google auth failed'))
 
       renderWithAuthProvider(<TestComponent />)
       

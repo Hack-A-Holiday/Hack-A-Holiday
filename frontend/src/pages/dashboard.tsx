@@ -25,10 +25,12 @@ interface TripPreferences {
 
 interface ApiResponse {
   success: boolean;
-  data?: any;
+  tripId?: string;
+  itinerary?: any;
+  message?: string;
   error?: any;
-  requestId: string;
-  timestamp: string;
+  requestId?: string;
+  timestamp?: string;
 }
 
 export default function Dashboard() {
@@ -114,7 +116,7 @@ export default function Dashboard() {
     setResult(null);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -160,13 +162,16 @@ export default function Dashboard() {
       destination: `${destination.name}, ${destination.country}`,
       destinationData: destination
     }));
+    // Clear previous itinerary result when destination changes
+    setResult(null);
+    setError(null);
   };
 
   return (
     <ProtectedRoute requireAuth={true}>
       <Head>
-        <title>Plan Trip - Travel Companion</title>
-        <meta name="description" content="AI-powered travel planning" />
+        <title>Plan Trip - HackTravel</title>
+        <meta name="description" content="AI-powered travel planning with Claude 4" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -186,14 +191,14 @@ export default function Dashboard() {
               marginBottom: '10px',
               lineHeight: '1.2'
             }}>
-              🤖 Autonomous Travel Companion
+              🌍 HackTravel
             </h1>
             <p style={{ 
               fontSize: getSubtitleFontSize(), 
               opacity: 0.9,
               lineHeight: '1.4'
             }}>
-              AI-powered trip planning with AWS Bedrock
+              AI-powered trip planning with Claude 4
             </p>
           </div>
 
@@ -485,7 +490,7 @@ export default function Dashboard() {
                   cursor: loading ? 'not-allowed' : 'pointer'
                 }}
               >
-                {loading ? '🤖 Planning your trip...' : '✈️ Plan My Trip'}
+                {loading ? '🤖 Creating your adventure...' : '🌟 Plan My Adventure'}
               </button>
             </form>
 
@@ -505,29 +510,267 @@ export default function Dashboard() {
             {result && (
               <div style={{ 
                 marginTop: '20px', 
-                padding: '20px', 
-                background: '#d4edda', 
-                border: '1px solid #c3e6cb',
-                borderRadius: '8px',
-                color: '#155724'
+                padding: '25px', 
+                background: 'linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%)', 
+                border: '2px solid #28a745',
+                borderRadius: '15px',
+                color: '#155724',
+                boxShadow: '0 8px 24px rgba(40, 167, 69, 0.15)'
               }}>
-                <h3 style={{ marginBottom: '15px' }}>🎉 Trip Plan Created Successfully!</h3>
-                <p><strong>Trip ID:</strong> {result.data.tripId}</p>
-                <p><strong>Destination:</strong> {result.data.itinerary.destination}</p>
-                <p><strong>Status:</strong> {result.data.itinerary.status}</p>
-                <p><strong>Message:</strong> {result.data.message}</p>
-                {result.data.s3Url && (
-                  <p>
-                    <strong>Itinerary:</strong>{' '}
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <h3 style={{ 
+                    marginBottom: '10px', 
+                    fontSize: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px'
+                  }}>
+                    🎉 Your HackTravel Adventure is Ready!
+                  </h3>
+                  <p style={{ fontSize: '16px', margin: '0', opacity: 0.8 }}>
+                    Powered by Claude 4 AI
+                  </p>
+                </div>
+                
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', 
+                  gap: '15px',
+                  marginBottom: '20px' 
+                }}>
+                  <div style={{ 
+                    background: 'rgba(255,255,255,0.7)', 
+                    padding: '15px', 
+                    borderRadius: '10px' 
+                  }}>
+                    <p style={{ margin: '0 0 8px 0' }}>
+                      <strong>🎯 Destination:</strong> {result.itinerary.destination}
+                    </p>
+                    <p style={{ margin: '0 0 8px 0' }}>
+                      <strong>📅 Duration:</strong> {result.itinerary.duration || preferences.duration} days
+                    </p>
+                    <p style={{ margin: '0' }}>
+                      <strong>💰 Total Cost:</strong> ${result.itinerary.totalCost}
+                    </p>
+                  </div>
+                  
+                  <div style={{ 
+                    background: 'rgba(255,255,255,0.7)', 
+                    padding: '15px', 
+                    borderRadius: '10px' 
+                  }}>
+                    <p style={{ margin: '0 0 8px 0' }}>
+                      <strong>✈️ Flights:</strong> {result.itinerary?.realTimeData?.flightsFound || 0} found
+                    </p>
+                    <p style={{ margin: '0 0 8px 0' }}>
+                      <strong>🏨 Hotels:</strong> {result.itinerary?.realTimeData?.hotelsFound || 0} found
+                    </p>
+                    <p style={{ margin: '0' }}>
+                      <strong>🎪 Activities:</strong> {result.itinerary?.realTimeData?.activitiesFound || 0} planned
+                    </p>
+                  </div>
+                </div>
+
+                {/* Trip Overview */}
+                {result.itinerary?.overview && (
+                  <div style={{ 
+                    background: 'rgba(255,255,255,0.8)', 
+                    padding: '20px', 
+                    borderRadius: '15px',
+                    marginBottom: '20px',
+                    border: '1px solid rgba(0,0,0,0.1)'
+                  }}>
+                    <h3 style={{ margin: '0 0 15px 0', color: '#2d3748', fontSize: '18px' }}>🌟 Trip Overview</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                      <p style={{ margin: '5px 0' }}><strong>🌍 Destination:</strong> {result.itinerary.overview.destination}</p>
+                      <p style={{ margin: '5px 0' }}><strong>📅 Best Time:</strong> {result.itinerary.overview.bestTimeToVisit}</p>
+                      <p style={{ margin: '5px 0' }}><strong>💱 Currency:</strong> {result.itinerary.overview.currency}</p>
+                      <p style={{ margin: '5px 0' }}><strong>🗣️ Language:</strong> {result.itinerary.overview.language}</p>
+                    </div>
+                    {result.itinerary.overview.topHighlights && (
+                      <div style={{ marginTop: '15px' }}>
+                        <strong>⭐ Top Highlights:</strong>
+                        <ul style={{ margin: '8px 0 0 20px', padding: 0 }}>
+                          {result.itinerary.overview.topHighlights.map((highlight: string, index: number) => (
+                            <li key={index} style={{ marginBottom: '5px' }}>{highlight}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Daily Itinerary */}
+                {result.itinerary?.dailyPlans && result.itinerary.dailyPlans.length > 0 && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <h3 style={{ margin: '0 0 20px 0', color: '#2d3748', fontSize: '20px', textAlign: 'center' }}>📅 Daily Itinerary</h3>
+                    
+                    {result.itinerary.dailyPlans.map((day: any, index: number) => (
+                      <div key={index} style={{ 
+                        background: 'rgba(255,255,255,0.9)', 
+                        padding: '20px', 
+                        borderRadius: '15px',
+                        marginBottom: '15px',
+                        border: '1px solid rgba(0,0,0,0.1)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                      }}>
+                        <div style={{ marginBottom: '15px', textAlign: 'center' }}>
+                          <h4 style={{ margin: '0 0 5px 0', color: '#4a5568', fontSize: '18px' }}>
+                            Day {day.day} - {day.theme}
+                          </h4>
+                          <p style={{ margin: 0, color: '#718096', fontSize: '14px' }}>{day.date}</p>
+                        </div>
+
+                        {/* Activities for each time of day */}
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '15px', marginBottom: '15px' }}>
+                          {/* Morning */}
+                          <div style={{ background: '#fff5e1', padding: '15px', borderRadius: '10px', border: '1px solid #fbd38d' }}>
+                            <h5 style={{ margin: '0 0 10px 0', color: '#c05621' }}>🌅 Morning</h5>
+                            {day.activities.morning.map((activity: any, idx: number) => (
+                              <div key={idx} style={{ marginBottom: '8px', fontSize: '14px' }}>
+                                <strong>{activity.name}</strong>
+                                <p style={{ margin: '2px 0', color: '#666', fontSize: '12px' }}>{activity.description}</p>
+                                <span style={{ color: '#9ca3af', fontSize: '12px' }}>Duration: {activity.duration}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Afternoon */}
+                          <div style={{ background: '#e6fffa', padding: '15px', borderRadius: '10px', border: '1px solid #81e6d9' }}>
+                            <h5 style={{ margin: '0 0 10px 0', color: '#2c7a7b' }}>☀️ Afternoon</h5>
+                            {day.activities.afternoon.map((activity: any, idx: number) => (
+                              <div key={idx} style={{ marginBottom: '8px', fontSize: '14px' }}>
+                                <strong>{activity.name}</strong>
+                                <p style={{ margin: '2px 0', color: '#666', fontSize: '12px' }}>{activity.description}</p>
+                                <span style={{ color: '#9ca3af', fontSize: '12px' }}>Duration: {activity.duration}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Evening */}
+                          <div style={{ background: '#edf2f7', padding: '15px', borderRadius: '10px', border: '1px solid #cbd5e0' }}>
+                            <h5 style={{ margin: '0 0 10px 0', color: '#4a5568' }}>🌆 Evening</h5>
+                            {day.activities.evening.map((activity: any, idx: number) => (
+                              <div key={idx} style={{ marginBottom: '8px', fontSize: '14px' }}>
+                                <strong>{activity.name}</strong>
+                                <p style={{ margin: '2px 0', color: '#666', fontSize: '12px' }}>{activity.description}</p>
+                                <span style={{ color: '#9ca3af', fontSize: '12px' }}>Duration: {activity.duration}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Meals */}
+                        <div style={{ background: '#f7fafc', padding: '15px', borderRadius: '10px', marginBottom: '10px' }}>
+                          <h5 style={{ margin: '0 0 10px 0', color: '#2d3748' }}>🍽️ Recommended Meals</h5>
+                          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '10px' }}>
+                            <div>
+                              <strong>🥐 Breakfast:</strong> {day.meals.breakfast.name}
+                              <p style={{ margin: '2px 0', fontSize: '12px', color: '#666' }}>{day.meals.breakfast.description}</p>
+                            </div>
+                            <div>
+                              <strong>🥙 Lunch:</strong> {day.meals.lunch.name}
+                              <p style={{ margin: '2px 0', fontSize: '12px', color: '#666' }}>{day.meals.lunch.description}</p>
+                            </div>
+                            <div>
+                              <strong>🍽️ Dinner:</strong> {day.meals.dinner.name}
+                              <p style={{ margin: '2px 0', fontSize: '12px', color: '#666' }}>{day.meals.dinner.description}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Transportation and Cost */}
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '15px', fontSize: '14px' }}>
+                          <div>
+                            <strong>🚌 Transportation:</strong> {day.transportation}
+                          </div>
+                          <div>
+                            <strong>💰 Daily Budget:</strong> ${day.totalCost}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Travel Tips */}
+                {result.itinerary?.travelTips && (
+                  <div style={{ 
+                    background: 'rgba(255,255,255,0.8)', 
+                    padding: '20px', 
+                    borderRadius: '15px',
+                    marginBottom: '20px',
+                    border: '1px solid rgba(0,0,0,0.1)'
+                  }}>
+                    <h3 style={{ margin: '0 0 15px 0', color: '#2d3748', fontSize: '18px' }}>💡 Travel Tips</h3>
+                    <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                      {result.itinerary.travelTips.map((tip: string, index: number) => (
+                        <li key={index} style={{ marginBottom: '8px', fontSize: '14px' }}>{tip}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Emergency Info */}
+                {result.itinerary?.emergencyInfo && (
+                  <div style={{ 
+                    background: 'rgba(254, 215, 215, 0.8)', 
+                    padding: '20px', 
+                    borderRadius: '15px',
+                    marginBottom: '20px',
+                    border: '1px solid #feb2b2'
+                  }}>
+                    <h3 style={{ margin: '0 0 15px 0', color: '#c53030', fontSize: '18px' }}>🚨 Emergency Information</h3>
+                    <div style={{ fontSize: '14px' }}>
+                      <p style={{ margin: '5px 0' }}><strong>Emergency Numbers:</strong> {result.itinerary.emergencyInfo.emergency}</p>
+                      <p style={{ margin: '5px 0' }}><strong>Embassy Contact:</strong> {result.itinerary.emergencyInfo.embassy}</p>
+                      <p style={{ margin: '5px 0' }}><strong>Hospital:</strong> {result.itinerary.emergencyInfo.hospitalContact}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ 
+                  textAlign: 'center',
+                  padding: '15px',
+                  background: 'rgba(255,255,255,0.5)',
+                  borderRadius: '10px',
+                  marginBottom: '15px'
+                }}>
+                  <p style={{ margin: '0 0 10px 0', fontSize: '16px' }}>
+                    <strong>📋 Trip ID:</strong> <code>{result.tripId}</code>
+                  </p>
+                  <p style={{ margin: '0', fontSize: '14px', fontStyle: 'italic' }}>
+                    {result.message}
+                  </p>
+                </div>
+
+                {result.itinerary?.s3Url && (
+                  <div style={{ textAlign: 'center' }}>
                     <a 
-                      href={result.data.s3Url} 
+                      href={result.itinerary.s3Url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      style={{ color: '#0066cc', textDecoration: 'underline' }}
+                      style={{ 
+                        display: 'inline-block',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        padding: '12px 24px',
+                        borderRadius: '25px',
+                        textDecoration: 'none',
+                        fontWeight: '600',
+                        fontSize: '16px',
+                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                        transition: 'transform 0.2s ease'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                      onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                      onFocus={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                      onBlur={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
-                      View Details
+                      📄 View Complete Itinerary
                     </a>
-                  </p>
+                  </div>
                 )}
               </div>
             )}

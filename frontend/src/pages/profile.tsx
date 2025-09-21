@@ -6,7 +6,7 @@ import Navbar from '../components/layout/Navbar';
 import Swal from 'sweetalert2';
 
 export default function ProfilePage() {
-  const { state, logout } = useAuth();
+  const { state } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
@@ -67,8 +67,8 @@ export default function ProfilePage() {
   return (
     <ProtectedRoute requireAuth={true}>
       <Head>
-        <title>Profile - Travel Companion</title>
-        <meta name="description" content="Manage your Travel Companion profile" />
+        <title>Profile - HackTravel</title>
+        <meta name="description" content="Manage your HackTravel profile" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -172,14 +172,14 @@ export default function ProfilePage() {
               {!isEditing ? (
                 <div>
                   <div style={{ marginBottom: '20px' }}>
-                    <label style={{ 
+                    <span style={{ 
                       display: 'block', 
                       color: '#666', 
                       fontSize: isMobile ? '0.85rem' : '0.9rem', 
                       marginBottom: '5px' 
                     }}>
                       Full Name
-                    </label>
+                    </span>
                     <div style={{
                       padding: isMobile ? '10px 12px' : '12px 16px',
                       background: '#f8f9fa',
@@ -191,14 +191,14 @@ export default function ProfilePage() {
                     </div>
                   </div>
                   <div>
-                    <label style={{ 
+                    <span style={{ 
                       display: 'block', 
                       color: '#666', 
                       fontSize: isMobile ? '0.85rem' : '0.9rem', 
                       marginBottom: '5px' 
                     }}>
                       Email Address
-                    </label>
+                    </span>
                     <div style={{
                       padding: isMobile ? '10px 12px' : '12px 16px',
                       background: '#f8f9fa',
@@ -214,7 +214,7 @@ export default function ProfilePage() {
               ) : (
                 <div>
                   <div style={{ marginBottom: '20px' }}>
-                    <label style={{ 
+                    <label htmlFor="edit-name" style={{ 
                       display: 'block', 
                       color: '#666', 
                       fontSize: isMobile ? '0.85rem' : '0.9rem', 
@@ -223,6 +223,7 @@ export default function ProfilePage() {
                       Full Name
                     </label>
                     <input
+                      id="edit-name"
                       type="text"
                       value={editForm.name}
                       onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
@@ -241,7 +242,7 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div style={{ marginBottom: '25px' }}>
-                    <label style={{ 
+                    <label htmlFor="edit-email" style={{ 
                       display: 'block', 
                       color: '#666', 
                       fontSize: isMobile ? '0.85rem' : '0.9rem', 
@@ -250,6 +251,7 @@ export default function ProfilePage() {
                       Email Address
                     </label>
                     <input
+                      id="edit-email"
                       type="email"
                       value={editForm.email}
                       onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}

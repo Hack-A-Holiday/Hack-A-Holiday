@@ -32,6 +32,7 @@ export async function googleAuth(
     try {
       googleUserData = await authService.verifyGoogleToken(googleToken);
     } catch (error) {
+      console.error('Google token verification failed:', error instanceof Error ? error.message : 'Unknown error');
       return createErrorResponse(401, 'Invalid Google token', requestId);
     }
 

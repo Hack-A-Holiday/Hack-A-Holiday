@@ -7,7 +7,12 @@ export class AuthService {
   private readonly googleClient: OAuth2Client;
 
   constructor() {
-    this.jwtSecret = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
+    this.jwtSecret = jwtSecret;
+    
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
     
     if (!googleClientId) {
@@ -42,6 +47,7 @@ export class AuthService {
     try {
       return jwt.verify(token, this.jwtSecret);
     } catch (error) {
+      console.error('Token verification failed:', error instanceof Error ? error.message : 'Unknown error');
       throw new Error('Invalid or expired token');
     }
   }
@@ -73,6 +79,7 @@ export class AuthService {
         profilePicture: payload.picture || '',
       };
     } catch (error) {
+      console.error('Google token verification failed:', error instanceof Error ? error.message : 'Unknown error');
       throw new Error('Invalid Google token');
     }
   }
@@ -81,7 +88,7 @@ export class AuthService {
    * Extract bearer token from authorization header
    */
   extractBearerToken(authHeader?: string): string | null {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return null;
     }
     

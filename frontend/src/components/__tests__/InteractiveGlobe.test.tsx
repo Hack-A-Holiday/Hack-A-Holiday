@@ -173,7 +173,6 @@ describe('InteractiveGlobe', () => {
       const user = userEvent.setup()
       render(<InteractiveGlobe {...defaultProps} />)
       
-      const globe = screen.getByTestId('mock-globe')
       await user.tab()
       
       expect(screen.getByTestId('mock-globe')).toBeInTheDocument()

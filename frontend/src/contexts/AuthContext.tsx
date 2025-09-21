@@ -127,7 +127,8 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
           dispatch({ type: 'SET_LOADING', payload: false });
         }
       } catch (error) {
-        // Token is invalid, remove it
+        // Token is invalid, remove it and log the error
+        console.warn('Invalid or expired token detected during auth check:', error instanceof Error ? error.message : 'Unknown error');
         removeToken();
         dispatch({ type: 'SET_LOADING', payload: false });
       }

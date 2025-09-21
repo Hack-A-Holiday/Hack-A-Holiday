@@ -4,12 +4,14 @@ import '@testing-library/jest-dom'
 jest.mock('react-globe.gl', () => {
   return function MockGlobe(props) {
     return (
-      <div 
+      <button 
         data-testid="mock-globe"
         onClick={() => props.onPointClick && props.onPointClick({ id: 'test', name: 'Test Location' })}
+        onKeyDown={(e) => e.key === 'Enter' && props.onPointClick && props.onPointClick({ id: 'test', name: 'Test Location' })}
+        type="button"
       >
         Mock Globe
-      </div>
+      </button>
     )
   }
 })
@@ -54,7 +56,6 @@ Object.defineProperty(window, 'matchMedia', {
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
   observe() {
     return null
   }

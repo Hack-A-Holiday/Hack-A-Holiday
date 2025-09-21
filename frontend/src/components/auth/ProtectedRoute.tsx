@@ -3,9 +3,9 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface ProtectedRouteProps {
-  children: React.ReactNode;
-  requireAuth?: boolean;
-  redirectTo?: string;
+  readonly children: React.ReactNode;
+  readonly requireAuth?: boolean;
+  readonly redirectTo?: string;
 }
 
 export default function ProtectedRoute({ 

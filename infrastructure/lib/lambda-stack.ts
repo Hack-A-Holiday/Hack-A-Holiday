@@ -106,6 +106,7 @@ export class LambdaStack extends cdk.Stack {
           ? 'CHANGE_THIS_TO_A_SECURE_JWT_SECRET_IN_PRODUCTION_MINIMUM_32_CHARACTERS' 
           : 'dev-jwt-secret-key-for-development-use-only',
         GOOGLE_CLIENT_ID: 'your-google-oauth-client-id-from-google-console', // Replace with your actual Google Client ID
+        AWS_REGION: this.region, // Required for Bedrock service
       },
       logRetention: logs.RetentionDays.ONE_WEEK,
     };

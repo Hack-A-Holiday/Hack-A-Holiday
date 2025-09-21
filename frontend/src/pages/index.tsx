@@ -80,8 +80,8 @@ export default function HomePage() {
   return (
     <>
       <Head>
-        <title>{mode === 'login' ? 'Sign In' : 'Sign Up'} - Travel Companion</title>
-        <meta name="description" content="Sign in to your Travel Companion account" />
+        <title>{mode === 'login' ? 'Sign In' : 'Sign Up'} - HackTravel</title>
+        <meta name="description" content="Sign in to your HackTravel account" />
       </Head>
 
       <div className="auth-container">
@@ -99,7 +99,7 @@ export default function HomePage() {
               <span>✈️</span>
             </div>
             <h1 className="auth-title">
-              Travel Companion
+              HackTravel
             </h1>
             <p className="auth-subtitle">
               Your AI-powered travel planning assistant

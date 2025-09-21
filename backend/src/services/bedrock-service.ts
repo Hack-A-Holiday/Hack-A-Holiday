@@ -19,7 +19,7 @@ export class BedrockService {
     this.client = new BedrockRuntimeClient({
       region: config.region || process.env.AWS_REGION || 'us-east-1',
     });
-    this.modelId = config.modelId || 'anthropic.claude-3-5-sonnet-20241022-v2:0';
+    this.modelId = config.modelId || 'us.anthropic.claude-sonnet-4-20250514-v1:0';
   }
 
   /**
