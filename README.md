@@ -4,7 +4,7 @@ An AI-powered travel planning system that autonomously creates end-to-end trip i
 
 ## Features
 
-- 🤖 **AI-Powered Planning**: Uses Amazon Bedrock (Claude 3.5 Sonnet) for intelligent trip planning
+- 🤖 **AI-Powered Planning**: Uses Amazon Bedrock (Claude 3.5 Sonnet v2) for intelligent trip planning
 - ✈️ **Flight Search**: Autonomous flight search and booking recommendations
 - 🏨 **Hotel Booking**: Smart hotel recommendations based on budget and preferences
 - 🎯 **Activity Suggestions**: Personalized local activities and attractions
@@ -58,7 +58,7 @@ npm run dev
 You'll need to:
 
 1. **Enable AWS Services** in your account:
-   - Amazon Bedrock (Claude 3.5 Sonnet model)
+   - Amazon Bedrock (Claude 3.5 Sonnet v2 model)
    - DynamoDB
    - Lambda
    - API Gateway

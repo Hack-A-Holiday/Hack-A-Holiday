@@ -27,7 +27,7 @@ graph TB
 ### AWS Services Configuration
 
 #### Core Services
-- **Amazon Bedrock**: Claude 3.5 Sonnet for reasoning, Titan for embeddings
+- **Amazon Bedrock**: Claude 3.5 Sonnet v2 for reasoning, Titan for embeddings
 - **Bedrock AgentCore**: Memory, Gateway, and Observability primitives
 - **API Gateway**: REST API with CORS enabled
 - **AWS Lambda**: Node.js 18.x runtime with 512MB memory, 30s timeout
@@ -326,7 +326,7 @@ describe('Complete User Journey', () => {
 ### AWS Resource Requirements
 
 #### Estimated Costs (Development)
-- **Bedrock**: ~$50/month (Claude 3.5 Sonnet usage)
+- **Bedrock**: ~$50/month (Claude 3.5 Sonnet v2 usage)
 - **Lambda**: ~$10/month (1M requests)
 - **DynamoDB**: ~$15/month (on-demand)
 - **S3**: ~$5/month (100GB storage)

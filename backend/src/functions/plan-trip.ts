@@ -9,6 +9,7 @@ import {
   validateEnvironment,
   RequestContext
 } from '../utils/lambda-utils';
+import { addCorsHeaders } from '../utils/cors';
 import { validateTripPreferences } from '../utils/validation';
 import { TripRepository } from '../repositories/trip-repository';
 import { S3Service } from '../services/s3-service';
@@ -48,9 +49,111 @@ async function planTripHandler(
   context: Context,
   requestContext: RequestContext
 ): Promise<APIGatewayProxyResult> {
-  // Validate HTTP method
-  const methodError = validateMethod(event, ['POST']);
-  if (methodError) return methodError;
+  console.log('Event:', JSON.stringify(event, null, 2));
+  
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': 'http://localhost:3000',
+    'Access-Control-Allow-Methods': 'POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400',
+    'Content-Type': 'application/json'
+  };
+  
+  try {
+    // Handle OPTIONS requests for CORS
+    if (event.httpMethod === 'OPTIONS') {
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: ''
+      };
+    }
+
+    // Validate HTTP method
+    if (event.httpMethod !== 'POST') {
+      return {
+        statusCode: 405,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Method not allowed' })
+      };
+    }
+
+    // Parse and validate request body
+    let body;
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch (e) {
+      console.error('Failed to parse request body:', e);
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Invalid request body' })
+      };
+    }
+
+    // Initialize services
+    initializeServices();
+
+    // Apply rate limiting
+    const rateLimitError = applyRateLimit(event, requestContext);
+    if (rateLimitError) {
+      return {
+        ...rateLimitError,
+        headers: { ...rateLimitError.headers, ...corsHeaders }
+      };
+    }
+
+    // Validate trip preferences
+    const validation = validateTripPreferences(body?.preferences);
+    if (!validation.isValid || !validation.data) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          code: ERROR_CODES.INVALID_INPUT,
+          message: 'Invalid trip preferences',
+          details: validation.errors,
+          requestId: requestContext.requestId,
+          timestamp: new Date().toISOString(),
+        })
+      };
+    }
+
+    const preferences = validation.data;
+    const userId = body?.userId || requestContext.userId;
+
+    // Create trip plan
+    const tripId = await tripRepository.createTrip({
+      userId,
+      preferences,
+      status: 'planning',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        tripId,
+        message: 'Trip planning started',
+        requestId: requestContext.requestId,
+        timestamp: new Date().toISOString(),
+      })
+    };
+  } catch (error) {
+    console.error('Error processing request:', error);
+    
+    return {
+      statusCode: 502,
+      headers: corsHeaders,
+      body: JSON.stringify({ 
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+    };
+  }
 
   // Apply rate limiting
   const rateLimitError = applyRateLimit(event, requestContext);
@@ -511,7 +614,18 @@ function addDays(dateString: string, days: number): string {
   return date.toISOString().split('T')[0];
 }
 
-// Export handlers with middleware
-export const planTrip = withMiddleware(planTripHandler);
-export const getTrip = withMiddleware(getTripHandler);
-export const listTrips = withMiddleware(listTripsHandler);
+// Export handlers with middleware and CORS
+export const planTrip = withMiddleware(async (event, context, reqContext) => {
+  const response = await planTripHandler(event, context, reqContext);
+  return addCorsHeaders(response);
+});
+
+export const getTrip = withMiddleware(async (event, context, reqContext) => {
+  const response = await getTripHandler(event, context, reqContext);
+  return addCorsHeaders(response);
+});
+
+export const listTrips = withMiddleware(async (event, context, reqContext) => {
+  const response = await listTripsHandler(event, context, reqContext);
+  return addCorsHeaders(response);
+});
