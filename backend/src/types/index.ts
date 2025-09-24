@@ -20,21 +20,39 @@ export interface FlightOption {
     city: string;
     time: string;
     date: string;
+    terminal?: string;
+    gate?: string;
   };
   arrival: {
     airport: string;
     city: string;
     time: string;
     date: string;
+    terminal?: string;
+    gate?: string;
   };
   duration: string; // e.g., "2h 30m"
+  durationMinutes: number; // Duration in minutes for calculations
   price: number;
+  currency: string;
   stops: number;
   baggage: {
     carry: boolean;
     checked: number;
+    weightLimit?: string;
   };
+  aircraft?: string;
+  cabinClass?: 'economy' | 'premium-economy' | 'business' | 'first';
+  refundable: boolean;
+  changeable: boolean;
   bookingUrl?: string;
+  source: 'amadeus' | 'rapidapi' | 'mock' | 'skyscanner';
+  score?: number; // Recommendation score
+  metadata?: {
+    lastUpdated: string;
+    availability: number;
+    priceHistory?: number[];
+  };
 }
 
 export interface HotelOption {
@@ -309,3 +327,112 @@ export const ERROR_CODES = {
 } as const;
 
 export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
+
+// Enhanced Flight Search Types
+export interface FlightSearchRequest {
+  origin: string;
+  destination: string;
+  departureDate: string;
+  returnDate?: string;
+  passengers: {
+    adults: number;
+    children?: number;
+    infants?: number;
+  };
+  cabinClass?: 'economy' | 'premium-economy' | 'business' | 'first';
+  currency?: string;
+  filters?: FlightSearchFilters;
+  preferences?: FlightSearchPreferences;
+}
+
+export interface FlightSearchFilters {
+  maxPrice?: number;
+  minPrice?: number;
+  maxStops?: number;
+  preferredAirlines?: string[];
+  excludedAirlines?: string[];
+  departureTimeRange?: {
+    earliest: string; // HH:MM format
+    latest: string;   // HH:MM format
+  };
+  arrivalTimeRange?: {
+    earliest: string;
+    latest: string;
+  };
+  maxDuration?: number; // in minutes
+  minDuration?: number; // in minutes
+  refundable?: boolean;
+  changeable?: boolean;
+  directFlightsOnly?: boolean;
+  checkedBags?: number; // Number of checked bags preferred
+  includeBaggageCosts?: boolean; // Whether to include baggage costs in total price
+}
+
+export interface FlightSearchPreferences {
+  prioritizePrice: boolean;
+  prioritizeConvenience: boolean;
+  prioritizeDuration: boolean;
+  prioritizeDirectFlights: boolean;
+  userTravelStyle: 'budget' | 'mid-range' | 'luxury';
+  flexibility: 'strict' | 'moderate' | 'flexible';
+  preferredDepartureTime?: 'morning' | 'afternoon' | 'evening' | 'any';
+}
+
+export interface FlightSearchResponse {
+  success: boolean;
+  flights: FlightOption[];
+  totalResults: number;
+  searchId: string;
+  searchTime: number; // milliseconds
+  filters: FlightSearchFilters;
+  recommendations: {
+    bestPrice: FlightOption | null;
+    bestValue: FlightOption | null;
+    fastest: FlightOption | null;
+    mostConvenient: FlightOption | null;
+  };
+  fallbackUsed?: boolean;
+  fallbackReason?: string;
+  error?: string;
+}
+
+export interface FlightRecommendationEngine {
+  calculateScore(flight: FlightOption, preferences: FlightSearchPreferences, filters: FlightSearchFilters): number;
+  getRecommendations(flights: FlightOption[], preferences: FlightSearchPreferences): FlightRecommendations;
+  applyFilters(flights: FlightOption[], filters: FlightSearchFilters): FlightOption[];
+  sortFlights(flights: FlightOption[], sortBy: FlightSortOption): FlightOption[];
+}
+
+export interface FlightRecommendations {
+  bestPrice: FlightOption | null;
+  bestValue: FlightOption | null;
+  fastest: FlightOption | null;
+  mostConvenient: FlightOption | null;
+  topRated: FlightOption[];
+  personalized: FlightOption[];
+}
+
+export type FlightSortOption = 
+  | 'price-asc' 
+  | 'price-desc' 
+  | 'duration-asc' 
+  | 'duration-desc' 
+  | 'departure-asc' 
+  | 'departure-desc' 
+  | 'stops-asc' 
+  | 'stops-desc' 
+  | 'score-desc'
+  | 'recommended';
+
+export interface FlightSearchMetrics {
+  searchId: string;
+  timestamp: string;
+  origin: string;
+  destination: string;
+  resultsCount: number;
+  searchDuration: number;
+  apiUsed: string;
+  fallbackUsed: boolean;
+  userAgent?: string;
+  ipAddress?: string;
+}

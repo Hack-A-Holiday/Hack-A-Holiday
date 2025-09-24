@@ -26,6 +26,7 @@ export class LambdaStack extends cdk.Stack {
   public readonly googleAuthFunction: lambda.Function;
   public readonly meFunction: lambda.Function;
   public readonly authFunction: lambda.Function;
+  public readonly enhancedFlightSearchFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
@@ -220,6 +221,17 @@ export class LambdaStack extends cdk.Stack {
       description: 'Unified authentication handler for all auth routes with bundled dependencies',
     });
 
+    // Enhanced Flight Search Lambda Function
+    this.enhancedFlightSearchFunction = new lambda.Function(this, 'EnhancedFlightSearchFunction', {
+      ...commonLambdaProps,
+      functionName: `TravelCompanion-EnhancedFlightSearch-${environment}`,
+      code: lambda.Code.fromAsset('../backend/dist'),
+      handler: 'functions/enhanced-flight-search.handler',
+      description: 'Enhanced flight search with advanced filtering and recommendations v1.0',
+      timeout: cdk.Duration.seconds(60), // Longer timeout for flight search
+      memorySize: 1024, // More memory for complex search operations
+    });
+
     // Create API Gateway
     this.api = new apigateway.RestApi(this, 'TravelCompanionApi', {
       restApiName: `TravelCompanion-API-${environment}`,
@@ -338,6 +350,16 @@ export class LambdaStack extends cdk.Stack {
     // GET /auth/me (using new unified auth function)
     const meResource = authResource.addResource('me');
     meResource.addMethod('GET', new apigateway.LambdaIntegration(this.authFunction));
+
+    // Enhanced Flight Search endpoint
+    const enhancedFlightSearchResource = this.api.root.addResource('enhanced-flight-search');
+    enhancedFlightSearchResource.addMethod('POST', new apigateway.LambdaIntegration(this.enhancedFlightSearchFunction), {
+      requestValidator: new apigateway.RequestValidator(this, 'EnhancedFlightSearchValidator', {
+        restApi: this.api,
+        validateRequestBody: true,
+        validateRequestParameters: false,
+      }),
+    });
 
     // Health check endpoint
     const healthResource = this.api.root.addResource('health');

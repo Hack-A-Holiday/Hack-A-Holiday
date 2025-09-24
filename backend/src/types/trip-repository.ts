@@ -1,3 +1,5 @@
+import { TripPreferences } from './index';
+
 export interface TripCreateInput {
   userId: string;
   preferences: TripPreferences;

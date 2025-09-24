@@ -9,3 +9,6 @@ export interface TripData {
     interests?: string[];
   };
 }
+
+// Re-export flight types for convenience
+export * from './flight';
