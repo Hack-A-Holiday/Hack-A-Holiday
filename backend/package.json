@@ -7,8 +7,7 @@
     "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch",
-    "package": "npm run build && npm run zip",
-    "zip": "cd dist && zip -r ../lambda-functions.zip ."
+  "package": "npm run build && cd dist && zip -r ../lambda-functions.zip ."
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-agent-runtime": "^3.450.0",
@@ -17,6 +16,9 @@
     "@aws-sdk/client-s3": "^3.450.0",
     "@aws-sdk/lib-dynamodb": "^3.450.0",
     "@aws-sdk/s3-request-presigner": "^3.450.0",
+    "aws-cdk-lib": "^2.217.0",
+    "constructs": "^10.4.2",
+    "google-auth-library": "^10.3.0",
     "uuid": "^9.0.0",
     "joi": "^17.11.0",
     "axios": "^1.5.0"

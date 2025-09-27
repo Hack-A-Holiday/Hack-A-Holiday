@@ -38,5 +38,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.152"
   }
 }
