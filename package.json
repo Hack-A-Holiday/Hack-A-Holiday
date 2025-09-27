@@ -35,5 +35,8 @@
   "dependencies": {
     "date-fns": "^4.1.0",
     "sweetalert2": "^11.23.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

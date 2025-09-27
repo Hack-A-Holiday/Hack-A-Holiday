@@ -15,6 +15,10 @@ export interface GoogleUser {
 export class GoogleAuthService {
   // Sign in with Google using popup
   async signInWithGoogle(): Promise<GoogleUser> {
+    if (!auth || !googleProvider) {
+      throw new Error('Firebase authentication is not configured. Please set up Firebase credentials.');
+    }
+    
     try {
       const result: UserCredential = await signInWithPopup(auth, googleProvider);
       const user = result.user;
@@ -35,6 +39,11 @@ export class GoogleAuthService {
 
   // Sign out from Google
   async signOut(): Promise<void> {
+    if (!auth) {
+      console.log('Firebase auth not available, skipping sign out');
+      return;
+    }
+    
     try {
       await signOut(auth);
     } catch (error) {

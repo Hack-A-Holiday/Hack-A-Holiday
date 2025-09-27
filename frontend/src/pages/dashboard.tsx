@@ -8,6 +8,7 @@ import Navbar from '../components/layout/Navbar';
 import { Destination } from '../data/destinations';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
+import FlightSearch from '../components/FlightSearch';
 
 // Dynamic import for InteractiveGlobe to avoid SSR issues
 const InteractiveGlobe = dynamic(() => import('../components/InteractiveGlobe'), {
@@ -72,6 +73,7 @@ export default function Dashboard() {
 
   // Removed unused showPlanExpanded
   // Removed unused isEditingPreferences
+  const [showFlightSearch, setShowFlightSearch] = useState(false);
 
   // Helper functions for responsive styling
   const getContainerPadding = () => {
@@ -756,6 +758,47 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
+
+                {/* Flight Search Button */}
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <button
+                    onClick={() => setShowFlightSearch(!showFlightSearch)}
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                  >
+                    🔍 {showFlightSearch ? 'Hide' : 'Search'} Flight Options
+                  </button>
+                </div>
+
+                {/* Flight Search Component */}
+                {showFlightSearch && (
+                  <div style={{ marginBottom: '30px' }}>
+                    <FlightSearch
+                      initialSearch={{
+                        origin: 'JFK', // Default origin
+                        destination: result.itinerary.destination,
+                        departureDate: preferences.startDate,
+                        passengers: { adults: preferences.travelers }
+                      }}
+                      onFlightSelect={(flight) => {
+                        console.log('Selected flight:', flight);
+                        // You can add logic here to integrate the selected flight with the trip
+                      }}
+                    />
+                  </div>
+                )}
 
                 {/* Trip Overview */}
                 {result.itinerary?.overview && (

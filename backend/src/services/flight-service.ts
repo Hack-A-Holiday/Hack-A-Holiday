@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { FlightOption, TripPreferences } from '../types';
+import { FlightOption, TripPreferences, FlightSearchRequest, FlightSearchResponse } from '../types';
+import { EnhancedFlightService } from './enhanced-flight-service';
 
 export interface FlightServiceConfig {
   amadeuApiKey?: string;
@@ -31,36 +32,41 @@ export class FlightService {
   private readonly rapidApiKey: string;
   private amadeuToken: string | null = null;
   private tokenExpiry: number = 0;
+  private readonly enhancedService: EnhancedFlightService;
 
   constructor(config: FlightServiceConfig = {}) {
     this.amadeuApiKey = config.amadeuApiKey || process.env.AMADEUS_API_KEY || '';
     this.amadeuApiSecret = config.amadeuApiSecret || process.env.AMADEUS_API_SECRET || '';
     this.rapidApiKey = config.rapidApiKey || process.env.RAPIDAPI_KEY || '';
+    
+    // Initialize enhanced service with same configuration
+    this.enhancedService = new EnhancedFlightService({
+      amadeusApiKey: this.amadeuApiKey,
+      amadeusApiSecret: this.amadeuApiSecret,
+      rapidApiKey: this.rapidApiKey
+    });
   }
 
   /**
-   * Search for flights based on trip preferences
+   * Search for flights based on trip preferences (legacy method)
+   * Now delegates to enhanced service for better functionality
    */
   async searchFlights(preferences: TripPreferences, originAirport?: string): Promise<FlightOption[]> {
     try {
-      // Try Amadeus API first (most comprehensive)
-      if (this.amadeuApiKey && this.amadeuApiSecret) {
-        return await this.searchAmadeusFlights(preferences, originAirport);
-      }
-      
-      // Fallback to RapidAPI flight search
-      if (this.rapidApiKey) {
-        return await this.searchRapidApiFlights(preferences, originAirport);
-      }
-      
-      // If no API keys available, return mock data with real-world pricing
-      console.warn('No flight API keys configured, using realistic mock data');
-      return this.generateRealisticMockFlights(preferences, originAirport);
-      
+      // Use enhanced service for better search capabilities
+      return await this.enhancedService.searchFlightsFromPreferences(preferences, originAirport);
     } catch (error) {
       console.error('Error searching flights:', error);
+      // Fallback to original implementation
       return this.generateRealisticMockFlights(preferences, originAirport);
     }
+  }
+
+  /**
+   * Enhanced flight search with advanced filtering and recommendations
+   */
+  async searchFlightsEnhanced(request: FlightSearchRequest): Promise<FlightSearchResponse> {
+    return await this.enhancedService.searchFlights(request);
   }
 
   /**
@@ -281,12 +287,17 @@ export class FlightService {
           date: preferences.startDate
         },
         duration: this.formatDuration(flightDuration),
+        durationMinutes: flightDuration,
         price: price,
+        currency: 'USD',
         stops: Math.random() > 0.7 ? 1 : 0, // 30% chance of 1 stop
         baggage: {
           carry: true,
           checked: 1
-        }
+        },
+        refundable: Math.random() > 0.5,
+        changeable: Math.random() > 0.3,
+        source: 'mock'
       });
     });
 
@@ -317,12 +328,17 @@ export class FlightService {
           date: returnDate
         },
         duration: this.formatDuration(flightDuration),
+        durationMinutes: flightDuration,
         price: price,
+        currency: 'USD',
         stops: Math.random() > 0.8 ? 1 : 0,
         baggage: {
           carry: true,
           checked: 1
-        }
+        },
+        refundable: Math.random() > 0.5,
+        changeable: Math.random() > 0.3,
+        source: 'mock'
       });
     });
 

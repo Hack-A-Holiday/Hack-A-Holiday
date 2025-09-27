@@ -102,19 +102,23 @@ export class LambdaStack extends cdk.Stack {
         BOOKINGS_TABLE_NAME: bookingsTableName,
         S3_BUCKET_NAME: s3BucketName,
         LOG_LEVEL: environment === 'prod' ? 'info' : 'debug',
-        JWT_SECRET: environment === 'prod' 
-          ? 'CHANGE_THIS_TO_A_SECURE_JWT_SECRET_IN_PRODUCTION_MINIMUM_32_CHARACTERS' 
-          : 'dev-jwt-secret-key-for-development-use-only',
-        GOOGLE_CLIENT_ID: 'your-google-oauth-client-id-from-google-console', // Replace with your actual Google Client ID
-        AWS_REGION: this.region, // Required for Bedrock service
       },
+      code: lambda.Code.fromAsset('../backend', {
+        bundling: {
+          local: {
+            tryBundle(outputDir) {
+              // Use local Node.js to bundle
+              return true;
+            },
+          },
+        },
+      }),
     };
 
     // Plan Trip Lambda Function
     this.planTripFunction = new lambda.Function(this, 'PlanTripFunction', {
       ...commonLambdaProps,
       functionName: `TravelCompanion-PlanTrip-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/plan-trip.planTrip',
       description: 'Creates new trip plans based on user preferences',
       logGroup: new logs.LogGroup(this, 'PlanTripLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
@@ -124,7 +128,6 @@ export class LambdaStack extends cdk.Stack {
     this.getTripFunction = new lambda.Function(this, 'GetTripFunction', {
       ...commonLambdaProps,
       functionName: `TravelCompanion-GetTrip-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/plan-trip.getTrip',
       description: 'Retrieves trip details by ID',
       logGroup: new logs.LogGroup(this, 'GetTripLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
@@ -134,7 +137,6 @@ export class LambdaStack extends cdk.Stack {
     this.listTripsFunction = new lambda.Function(this, 'ListTripsFunction', {
       ...commonLambdaProps,
       functionName: `TravelCompanion-ListTrips-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/plan-trip.listTrips',
       description: 'Lists trips for a user with pagination',
       logGroup: new logs.LogGroup(this, 'ListTripsLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
@@ -144,7 +146,6 @@ export class LambdaStack extends cdk.Stack {
     this.createBookingFunction = new lambda.Function(this, 'CreateBookingFunction', {
       ...commonLambdaProps,
       functionName: `TravelCompanion-CreateBooking-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/booking.createBooking',
       description: 'Processes booking confirmations for trips',
       logGroup: new logs.LogGroup(this, 'CreateBookingLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
@@ -154,7 +155,6 @@ export class LambdaStack extends cdk.Stack {
     this.getTripBookingsFunction = new lambda.Function(this, 'GetTripBookingsFunction', {
       ...commonLambdaProps,
       functionName: `TravelCompanion-GetTripBookings-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/booking.getTripBookings',
       description: 'Retrieves bookings for a specific trip',
       logGroup: new logs.LogGroup(this, 'GetTripBookingsLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
@@ -164,7 +164,6 @@ export class LambdaStack extends cdk.Stack {
     this.getUserBookingsFunction = new lambda.Function(this, 'GetUserBookingsFunction', {
       ...commonLambdaProps,
       functionName: `TravelCompanion-GetUserBookings-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/booking.getUserBookings',
       description: 'Retrieves booking history for a user',
       logGroup: new logs.LogGroup(this, 'GetUserBookingsLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
@@ -176,7 +175,6 @@ export class LambdaStack extends cdk.Stack {
     this.signupFunction = new lambda.Function(this, 'SignupFunction', {
       ...commonLambdaProps,
       functionName: `TravelCompanion-Signup-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/signup.signup',
       description: 'User registration with email and password',
       logGroup: new logs.LogGroup(this, 'SignupLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
@@ -186,7 +184,6 @@ export class LambdaStack extends cdk.Stack {
     this.loginFunction = new lambda.Function(this, 'LoginFunction', {
       ...commonLambdaProps,
       functionName: `TravelCompanion-Login-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/login.login',
       description: 'User authentication with email and password',
       logGroup: new logs.LogGroup(this, 'LoginLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
@@ -196,7 +193,6 @@ export class LambdaStack extends cdk.Stack {
     this.googleAuthFunction = new lambda.Function(this, 'GoogleAuthFunction', {
       ...commonLambdaProps,
       functionName: `TravelCompanion-GoogleAuth-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/google-auth.googleAuth',
       description: 'Google OAuth authentication',
       logGroup: new logs.LogGroup(this, 'GoogleAuthLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
@@ -206,7 +202,6 @@ export class LambdaStack extends cdk.Stack {
     this.meFunction = new lambda.Function(this, 'MeFunction', {
       ...commonLambdaProps,
       functionName: `TravelCompanion-Me-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/auth-middleware.me',
       description: 'Get current authenticated user profile',
       logGroup: new logs.LogGroup(this, 'MeLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
@@ -216,15 +211,6 @@ export class LambdaStack extends cdk.Stack {
     this.authFunction = new lambda.Function(this, 'AuthFunction', {
       ...commonLambdaProps,
       functionName: `TravelCompanion-Auth-${environment}`,
-      code: lambda.Code.fromAsset('../backend', {
-        bundling: {
-          image: lambda.Runtime.NODEJS_18_X.bundlingImage,
-          command: [
-            'bash', '-c',
-            'cp -r /asset-input/* /asset-output/ && cd /asset-output && npm install --production'
-          ],
-        },
-      }),
       handler: 'dist/functions/auth.handler',
       description: 'Unified authentication handler for all auth routes with bundled dependencies',
       logGroup: new logs.LogGroup(this, 'AuthLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),

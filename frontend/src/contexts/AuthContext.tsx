@@ -139,6 +139,12 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
 
   // Firebase auth state listener for Google OAuth only
   useEffect(() => {
+    // Skip Firebase auth listener if Firebase is not configured
+    if (!auth) {
+      console.log('Firebase auth not available, skipping auth state listener');
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // Skip if user is already authenticated in our app to prevent duplicate messages
@@ -201,7 +207,11 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
       // Note: We don't handle logout here as normal users aren't in Firebase
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [router, state.user, state.token]);
 
   // Email/Password login - goes directly to DynamoDB

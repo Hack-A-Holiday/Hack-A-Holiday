@@ -103,6 +103,9 @@ export default function Navbar() {
             <Link href="/dashboard" style={getLinkStyle('/dashboard')}>
               Plan Trip
             </Link>
+            <Link href="/flight-search" style={getLinkStyle('/flight-search')}>
+              Flight Search
+            </Link>
             <Link href="/profile" style={getLinkStyle('/profile')}>
               Profile
             </Link>
@@ -248,6 +251,19 @@ export default function Navbar() {
                 display: 'block'
               }}>
                 ✈️ Plan Trip
+              </Link>
+              <Link href="/flight-search" onClick={closeMobileMenu} style={{
+                textDecoration: 'none',
+                color: router.pathname === '/flight-search' ? '#667eea' : '#333',
+                fontSize: '1.2rem',
+                fontWeight: router.pathname === '/flight-search' ? '600' : '400',
+                padding: '15px 20px',
+                borderRadius: '10px',
+                background: router.pathname === '/flight-search' ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
+                border: router.pathname === '/flight-search' ? '2px solid rgba(102, 126, 234, 0.2)' : '2px solid transparent',
+                display: 'block'
+              }}>
+                🔍 Flight Search
               </Link>
               <Link href="/profile" onClick={closeMobileMenu} style={{
                 textDecoration: 'none',
