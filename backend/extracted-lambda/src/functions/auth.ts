@@ -19,24 +19,33 @@ function verifySimpleToken(token: string): any {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
-}
-
+const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
 let userRepository: UserRepository;
 
-// Standard CORS headers
-const CORS_HEADERS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-};
+// Helper function to create standardized response
+function createResponse(statusCode: number, body: any): APIGatewayProxyResult {
+  return {
+    statusCode,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    },
+    body: JSON.stringify(body)
+  };
+}
 
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+  };
+
   console.log('Auth handler invoked:', {
     httpMethod: event.httpMethod,
     path: event.path,
@@ -53,13 +62,12 @@ export const handler = async (
       });
       userRepository = new UserRepository();
     }
-
     // Handle CORS preflight
     if (event.httpMethod === 'OPTIONS') {
       console.log('Handling OPTIONS request');
       return {
         statusCode: 200,
-        headers: CORS_HEADERS,
+        headers,
         body: '',
       };
     }
@@ -100,7 +108,7 @@ export const handler = async (
     console.log('No matching route found');
     return {
       statusCode: 404,
-      headers: CORS_HEADERS,
+      headers,
       body: JSON.stringify({
         error: 'Not found',
         message: `Route ${method} ${path} not found`,
@@ -111,7 +119,7 @@ export const handler = async (
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return {
       statusCode: 500,
-      headers: CORS_HEADERS,
+      headers,
       body: JSON.stringify({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -121,10 +129,15 @@ export const handler = async (
 };
 
 async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+  };
+
   if (!event.body) {
     return {
       statusCode: 400,
-      headers: CORS_HEADERS,
+      headers,
       body: JSON.stringify({
         error: 'Bad request',
         message: 'Request body is required',
@@ -138,7 +151,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     if (!email || !password) {
       return {
         statusCode: 400,
-        headers: CORS_HEADERS,
+        headers,
         body: JSON.stringify({
           error: 'Bad request',
           message: 'Email and password are required',
@@ -152,7 +165,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     if (!user) {
       return {
         statusCode: 401,
-        headers: CORS_HEADERS,
+        headers,
         body: JSON.stringify({
           error: 'Authentication failed',
           message: 'Invalid email or password',
@@ -167,7 +180,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
 
     return {
       statusCode: 200,
-      headers: CORS_HEADERS,
+      headers,
       body: JSON.stringify({
         user,
         token,
@@ -177,7 +190,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     console.error('Error in login:', error);
     return {
       statusCode: 500,
-      headers: CORS_HEADERS,
+      headers,
       body: JSON.stringify({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Failed to login',
@@ -190,8 +203,6 @@ async function handleSignup(event: APIGatewayProxyEvent): Promise<APIGatewayProx
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   };
 
   console.log('Starting handleSignup');
@@ -296,8 +307,6 @@ async function handleGoogleUser(event: APIGatewayProxyEvent): Promise<APIGateway
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   };
 
   if (!event.body) {
@@ -363,8 +372,6 @@ async function handleGetCurrentUser(event: APIGatewayProxyEvent): Promise<APIGat
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   };
 
   const authHeader = event.headers.Authorization || event.headers.authorization;
@@ -431,8 +438,6 @@ async function handleForgotPassword(event: APIGatewayProxyEvent): Promise<APIGat
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   };
 
   if (!event.body) {
@@ -474,9 +479,9 @@ async function handleForgotPassword(event: APIGatewayProxyEvent): Promise<APIGat
       };
     }
 
-    // NOTE: In a real application, you would send an email here
+    // In a real application, you would send an email here
     // For now, we'll return the token for testing purposes
-    // Email service integration (SES, SendGrid, etc.) can be added when ready for production
+    // FIXME: Integrate with email service (SES, SendGrid, etc.) when ready for production
     
     console.log(`Password reset requested for ${email}. Reset token: ${resetData.token}`);
 
@@ -506,8 +511,6 @@ async function handleResetPassword(event: APIGatewayProxyEvent): Promise<APIGate
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   };
 
   if (!event.body) {
@@ -583,8 +586,6 @@ async function handleVerifyResetToken(event: APIGatewayProxyEvent): Promise<APIG
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   };
 
   const token = event.queryStringParameters?.token;

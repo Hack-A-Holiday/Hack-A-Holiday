@@ -108,7 +108,6 @@ export class LambdaStack extends cdk.Stack {
         GOOGLE_CLIENT_ID: 'your-google-oauth-client-id-from-google-console', // Replace with your actual Google Client ID
         AWS_REGION: this.region, // Required for Bedrock service
       },
-      logRetention: logs.RetentionDays.ONE_WEEK,
     };
 
     // Plan Trip Lambda Function
@@ -118,6 +117,7 @@ export class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/plan-trip.planTrip',
       description: 'Creates new trip plans based on user preferences',
+      logGroup: new logs.LogGroup(this, 'PlanTripLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
     });
 
     // Get Trip Lambda Function
@@ -127,6 +127,7 @@ export class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/plan-trip.getTrip',
       description: 'Retrieves trip details by ID',
+      logGroup: new logs.LogGroup(this, 'GetTripLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
     });
 
     // List Trips Lambda Function
@@ -136,6 +137,7 @@ export class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/plan-trip.listTrips',
       description: 'Lists trips for a user with pagination',
+      logGroup: new logs.LogGroup(this, 'ListTripsLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
     });
 
     // Create Booking Lambda Function
@@ -145,6 +147,7 @@ export class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/booking.createBooking',
       description: 'Processes booking confirmations for trips',
+      logGroup: new logs.LogGroup(this, 'CreateBookingLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
     });
 
     // Get Trip Bookings Lambda Function
@@ -154,6 +157,7 @@ export class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/booking.getTripBookings',
       description: 'Retrieves bookings for a specific trip',
+      logGroup: new logs.LogGroup(this, 'GetTripBookingsLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
     });
 
     // Get User Bookings Lambda Function
@@ -163,6 +167,7 @@ export class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/booking.getUserBookings',
       description: 'Retrieves booking history for a user',
+      logGroup: new logs.LogGroup(this, 'GetUserBookingsLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
     });
 
     // Authentication Lambda Functions
@@ -174,6 +179,7 @@ export class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/signup.signup',
       description: 'User registration with email and password',
+      logGroup: new logs.LogGroup(this, 'SignupLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
     });
 
     // Login Lambda Function
@@ -183,6 +189,7 @@ export class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/login.login',
       description: 'User authentication with email and password',
+      logGroup: new logs.LogGroup(this, 'LoginLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
     });
 
     // Google OAuth Lambda Function
@@ -192,6 +199,7 @@ export class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/google-auth.googleAuth',
       description: 'Google OAuth authentication',
+      logGroup: new logs.LogGroup(this, 'GoogleAuthLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
     });
 
     // Me (Get Current User) Lambda Function
@@ -201,6 +209,7 @@ export class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../backend/dist'),
       handler: 'functions/auth-middleware.me',
       description: 'Get current authenticated user profile',
+      logGroup: new logs.LogGroup(this, 'MeLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
     });
 
     // Unified Auth Lambda Function (New)
@@ -218,6 +227,7 @@ export class LambdaStack extends cdk.Stack {
       }),
       handler: 'dist/functions/auth.handler',
       description: 'Unified authentication handler for all auth routes with bundled dependencies',
+      logGroup: new logs.LogGroup(this, 'AuthLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
     });
 
     // Create API Gateway
@@ -225,7 +235,7 @@ export class LambdaStack extends cdk.Stack {
       restApiName: `TravelCompanion-API-${environment}`,
       description: 'API for Travel Companion application',
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowOrigins: ['http://localhost:3000'], // Added localhost for development
         allowMethods: apigateway.Cors.ALL_METHODS,
         allowHeaders: [
           'Content-Type',

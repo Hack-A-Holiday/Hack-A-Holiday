@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
 import { useAuth } from '../contexts/AuthContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import Navbar from '../components/layout/Navbar';
 import { Destination } from '../data/destinations';
+import Swal from 'sweetalert2';
+import { format } from 'date-fns';
 
 // Dynamic import for InteractiveGlobe to avoid SSR issues
 const InteractiveGlobe = dynamic(() => import('../components/InteractiveGlobe'), {
@@ -35,6 +38,7 @@ interface ApiResponse {
 
 export default function Dashboard() {
   const { state } = useAuth();
+  const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
 
@@ -64,6 +68,10 @@ export default function Dashboard() {
   const [globeSearchQuery, setGlobeSearchQuery] = useState('');
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPreferencesForm, setShowPreferencesForm] = useState(false);
+
+  // Removed unused showPlanExpanded
+  // Removed unused isEditingPreferences
 
   // Helper functions for responsive styling
   const getContainerPadding = () => {
@@ -104,43 +112,45 @@ export default function Dashboard() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate destination selection
-    if (!preferences.destinationData) {
-      setError('Please select a destination from the globe');
-      return;
-    }
-    
+
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
       const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
-      
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-
-      // Add authorization header if user is logged in
       if (state.token) {
         headers.Authorization = `Bearer ${state.token}`;
       }
 
+      // Include existing user preferences in the request body
+      const requestBody = {
+        preferences: {
+          ...preferences,
+          existingUserPreferences: state?.user?.preferences || {},
+        },
+      };
+
       const response = await fetch(`${apiUrl}/plan-trip`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ preferences }),
+        body: JSON.stringify(requestBody),
       });
-
       const data: ApiResponse = await response.json();
-      
       if (data.success) {
         setResult(data);
+        // Redirect to AI Travel Agent interface after successful plan
+        setTimeout(() => {
+          router.push('/ai-travel-agent');
+        }, 1000);
       } else {
         setError(data.error?.message || 'Failed to create trip plan');
       }
     } catch (err) {
+      console.error('Error planning trip:', err);
       setError(err instanceof Error ? err.message : 'Network error');
     } finally {
       setLoading(false);
@@ -165,6 +175,133 @@ export default function Dashboard() {
     // Clear previous itinerary result when destination changes
     setResult(null);
     setError(null);
+  };
+
+  const handlePlanClick = () => {
+    if (!preferences.destinationData) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        text: 'Please select a destination from the globe.',
+      });
+      return;
+    }
+
+    if (!preferences.duration || preferences.duration < 1) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        text: 'Please enter a valid duration (at least 1 day).',
+      });
+      return;
+    }
+
+    if (!preferences.startDate) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        text: 'Please select a start date.',
+      });
+      return;
+    }
+
+    if (state?.user?.preferences) {
+      Swal.fire({
+        title: 'Edit Preferences?',
+        text: 'You have existing preferences saved. Would you like to edit them for this trip?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, edit preferences',
+        cancelButtonText: 'No, use existing preferences',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          setShowPreferencesForm(true);
+        } else {
+          triggerApiCall(preferences);
+        }
+      });
+    } else {
+      setShowPreferencesForm(true);
+    }
+  };
+
+  const triggerApiCall = async (preferences: TripPreferences) => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (state.token) {
+        headers['Authorization'] = `Bearer ${state.token}`;
+      }
+
+      const requestBody = {
+        preferences: {
+          ...preferences,
+          existingUserPreferences: state?.user?.preferences || {},
+        },
+      };
+
+      console.log('Sending request to API:', apiUrl);
+      console.log('Request payload:', requestBody);
+
+      const response = await fetch(`${apiUrl}/plan-trip`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API responded with status ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setResult(data);
+        setTimeout(() => {
+          router.push('/ai-travel-agent');
+        }, 1000);
+      } else {
+        throw new Error(data.error?.message || 'Failed to create trip plan');
+      }
+    } catch (err) {
+      console.error('Error planning trip:', err);
+      setError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update preferences with user preferences from profile
+  useEffect(() => {
+    if (state?.user?.preferences) {
+      const userPrefs = state.user.preferences;
+      setPreferences((prev) => ({
+        ...prev,
+        budget: userPrefs.budget || prev.budget,
+        interests: userPrefs.interests || prev.interests,
+        travelers: userPrefs.numberOfKids || prev.travelers,
+        travelStyle: userPrefs.travelStyle || prev.travelStyle,
+      }));
+    }
+  }, [state?.user?.preferences]);
+
+  // Set default start date to current date
+  useEffect(() => {
+    const currentDate = format(new Date(), 'yyyy-MM-dd');
+    setPreferences((prev) => ({
+      ...prev,
+      startDate: currentDate,
+    }));
+  }, []);
+
+  // Fix type mismatch for travelStyle
+  const handleTravelStyleChange = (value: 'budget' | 'mid-range' | 'luxury') => {
+    setPreferences((prev) => ({ ...prev, travelStyle: value }));
   };
 
   return (
@@ -209,290 +346,338 @@ export default function Dashboard() {
             padding: getContentPadding(),
             boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
           }}>
-            <form onSubmit={handleSubmit}>
-              {/* Interactive Globe for Destination Selection */}
-              <div style={{ marginBottom: '30px' }}>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center', 
-                  marginBottom: '15px',
-                  flexDirection: isMobile ? 'column' : 'row',
-                  gap: isMobile ? '10px' : '0'
+            {/* Interactive Globe for Destination Selection */}
+            <div style={{ marginBottom: '30px' }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '15px',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '10px' : '0'
+              }}>
+                <h3 style={{ 
+                  margin: '0 0 10px 0', 
+                  fontSize: isMobile ? '1.3rem' : '1.6rem',
+                  fontWeight: 'bold',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
                 }}>
-                  <h3 style={{ 
-                    margin: '0 0 10px 0', 
-                    fontSize: isMobile ? '1.3rem' : '1.6rem',
+                  🌍 Choose Your Destination
+                </h3>
+                
+                <p style={{ 
+                  margin: '0 0 15px 0', 
+                  color: '#666', 
+                  fontSize: '14px',
+                  fontStyle: 'italic'
+                }}>
+                  Explore the world and select your perfect travel destination
+                </p>
+                
+                {/* Search bar for globe */}
+                <input
+                  type="text"
+                  value={globeSearchQuery}
+                  onChange={(e) => setGlobeSearchQuery(e.target.value)}
+                  placeholder="🔍 Search destinations..."
+                  style={{
+                    padding: '12px 20px',
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '25px',
+                    fontSize: '14px',
+                    width: '100%',
+                    outline: 'none',
+                    marginBottom: '20px',
+                    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }}
+                />
+              </div>
+              
+              {/* Selected destination display */}
+              {preferences.destinationData && (
+                <div style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  padding: '20px',
+                  borderRadius: '16px',
+                  marginBottom: '25px',
+                  boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)',
+                  border: '1px solid rgba(255,255,255,0.2)'
+                }}>
+                  <div style={{ 
+                    fontWeight: 'bold', 
+                    fontSize: '1.2rem',
+                    marginBottom: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}>
+                    <span style={{ fontSize: '1.5rem' }}>📍</span>
+                    <span>{preferences.destinationData.name}, {preferences.destinationData.country}</span>
+                  </div>
+                  <div style={{ opacity: 0.9, fontSize: '0.95rem', marginBottom: '12px' }}>
+                    {preferences.destinationData.description}
+                  </div>
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '20px', 
+                    marginTop: '12px',
+                    fontSize: '0.9rem',
+                    flexWrap: 'wrap'
+                  }}>
+                    <div style={{ 
+                      background: 'rgba(255,255,255,0.2)', 
+                      padding: '6px 12px', 
+                      borderRadius: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <span>💰</span>
+                      <span>{preferences.destinationData.averageCost}</span>
+                    </div>
+                    <div style={{ 
+                      background: 'rgba(255,255,255,0.2)', 
+                      padding: '6px 12px', 
+                      borderRadius: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <span>🏷️</span>
+                      <span style={{ textTransform: 'capitalize' }}>{preferences.destinationData.category}</span>
+                    </div>
+                    <div style={{ 
+                      background: 'rgba(255,255,255,0.2)', 
+                      padding: '6px 12px', 
+                      borderRadius: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <span>📅</span>
+                      <span>Best: {preferences.destinationData.bestMonths.slice(0, 2).join(', ')}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Interactive Globe */}
+              <InteractiveGlobe
+                onDestinationSelect={handleDestinationSelect}
+                selectedDestination={preferences.destinationData}
+                searchQuery={globeSearchQuery}
+              />
+
+              {/* Trip Planning Form */}
+              <form onSubmit={e => e.preventDefault()} style={{ marginTop: '30px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: getGridColumns(), gap: isMobile ? '15px' : '20px', marginBottom: '25px' }}>
+                  <div>
+                    <label htmlFor="duration" style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                      Duration (days)
+                    </label>
+                    <input
+                      id="duration"
+                      type="number"
+                      value={preferences.duration}
+                      onChange={(e) => setPreferences(prev => ({ ...prev, duration: parseInt(e.target.value) }))}
+                      style={{
+                        width: '100%',
+                        padding: '12px 15px',
+                        border: '2px solid #e1e5e9',
+                        borderRadius: '8px',
+                        fontSize: '16px'
+                      }}
+                      min="1"
+                      max="30"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="start-date-input" style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                      Start Date
+                    </label>
+                    <input
+                      id="start-date-input"
+                      type="date"
+                      value={preferences.startDate}
+                      onChange={(e) => setPreferences(prev => ({ ...prev, startDate: e.target.value }))}
+                      style={{
+                        width: '100%',
+                        padding: '12px 15px',
+                        border: '2px solid #e1e5e9',
+                        borderRadius: '8px',
+                        fontSize: '16px'
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handlePlanClick}
+                  style={{
+                    width: '100%',
+                    background: loading ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '15px 30px',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    borderRadius: '8px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {loading ? '🤖 Creating your adventure...' : '🌟 Plan My Adventure'}
+                </button>
+              </form>
+
+              {showPreferencesForm && (
+                <div style={{
+                  background: 'white',
+                  borderRadius: '15px',
+                  padding: '20px',
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+                  marginTop: '20px',
+                }}>
+                  <h3 style={{
+                    marginBottom: '15px',
+                    fontSize: '1.6rem',
                     fontWeight: 'bold',
                     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text'
+                    backgroundClip: 'text',
                   }}>
-                    🌍 Choose Your Destination
+                    Provide Trip Details
                   </h3>
-                  
-                  <p style={{ 
-                    margin: '0 0 15px 0', 
-                    color: '#666', 
-                    fontSize: '14px',
-                    fontStyle: 'italic'
-                  }}>
-                    Explore the world and select your perfect travel destination
-                  </p>
-                  
-                  {/* Search bar for globe */}
-                  <input
-                    type="text"
-                    value={globeSearchQuery}
-                    onChange={(e) => setGlobeSearchQuery(e.target.value)}
-                    placeholder="🔍 Search destinations..."
-                    style={{
-                      padding: '12px 20px',
-                      border: '2px solid #e1e5e9',
-                      borderRadius: '25px',
-                      fontSize: '14px',
-                      width: '100%',
-                      outline: 'none',
-                      marginBottom: '20px',
-                      transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                </div>
-                
-                {/* Selected destination display */}
-                {preferences.destinationData && (
-                  <div style={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    padding: '20px',
-                    borderRadius: '16px',
-                    marginBottom: '25px',
-                    boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)',
-                    border: '1px solid rgba(255,255,255,0.2)'
-                  }}>
-                    <div style={{ 
-                      fontWeight: 'bold', 
-                      fontSize: '1.2rem',
-                      marginBottom: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px'
-                    }}>
-                      <span style={{ fontSize: '1.5rem' }}>📍</span>
-                      <span>{preferences.destinationData.name}, {preferences.destinationData.country}</span>
-                    </div>
-                    <div style={{ opacity: 0.9, fontSize: '0.95rem', marginBottom: '12px' }}>
-                      {preferences.destinationData.description}
-                    </div>
-                    <div style={{ 
-                      display: 'flex', 
-                      gap: '20px', 
-                      marginTop: '12px',
-                      fontSize: '0.9rem',
-                      flexWrap: 'wrap'
-                    }}>
-                      <div style={{ 
-                        background: 'rgba(255,255,255,0.2)', 
-                        padding: '6px 12px', 
-                        borderRadius: '20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <span>💰</span>
-                        <span>{preferences.destinationData.averageCost}</span>
+                  <form id="trip-details-form" style={{ display: 'grid', gap: '15px' }}>
+                    <label>
+                      Budget ($):
+                      <input
+                        type="number"
+                        value={preferences.budget}
+                        onChange={(e) => setPreferences((prev) => ({ ...prev, budget: parseInt(e.target.value) }))}
+                        min="100"
+                        max="100000"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '2px solid #e1e5e9',
+                          borderRadius: '8px',
+                        }}
+                      />
+                    </label>
+                    <label>
+                      Travelers:
+                      <input
+                        type="number"
+                        value={preferences.travelers}
+                        onChange={(e) => setPreferences((prev) => ({ ...prev, travelers: parseInt(e.target.value) }))}
+                        min="1"
+                        max="20"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '2px solid #e1e5e9',
+                          borderRadius: '8px',
+                        }}
+                      />
+                    </label>
+                    <label>
+                      Travel Style:
+                      <select
+                        value={preferences.travelStyle}
+                        onChange={(e) => handleTravelStyleChange(e.target.value as 'budget' | 'mid-range' | 'luxury')}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '2px solid #e1e5e9',
+                          borderRadius: '8px',
+                        }}
+                      >
+                        <option value="budget">Budget</option>
+                        <option value="mid-range">Mid-range</option>
+                        <option value="luxury">Luxury</option>
+                      </select>
+                    </label>
+                    <label>
+                      Interests:
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                        {availableInterests.map((interest) => (
+                          <label key={interest} style={{ marginRight: '10px' }}>
+                            <input
+                              type="checkbox"
+                              value={interest}
+                              checked={preferences.interests.includes(interest)}
+                              onChange={(e) => handleInterestToggle(e.target.value)}
+                            />
+                            {interest.replace('-', ' ')}
+                          </label>
+                        ))}
                       </div>
-                      <div style={{ 
-                        background: 'rgba(255,255,255,0.2)', 
-                        padding: '6px 12px', 
-                        borderRadius: '20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <span>🏷️</span>
-                        <span style={{ textTransform: 'capitalize' }}>{preferences.destinationData.category}</span>
-                      </div>
-                      <div style={{ 
-                        background: 'rgba(255,255,255,0.2)', 
-                        padding: '6px 12px', 
-                        borderRadius: '20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <span>📅</span>
-                        <span>Best: {preferences.destinationData.bestMonths.slice(0, 2).join(', ')}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Interactive Globe */}
-                <InteractiveGlobe
-                  onDestinationSelect={handleDestinationSelect}
-                  selectedDestination={preferences.destinationData}
-                  searchQuery={globeSearchQuery}
-                />
-              </div>
-
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: getGridColumns(), 
-                gap: isMobile ? '15px' : '20px', 
-                marginBottom: '25px' 
-              }}>
-                <div>
-                  <label htmlFor="budget" style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                    Budget ($)
-                  </label>
-                  <input
-                    id="budget"
-                    type="number"
-                    value={preferences.budget}
-                    onChange={(e) => setPreferences(prev => ({ ...prev, budget: parseInt(e.target.value) }))}
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px 15px', 
-                      border: '2px solid #e1e5e9', 
-                      borderRadius: '8px',
-                      fontSize: '16px'
-                    }}
-                    min="100"
-                    max="100000"
-                    required
-                  />
+                    </label>
+                    <label>
+                      Duration (days):
+                      <input
+                        type="number"
+                        value={preferences.duration}
+                        onChange={(e) => setPreferences((prev) => ({ ...prev, duration: parseInt(e.target.value) }))}
+                        min="1"
+                        max="30"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '2px solid #e1e5e9',
+                          borderRadius: '8px',
+                        }}
+                      />
+                    </label>
+                    <label>
+                      Start Date:
+                      <input
+                        type="date"
+                        value={preferences.startDate}
+                        onChange={(e) => setPreferences((prev) => ({ ...prev, startDate: e.target.value }))}
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '2px solid #e1e5e9',
+                          borderRadius: '8px',
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => triggerApiCall(preferences)}
+                      style={{
+                        width: '100%',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '15px 30px',
+                        fontSize: '18px',
+                        fontWeight: '600',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Submit
+                    </button>
+                  </form>
                 </div>
-
-                <div>
-                  <label htmlFor="duration" style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                    Duration (days)
-                  </label>
-                  <input
-                    id="duration"
-                    type="number"
-                    value={preferences.duration}
-                    onChange={(e) => setPreferences(prev => ({ ...prev, duration: parseInt(e.target.value) }))}
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px 15px', 
-                      border: '2px solid #e1e5e9', 
-                      borderRadius: '8px',
-                      fontSize: '16px'
-                    }}
-                    min="1"
-                    max="30"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="travelers-input" style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                    Travelers
-                  </label>
-                  <input
-                    id="travelers-input"
-                    type="number"
-                    value={preferences.travelers}
-                    onChange={(e) => setPreferences(prev => ({ ...prev, travelers: parseInt(e.target.value) }))}
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px 15px', 
-                      border: '2px solid #e1e5e9', 
-                      borderRadius: '8px',
-                      fontSize: '16px'
-                    }}
-                    min="1"
-                    max="20"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="start-date-input" style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                    Start Date
-                  </label>
-                  <input
-                    id="start-date-input"
-                    type="date"
-                    value={preferences.startDate}
-                    onChange={(e) => setPreferences(prev => ({ ...prev, startDate: e.target.value }))}
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px 15px', 
-                      border: '2px solid #e1e5e9', 
-                      borderRadius: '8px',
-                      fontSize: '16px'
-                    }}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="travel-style-select" style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                    Travel Style
-                  </label>
-                  <select
-                    id="travel-style-select"
-                    value={preferences.travelStyle}
-                    onChange={(e) => setPreferences(prev => ({ ...prev, travelStyle: e.target.value as any }))}
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px 15px', 
-                      border: '2px solid #e1e5e9', 
-                      borderRadius: '8px',
-                      fontSize: '16px'
-                    }}
-                  >
-                    <option value="budget">Budget</option>
-                    <option value="mid-range">Mid-range</option>
-                    <option value="luxury">Luxury</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '25px' }}>
-                <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
-                  <legend style={{ display: 'block', marginBottom: '15px', fontWeight: '600' }}>
-                    Interests (select multiple)
-                  </legend>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-                    {availableInterests.map((interest) => (
-                      <label key={interest} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={preferences.interests.includes(interest)}
-                          onChange={() => handleInterestToggle(interest)}
-                        />
-                        <span style={{ textTransform: 'capitalize' }}>
-                          {interest.replace('-', ' ')}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || preferences.interests.length === 0}
-                style={{
-                  width: '100%',
-                  background: loading ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '15px 30px',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  borderRadius: '8px',
-                  cursor: loading ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {loading ? '🤖 Creating your adventure...' : '🌟 Plan My Adventure'}
-              </button>
-            </form>
+              )}
+          </div>
 
             {error && (
               <div style={{ 
@@ -593,7 +778,7 @@ export default function Dashboard() {
                         <strong>⭐ Top Highlights:</strong>
                         <ul style={{ margin: '8px 0 0 20px', padding: 0 }}>
                           {result.itinerary.overview.topHighlights.map((highlight: string, index: number) => (
-                            <li key={index} style={{ marginBottom: '5px' }}>{highlight}</li>
+                            <li key={highlight} style={{ marginBottom: '5px' }}>{highlight}</li>
                           ))}
                         </ul>
                       </div>
@@ -602,96 +787,92 @@ export default function Dashboard() {
                 )}
 
                 {/* Daily Itinerary */}
-                {result.itinerary?.dailyPlans && result.itinerary.dailyPlans.length > 0 && (
-                  <div style={{ marginBottom: '20px' }}>
-                    <h3 style={{ margin: '0 0 20px 0', color: '#2d3748', fontSize: '20px', textAlign: 'center' }}>📅 Daily Itinerary</h3>
-                    
-                    {result.itinerary.dailyPlans.map((day: any, index: number) => (
-                      <div key={index} style={{ 
-                        background: 'rgba(255,255,255,0.9)', 
-                        padding: '20px', 
-                        borderRadius: '15px',
-                        marginBottom: '15px',
-                        border: '1px solid rgba(0,0,0,0.1)',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                      }}>
-                        <div style={{ marginBottom: '15px', textAlign: 'center' }}>
-                          <h4 style={{ margin: '0 0 5px 0', color: '#4a5568', fontSize: '18px' }}>
-                            Day {day.day} - {day.theme}
-                          </h4>
-                          <p style={{ margin: 0, color: '#718096', fontSize: '14px' }}>{day.date}</p>
+                {result?.itinerary?.dailyPlans && result.itinerary.dailyPlans.length > 0 && (
+                  result.itinerary.dailyPlans.map((day: any, index: number) => (
+                    <div key={day.day || day.date || index} style={{ 
+                      background: 'rgba(255,255,255,0.9)', 
+                      padding: '20px', 
+                      borderRadius: '15px',
+                      marginBottom: '15px',
+                      border: '1px solid rgba(0,0,0,0.1)',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }}>
+                      <div style={{ marginBottom: '15px', textAlign: 'center' }}>
+                        <h4 style={{ margin: '0 0 5px 0', color: '#4a5568', fontSize: '18px' }}>
+                          Day {day.day} - {day.theme}
+                        </h4>
+                        <p style={{ margin: 0, color: '#718096', fontSize: '14px' }}>{day.date}</p>
+                      </div>
+
+                      {/* Activities for each time of day */}
+                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '15px', marginBottom: '15px' }}>
+                        {/* Morning */}
+                        <div style={{ background: '#fff5e1', padding: '15px', borderRadius: '10px', border: '1px solid #fbd38d' }}>
+                          <h5 style={{ margin: '0 0 10px 0', color: '#c05621' }}>🌅 Morning</h5>
+                          {day.activities.morning.map((activity: any, idx: number) => (
+                            <div key={'morning-' + idx + '-' + activity.name} style={{ marginBottom: '8px', fontSize: '14px' }}>
+                              <strong>{activity.name}</strong>
+                              <p style={{ margin: '2px 0', color: '#666', fontSize: '12px' }}>{activity.description}</p>
+                              <span style={{ color: '#9ca3af', fontSize: '12px' }}>Duration: {activity.duration}</span>
+                            </div>
+                          ))}
                         </div>
 
-                        {/* Activities for each time of day */}
-                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '15px', marginBottom: '15px' }}>
-                          {/* Morning */}
-                          <div style={{ background: '#fff5e1', padding: '15px', borderRadius: '10px', border: '1px solid #fbd38d' }}>
-                            <h5 style={{ margin: '0 0 10px 0', color: '#c05621' }}>🌅 Morning</h5>
-                            {day.activities.morning.map((activity: any, idx: number) => (
-                              <div key={idx} style={{ marginBottom: '8px', fontSize: '14px' }}>
-                                <strong>{activity.name}</strong>
-                                <p style={{ margin: '2px 0', color: '#666', fontSize: '12px' }}>{activity.description}</p>
-                                <span style={{ color: '#9ca3af', fontSize: '12px' }}>Duration: {activity.duration}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Afternoon */}
-                          <div style={{ background: '#e6fffa', padding: '15px', borderRadius: '10px', border: '1px solid #81e6d9' }}>
-                            <h5 style={{ margin: '0 0 10px 0', color: '#2c7a7b' }}>☀️ Afternoon</h5>
-                            {day.activities.afternoon.map((activity: any, idx: number) => (
-                              <div key={idx} style={{ marginBottom: '8px', fontSize: '14px' }}>
-                                <strong>{activity.name}</strong>
-                                <p style={{ margin: '2px 0', color: '#666', fontSize: '12px' }}>{activity.description}</p>
-                                <span style={{ color: '#9ca3af', fontSize: '12px' }}>Duration: {activity.duration}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Evening */}
-                          <div style={{ background: '#edf2f7', padding: '15px', borderRadius: '10px', border: '1px solid #cbd5e0' }}>
-                            <h5 style={{ margin: '0 0 10px 0', color: '#4a5568' }}>🌆 Evening</h5>
-                            {day.activities.evening.map((activity: any, idx: number) => (
-                              <div key={idx} style={{ marginBottom: '8px', fontSize: '14px' }}>
-                                <strong>{activity.name}</strong>
-                                <p style={{ margin: '2px 0', color: '#666', fontSize: '12px' }}>{activity.description}</p>
-                                <span style={{ color: '#9ca3af', fontSize: '12px' }}>Duration: {activity.duration}</span>
-                              </div>
-                            ))}
-                          </div>
+                        {/* Afternoon */}
+                        <div style={{ background: '#e6fffa', padding: '15px', borderRadius: '10px', border: '1px solid #81e6d9' }}>
+                          <h5 style={{ margin: '0 0 10px 0', color: '#2c7a7b' }}>☀️ Afternoon</h5>
+                          {day.activities.afternoon.map((activity: any, idx: number) => (
+                            <div key={'afternoon-' + idx + '-' + activity.name} style={{ marginBottom: '8px', fontSize: '14px' }}>
+                              <strong>{activity.name}</strong>
+                              <p style={{ margin: '2px 0', color: '#666', fontSize: '12px' }}>{activity.description}</p>
+                              <span style={{ color: '#9ca3af', fontSize: '12px' }}>Duration: {activity.duration}</span>
+                            </div>
+                          ))}
                         </div>
 
-                        {/* Meals */}
-                        <div style={{ background: '#f7fafc', padding: '15px', borderRadius: '10px', marginBottom: '10px' }}>
-                          <h5 style={{ margin: '0 0 10px 0', color: '#2d3748' }}>🍽️ Recommended Meals</h5>
-                          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '10px' }}>
-                            <div>
-                              <strong>🥐 Breakfast:</strong> {day.meals.breakfast.name}
-                              <p style={{ margin: '2px 0', fontSize: '12px', color: '#666' }}>{day.meals.breakfast.description}</p>
+                        {/* Evening */}
+                        <div style={{ background: '#edf2f7', padding: '15px', borderRadius: '10px', border: '1px solid #cbd5e0' }}>
+                          <h5 style={{ margin: '0 0 10px 0', color: '#4a5568' }}>🌆 Evening</h5>
+                          {day.activities.evening.map((activity: any, idx: number) => (
+                            <div key={'evening-' + idx + '-' + activity.name} style={{ marginBottom: '8px', fontSize: '14px' }}>
+                              <strong>{activity.name}</strong>
+                              <p style={{ margin: '2px 0', color: '#666', fontSize: '12px' }}>{activity.description}</p>
+                              <span style={{ color: '#9ca3af', fontSize: '12px' }}>Duration: {activity.duration}</span>
                             </div>
-                            <div>
-                              <strong>🥙 Lunch:</strong> {day.meals.lunch.name}
-                              <p style={{ margin: '2px 0', fontSize: '12px', color: '#666' }}>{day.meals.lunch.description}</p>
-                            </div>
-                            <div>
-                              <strong>🍽️ Dinner:</strong> {day.meals.dinner.name}
-                              <p style={{ margin: '2px 0', fontSize: '12px', color: '#666' }}>{day.meals.dinner.description}</p>
-                            </div>
-                          </div>
+                          ))}
                         </div>
+                      </div>
 
-                        {/* Transportation and Cost */}
-                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '15px', fontSize: '14px' }}>
+                      {/* Meals */}
+                      <div style={{ background: '#f7fafc', padding: '15px', borderRadius: '10px', marginBottom: '10px' }}>
+                        <h5 style={{ margin: '0 0 10px 0', color: '#2d3748' }}>🍽️ Recommended Meals</h5>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '10px' }}>
                           <div>
-                            <strong>🚌 Transportation:</strong> {day.transportation}
+                            <strong>🥐 Breakfast:</strong> {day.meals.breakfast.name}
+                            <p style={{ margin: '2px 0', fontSize: '12px', color: '#666' }}>{day.meals.breakfast.description}</p>
                           </div>
                           <div>
-                            <strong>💰 Daily Budget:</strong> ${day.totalCost}
+                            <strong>🥙 Lunch:</strong> {day.meals.lunch.name}
+                            <p style={{ margin: '2px 0', fontSize: '12px', color: '#666' }}>{day.meals.lunch.description}</p>
+                          </div>
+                          <div>
+                            <strong>🍽️ Dinner:</strong> {day.meals.dinner.name}
+                            <p style={{ margin: '2px 0', fontSize: '12px', color: '#666' }}>{day.meals.dinner.description}</p>
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
+
+                      {/* Transportation and Cost */}
+                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '15px', fontSize: '14px' }}>
+                        <div>
+                          <strong>🚌 Transportation:</strong> {day.transportation}
+                        </div>
+                        <div>
+                          <strong>💰 Daily Budget:</strong> ${day.totalCost}
+                        </div>
+                      </div>
+                    </div>
+                  ))
                 )}
 
                 {/* Travel Tips */}
@@ -706,7 +887,7 @@ export default function Dashboard() {
                     <h3 style={{ margin: '0 0 15px 0', color: '#2d3748', fontSize: '18px' }}>💡 Travel Tips</h3>
                     <ul style={{ margin: 0, paddingLeft: '20px' }}>
                       {result.itinerary.travelTips.map((tip: string, index: number) => (
-                        <li key={index} style={{ marginBottom: '8px', fontSize: '14px' }}>{tip}</li>
+                        <li key={tip} style={{ marginBottom: '8px', fontSize: '14px' }}>{tip}</li>
                       ))}
                     </ul>
                   </div>
@@ -792,7 +973,7 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          </div>
+        </div>
         </main>
       </div>
     </ProtectedRoute>

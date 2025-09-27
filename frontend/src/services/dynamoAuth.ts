@@ -1,3 +1,13 @@
+export interface UserPreferences {
+  numberOfKids?: number;
+  budget?: number;
+  favoriteDestinations?: string[];
+  interests?: string[];
+  travelStyle?: 'budget' | 'mid-range' | 'luxury';
+  dietaryRestrictions?: string[];
+  accessibility?: string[];
+}
+
 export interface User {
   id: string;
   email: string;
@@ -8,6 +18,7 @@ export interface User {
   passwordHash?: string;
   createdAt: string;
   lastLoginAt: string;
+  preferences?: UserPreferences;
 }
 
 export interface AuthResponse {
