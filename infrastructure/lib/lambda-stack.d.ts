@@ -22,6 +22,5 @@ export declare class LambdaStack extends cdk.Stack {
     readonly googleAuthFunction: lambda.Function;
     readonly meFunction: lambda.Function;
     readonly authFunction: lambda.Function;
-    readonly enhancedFlightSearchFunction: lambda.Function;
     constructor(scope: Construct, id: string, props: LambdaStackProps);
 }
