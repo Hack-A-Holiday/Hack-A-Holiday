@@ -36,7 +36,7 @@ const lambdaStack = new lambda_stack_1.LambdaStack(app, `TravelCompanion-Lambda-
     s3BucketName: s3Stack.itineraryBucket.bucketName,
     description: `Lambda functions and API Gateway for Travel Companion - ${environment}`,
 });
-// Add dependencies
+// Add dependencies between stacks to ensure proper deployment order
 lambdaStack.addDependency(dynamoStack);
 lambdaStack.addDependency(s3Stack);
 // Add tags to all stacks

@@ -44,7 +44,7 @@ else
     echo ""
     echo "✅ Deployment Complete!"
     echo ""
-    echo "🧪 Testing Real API..."
+    echo "🛫 Testing Real API..."
     
     # Test the API
     sleep 5
