@@ -7,7 +7,8 @@
     "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch",
-    "package": "npm run build && cd dist && zip -r ../lambda-functions.zip ."
+    "package": "npm run build && npm run zip",
+    "zip": "cd dist && zip -r ../lambda-functions.zip ."
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-agent-runtime": "^3.450.0",
@@ -16,26 +17,15 @@
     "@aws-sdk/client-s3": "^3.450.0",
     "@aws-sdk/lib-dynamodb": "^3.450.0",
     "@aws-sdk/s3-request-presigner": "^3.450.0",
-    "@types/jsonwebtoken": "^9.0.10",
-    "axios": "^1.5.0",
-    "google-auth-library": "^10.3.0",
-    "joi": "^17.11.0",
-    "jsonwebtoken": "^9.0.2",
     "uuid": "^9.0.0",
-    "date-fns": "^4.1.0",
-    "sweetalert2": "^11.23.0"
+    "joi": "^17.11.0",
+    "axios": "^1.5.0"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.152",
-    "@types/jest": "^29.5.14",
     "@types/node": "^20.8.0",
     "@types/uuid": "^9.0.0",
-    "aws-lambda": "^1.0.7",
     "aws-sdk-client-mock": "^3.0.0",
     "jest": "^29.7.0",
-    "ts-jest": "^29.4.4"
-  },
-  "engines": {
-    "node": ">=18"
+    "@types/jest": "^29.5.0"
   }
 }
