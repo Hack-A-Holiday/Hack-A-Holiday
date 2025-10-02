@@ -500,3 +500,6 @@ async function getUserBookingsHandler(
 export const createBooking = withMiddleware(createBookingHandler);
 export const getTripBookings = withMiddleware(getTripBookingsHandler);
 export const getUserBookings = withMiddleware(getUserBookingsHandler);
+
+// Main Lambda handler export for AWS Lambda
+export const handler = createBooking;

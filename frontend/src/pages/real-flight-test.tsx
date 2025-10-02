@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
 import { KiwiApiService } from '../services/kiwi-api';
-import { FlightOption } from '../types/trip';
+import { FlightOption } from '../types/flight';
 
 export default function RealFlightTest() {
   const [loading, setLoading] = useState(false);
@@ -26,12 +26,11 @@ export default function RealFlightTest() {
       );
 
       if (response.itineraries && response.itineraries.length > 0) {
-        const realFlights = response.itineraries.slice(0, 5).map((flight, index) => 
+        const realFlights: (FlightOption | null)[] = response.itineraries.slice(0, 5).map((flight, index) => 
           kiwiApiService.convertToFlightOption(flight, index)
         );
-        
-        setFlights(realFlights);
-        console.log('✅ Real flight data loaded:', realFlights.length, 'flights');
+        setFlights(realFlights.filter(Boolean) as FlightOption[]);
+        console.log('✅ Real flight data loaded:', realFlights.filter(Boolean).length, 'flights');
       } else {
         setError('No flights found');
       }

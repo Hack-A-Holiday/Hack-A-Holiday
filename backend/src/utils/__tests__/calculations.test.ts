@@ -13,7 +13,7 @@ import {
   formatDuration,
   formatDate
 } from '../calculations';
-import { Itinerary, DayPlan, TripPreferences } from '../../types';
+import { Itinerary, TripPreferences } from '../../types';
 
 describe('Calculation Utils', () => {
   const mockItinerary: Partial<Itinerary> = {
@@ -25,9 +25,14 @@ describe('Calculation Utils', () => {
         departure: { airport: 'JFK', city: 'New York', time: '10:00', date: '2024-06-01' },
         arrival: { airport: 'CDG', city: 'Paris', time: '22:00', date: '2024-06-01' },
         duration: '8h 0m',
+        durationMinutes: 480,
         price: 600,
         stops: 0,
-        baggage: { carry: true, checked: 1 }
+        baggage: { carry: true, checked: 1 },
+        currency: 'USD',
+        refundable: true,
+        changeable: true,
+  source: 'mock',
       },
       return: {
         id: '2',
@@ -36,9 +41,14 @@ describe('Calculation Utils', () => {
         departure: { airport: 'CDG', city: 'Paris', time: '14:00', date: '2024-06-06' },
         arrival: { airport: 'JFK', city: 'New York', time: '18:00', date: '2024-06-06' },
         duration: '8h 0m',
+        durationMinutes: 480,
         price: 650,
         stops: 0,
-        baggage: { carry: true, checked: 1 }
+        baggage: { carry: true, checked: 1 },
+        currency: 'USD',
+        refundable: true,
+        changeable: true,
+  source: 'mock',
       }
     },
     hotels: [{
@@ -85,12 +95,13 @@ describe('Calculation Utils', () => {
       }],
       transportation: [{
         id: '1',
-        type: 'metro',
+        type: 'public',
         from: 'Hotel',
         to: 'Eiffel Tower',
         duration: '30 min',
         cost: 5,
-        description: 'Metro line 6'
+        description: 'Metro line 6',
+        // Remove refundable, currency, source if not in TransportOption type
       }],
       totalCost: 65
     }]

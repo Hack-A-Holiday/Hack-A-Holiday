@@ -4,7 +4,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const cdk = require("aws-cdk-lib");
 const dynamodb_stack_1 = require("./dynamodb-stack");
 const s3_stack_1 = require("./s3-stack");
-const lambda_stack_1 = require("./lambda-stack");
 const app = new cdk.App();
 // Get environment from context or default to 'dev'
 const environment = app.node.tryGetContext('environment') || 'dev';
@@ -26,19 +25,6 @@ const s3Stack = new s3_stack_1.S3Stack(app, `TravelCompanion-S3-${environment}`,
     environment,
     description: `S3 buckets and CloudFront for Travel Companion - ${environment}`,
 });
-// Deploy Lambda stack (depends on DynamoDB and S3)
-const lambdaStack = new lambda_stack_1.LambdaStack(app, `TravelCompanion-Lambda-${environment}`, {
-    env,
-    environment,
-    usersTableName: dynamoStack.usersTable.tableName,
-    tripsTableName: dynamoStack.tripsTable.tableName,
-    bookingsTableName: dynamoStack.bookingsTable.tableName,
-    s3BucketName: s3Stack.itineraryBucket.bucketName,
-    description: `Lambda functions and API Gateway for Travel Companion - ${environment}`,
-});
-// Add dependencies
-lambdaStack.addDependency(dynamoStack);
-lambdaStack.addDependency(s3Stack);
 // Add tags to all stacks
 const tags = {
     Project: 'TravelCompanion',

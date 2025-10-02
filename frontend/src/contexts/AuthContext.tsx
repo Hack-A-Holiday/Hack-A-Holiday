@@ -95,17 +95,43 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
   const [state, dispatch] = useReducer(authReducer, { ...initialState, loading: true });
   const router = useRouter();
 
-  // Utility functions for token storage
+  // Utility functions for consistent cookie and token storage
+  const setCookie = (name: string, value: string, days: number = 7) => {
+    const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
+    document.cookie = `${name}=${value}; expires=${expires}; path=/; secure; samesite=strict`;
+  };
+
+  const getCookie = (name: string): string | null => {
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? match[2] : null;
+  };
+
+  const removeCookie = (name: string) => {
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+  };
+
   const setToken = (token: string) => {
+    // Store in both localStorage and cookie for consistency
     localStorage.setItem('auth_token', token);
+    setCookie('authToken', token, 7);
+  };
+
+  const setUserSession = (user: User) => {
+    // Store user data in both localStorage and cookie
+    localStorage.setItem('user_session', JSON.stringify(user));
+    setCookie('userSession', JSON.stringify(user), 7);
   };
 
   const getToken = (): string | null => {
-    return localStorage.getItem('auth_token');
+    // Try cookie first, then localStorage for backward compatibility
+    return getCookie('authToken') || localStorage.getItem('auth_token');
   };
 
   const removeToken = () => {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_session');
+    removeCookie('authToken');
+    removeCookie('userSession');
   };
 
   // Check for existing session on mount
@@ -164,7 +190,9 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
           // Store Google user in DynamoDB and get our app token
           const response = await dynamoDBAuthService.storeGoogleUser(googleUser);
           
+          // Store token and user session consistently
           setToken(response.token);
+          setUserSession(response.user);
           
           dispatch({
             type: 'LOGIN_SUCCESS',
@@ -172,10 +200,11 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
           });
 
           // Show success alert for Google auth
+          const displayName = (response.user.name && response.user.name.trim()) ? response.user.name : response.user.email;
           await Swal.fire({
             icon: 'success',
             title: 'Google Sign-in Successful!',
-            text: `Welcome ${response.user.name}!`,
+            text: `Welcome ${displayName}!`,
             timer: 2500,
             showConfirmButton: false,
             toast: true,
@@ -183,8 +212,8 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
           });
 
           // Only redirect if we're on the auth page
-          if (router.pathname === '/') {
-            router.push('/dashboard');
+            if (router.pathname === '/') {
+              router.replace('/home');
           }
         } catch (error) {
           console.error('Error storing Google user:', error);
@@ -212,7 +241,7 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
         unsubscribe();
       }
     };
-  }, [router, state.user, state.token]);
+  }, []);
 
   // Email/Password login - goes directly to DynamoDB
   const login = useCallback(async (email: string, password: string) => {
@@ -221,7 +250,9 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
     try {
       const response = await dynamoDBAuthService.login(email, password);
       
+      // Store token and user session consistently (same as Google OAuth)
       setToken(response.token);
+      setUserSession(response.user);
       
       dispatch({
         type: 'LOGIN_SUCCESS',
@@ -229,18 +260,19 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
       });
 
       // Show success alert
+      const displayName = (response.user.name && response.user.name.trim()) ? response.user.name : response.user.email;
       await Swal.fire({
         icon: 'success',
         title: 'Welcome Back!',
-        text: `Hello ${response.user.name || response.user.email}!`,
+        text: `Hello ${displayName}!`,
         timer: 2000,
         showConfirmButton: false,
         toast: true,
         position: 'top-end'
       });
 
-      // Redirect to dashboard after successful login
-      router.push('/dashboard');
+  // Redirect to home after successful login
+  router.replace('/home');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       
@@ -266,7 +298,9 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
     try {
       const response = await dynamoDBAuthService.signup(email, password, name);
       
+      // Store token and user session consistently (same as other auth methods)
       setToken(response.token);
+      setUserSession(response.user);
       
       dispatch({
         type: 'LOGIN_SUCCESS',
@@ -277,7 +311,7 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
       await Swal.fire({
         icon: 'success',
         title: 'Account Created!',
-        text: `Welcome to Travel Companion, ${response.user.name}!`,
+        text: `Welcome to Travel Companion, ${(response.user.name && response.user.name.trim()) ? response.user.name : response.user.email}!`,
         timer: 3000,
         showConfirmButton: false,
         toast: true,
@@ -285,7 +319,7 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
       });
 
       // Redirect to dashboard after successful signup
-      router.push('/dashboard');
+  router.push('/plantrip');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Signup failed';
       

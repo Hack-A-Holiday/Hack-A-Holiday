@@ -40,6 +40,8 @@ describe('UserRepository', () => {
         accessibility: [],
       },
       tripHistory: [],
+  role: 'normal' as const,
+      isEmailVerified: true,
     };
 
     it('should create a new user successfully', async () => {
@@ -176,6 +178,8 @@ describe('UserRepository', () => {
       tripHistory: [],
       createdAt: '2024-01-01T00:00:00.000Z',
       updatedAt: '2024-01-01T00:00:00.000Z',
+  role: 'normal' as const,
+      isEmailVerified: true,
     };
 
     it('should update user preferences successfully', async () => {

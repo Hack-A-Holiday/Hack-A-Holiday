@@ -34,12 +34,14 @@
   "license": "MIT",
   "dependencies": {
     "date-fns": "^4.1.0",
+    "jsonwebtoken": "^9.0.2",
     "sweetalert2": "^11.23.0"
   },
   "engines": {
     "node": ">=18"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.152"
+    "@types/aws-lambda": "^8.10.152",
+    "@types/jsonwebtoken": "^9.0.10"
   }
 }

@@ -1,4 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
+import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { ApiError, ERROR_CODES } from '../types';
 
@@ -24,9 +25,25 @@ export function createResponse(
   requestId: string,
   headers: Record<string, string> = {}
 ): APIGatewayProxyResult {
+  // Dynamically set CORS origin: use request's Origin header if present and allowed, else fallback
+  let allowedOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+  // Try to get Origin from headers if available (for Lambda proxy integration, event.headers is passed in)
+  // This function doesn't have access to event, so allow passing origin via headers['__request_origin']
+  let requestOrigin = headers['__request_origin'] || '';
+  if (requestOrigin && (requestOrigin === allowedOrigin || allowedOrigin === '*' /* fallback, but never send * with credentials */)) {
+    allowedOrigin = requestOrigin;
+  }
+  if (allowedOrigin === '*') {
+    // Never send * if credentials are used
+    allowedOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+  }
+  // Remove the special header so it doesn't leak
+  if (headers['__request_origin']) delete headers['__request_origin'];
+
   const defaultHeaders = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
     'X-Request-ID': requestId,
@@ -95,28 +112,38 @@ export function parseJsonBody<T = any>(event: APIGatewayProxyEvent): T | null {
  * Extract user ID from event (from JWT token, API key, etc.)
  */
 export function extractUserId(event: APIGatewayProxyEvent): string | undefined {
-  // Check for user ID in headers (from authentication middleware)
+  // 1. Try to extract userId from JWT in cookie
+  if (event.headers && event.headers.cookie) {
+    const cookies = event.headers.cookie.split(';').map(c => c.trim());
+    const jwtCookie = cookies.find(c => c.startsWith('token='));
+    if (jwtCookie) {
+      const token = jwtCookie.replace('token=', '');
+      try {
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+        return decoded.userId || decoded.sub;
+      } catch (err) {
+        // Invalid token, ignore
+      }
+    }
+  }
+  // 2. Check for user ID in headers (from authentication middleware)
   const userIdHeader = event.headers['x-user-id'] || event.headers['X-User-Id'];
   if (userIdHeader) {
     return userIdHeader;
   }
-
-  // Check for user ID in JWT claims (if using Cognito)
+  // 3. (legacy) Cognito JWT claims check removed
   const claims = event.requestContext.authorizer?.claims;
   if (claims && claims.sub) {
     return claims.sub;
   }
-
-  // Check for user ID in path parameters
+  // 4. Check for user ID in path parameters
   if (event.pathParameters?.userId) {
     return event.pathParameters.userId;
   }
-
-  // Check for user ID in query parameters
+  // 5. Check for user ID in query parameters
   if (event.queryStringParameters?.userId) {
     return event.queryStringParameters.userId;
   }
-
   return undefined;
 }
 
@@ -194,10 +221,12 @@ export function validateEnvironment(requiredVars: string[]): void {
  */
 export function handleCorsPreflightRequest(event: APIGatewayProxyEvent): APIGatewayProxyResult | null {
   if (event.httpMethod === 'OPTIONS') {
+    const ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
     return {
       statusCode: 200,
       headers: {
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': ORIGIN,
+        'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-User-Id',
         'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
         'Access-Control-Max-Age': '86400',

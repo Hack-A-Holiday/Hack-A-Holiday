@@ -28,7 +28,8 @@ function createResponse(statusCode: number, body: any): APIGatewayProxyResult {
     statusCode,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': 'http://localhost:3000',
+      'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization',
       'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
     },
@@ -41,7 +42,8 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': 'http://localhost:3000',
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   };
@@ -131,7 +133,8 @@ export const handler = async (
 async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': 'http://localhost:3000',
+    'Access-Control-Allow-Credentials': 'true',
   };
 
   if (!event.body) {
@@ -178,9 +181,18 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
       { userId: user.id, email: user.email }
     );
 
+    // Set consistent cookies (same as Google OAuth)
+    const cookieOptions = 'HttpOnly; Path=/; Max-Age=604800; SameSite=None; Secure';
+    
     return {
       statusCode: 200,
-      headers,
+      headers: {
+        ...headers,
+        'Set-Cookie': [
+          `authToken=${token}; ${cookieOptions}`,
+          `userSession=${JSON.stringify(user)}; Path=/; Max-Age=604800; SameSite=None; Secure`
+        ].join(', '),
+      },
       body: JSON.stringify({
         user,
         token,
@@ -280,9 +292,18 @@ async function handleSignup(event: APIGatewayProxyEvent): Promise<APIGatewayProx
     );
 
     console.log('Signup completed successfully');
+    // Set consistent cookies (same as login and Google OAuth)
+    const cookieOptions = 'HttpOnly; Path=/; Max-Age=604800; SameSite=None; Secure';
+    
     return {
       statusCode: 201,
-      headers,
+      headers: {
+        ...headers,
+        'Set-Cookie': [
+          `authToken=${token}; ${cookieOptions}`,
+          `userSession=${JSON.stringify(user)}; Path=/; Max-Age=604800; SameSite=None; Secure`
+        ].join(', '),
+      },
       body: JSON.stringify({
         user,
         token,
@@ -347,9 +368,18 @@ async function handleGoogleUser(event: APIGatewayProxyEvent): Promise<APIGateway
       { userId: user.id, email: user.email }
     );
 
+    // Set consistent cookies (same as login and signup)
+    const cookieOptions = 'HttpOnly; Path=/; Max-Age=604800; SameSite=None; Secure';
+    
     return {
       statusCode: 200,
-      headers,
+      headers: {
+        ...headers,
+        'Set-Cookie': [
+          `authToken=${token}; ${cookieOptions}`,
+          `userSession=${JSON.stringify(user)}; Path=/; Max-Age=604800; SameSite=None; Secure`
+        ].join(', '),
+      },
       body: JSON.stringify({
         user,
         token,

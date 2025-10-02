@@ -26,7 +26,8 @@ export function createResponse(
 ): APIGatewayProxyResult {
   const defaultHeaders = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': 'http://localhost:3000',
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
     'X-Request-ID': requestId,
@@ -83,10 +84,9 @@ export function parseJsonBody<T = any>(event: APIGatewayProxyEvent): T | null {
   if (!event.body) {
     return null;
   }
-
   try {
     return JSON.parse(event.body) as T;
-  } catch (error) {
+  } catch {
     throw new Error('Invalid JSON in request body');
   }
 }
@@ -103,7 +103,7 @@ export function extractUserId(event: APIGatewayProxyEvent): string | undefined {
 
   // Check for user ID in JWT claims (if using Cognito)
   const claims = event.requestContext.authorizer?.claims;
-  if (claims && claims.sub) {
+  if (claims?.sub) {
     return claims.sub;
   }
 
@@ -267,9 +267,9 @@ export function withMiddleware(
  * In production, use Redis or DynamoDB for distributed rate limiting
  */
 class RateLimiter {
-  private requests: Map<string, number[]> = new Map();
-  private windowMs: number;
-  private maxRequests: number;
+  private readonly requests: Map<string, number[]> = new Map();
+  private readonly windowMs: number;
+  private readonly maxRequests: number;
 
   constructor(windowMs: number = 60000, maxRequests: number = 100) {
     this.windowMs = windowMs;

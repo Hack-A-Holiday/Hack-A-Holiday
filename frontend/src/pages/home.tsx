@@ -72,7 +72,7 @@ export default function HomePage() {
                 flexDirection: isMobile ? 'column' : 'row',
                 alignItems: 'center'
               }}>
-                <Link href="/dashboard" style={{
+                 <Link href="/plantrip" style={{
                   display: 'inline-block',
                   background: 'rgba(255, 255, 255, 0.2)',
                   color: 'white',
@@ -299,7 +299,7 @@ export default function HomePage() {
                 Let our AI create the perfect itinerary for your dream destination. 
                 Your adventure is just one click away!
               </p>
-              <Link href="/dashboard" style={{
+              <Link href="/plantrip" style={{
                 display: 'inline-block',
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 color: 'white',

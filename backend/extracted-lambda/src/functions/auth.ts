@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { UserRepository } from '../repositories/user-repository';
 import { UserProfile } from '../types';
+import { createResponse } from '../utils/lambda-utils';
 
 // Simple token creation without external library
 function createSimpleToken(payload: any): string {
@@ -22,30 +23,9 @@ function verifySimpleToken(token: string): any {
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
 let userRepository: UserRepository;
 
-// Helper function to create standardized response
-function createResponse(statusCode: number, body: any): APIGatewayProxyResult {
-  return {
-    statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    },
-    body: JSON.stringify(body)
-  };
-}
-
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  };
-
   console.log('Auth handler invoked:', {
     httpMethod: event.httpMethod,
     path: event.path,
@@ -65,11 +45,7 @@ export const handler = async (
     // Handle CORS preflight
     if (event.httpMethod === 'OPTIONS') {
       console.log('Handling OPTIONS request');
-      return {
-        statusCode: 200,
-        headers,
-        body: '',
-      };
+  return createResponse(200, '', event.requestContext.requestId);
     }
 
     const path = event.path;
@@ -106,71 +82,46 @@ export const handler = async (
     }
 
     console.log('No matching route found');
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({
-        error: 'Not found',
-        message: `Route ${method} ${path} not found`,
-      }),
-    };
+    return createResponse(404, {
+      error: 'Not found',
+      message: `Route ${method} ${path} not found`,
+    }, event.requestContext.requestId);
   } catch (error) {
     console.error('Error processing request:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
-      }),
-    };
+    return createResponse(500, {
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
+    }, event.requestContext.requestId);
   }
 };
 
 async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
-
   if (!event.body) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        error: 'Bad request',
-        message: 'Request body is required',
-      }),
-    };
+    return createResponse(400, {
+      error: 'Bad request',
+      message: 'Request body is required',
+    }, event.requestContext.requestId);
   }
 
   try {
     const { email, password } = JSON.parse(event.body);
 
     if (!email || !password) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'Bad request',
-          message: 'Email and password are required',
-        }),
-      };
+      return createResponse(400, {
+        error: 'Bad request',
+        message: 'Email and password are required',
+      }, event.requestContext.requestId);
     }
 
     // Authenticate user
     const user = await userRepository.authenticateUser(email, password);
 
     if (!user) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({
-          error: 'Authentication failed',
-          message: 'Invalid email or password',
-        }),
-      };
+      return createResponse(401, {
+        error: 'Authentication failed',
+        message: 'Invalid email or password',
+      }, event.requestContext.requestId);
     }
 
     // Generate JWT token
@@ -178,45 +129,39 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
       { userId: user.id, email: user.email }
     );
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        user,
-        token,
-      }),
-    };
+    // Set cookie for browser session (HttpOnly, Secure, SameSite=None for cross-site)
+    const cookie = [
+      `token=${token}`,
+      'Path=/',
+      'HttpOnly',
+      'Secure',
+      'SameSite=None',
+      // Optionally: `Max-Age=604800` // 7 days
+    ].join('; ');
+    return createResponse(200, {
+      user,
+      token,
+    }, event.requestContext.requestId, {
+      'Set-Cookie': cookie
+    });
   } catch (error) {
     console.error('Error in login:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Failed to login',
-      }),
-    };
+    return createResponse(500, {
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Failed to login',
+    }, event.requestContext.requestId);
   }
 }
 
 async function handleSignup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
-
   console.log('Starting handleSignup');
 
   if (!event.body) {
     console.log('No request body provided');
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        error: 'Bad request',
-        message: 'Request body is required',
-      }),
-    };
+    return createResponse(400, {
+      error: 'Bad request',
+      message: 'Request body is required',
+    }, event.requestContext.requestId);
   }
 
   try {
@@ -225,14 +170,10 @@ async function handleSignup(event: APIGatewayProxyEvent): Promise<APIGatewayProx
 
     if (!email || !password || !name) {
       console.log('Missing required fields:', { email: !!email, password: !!password, name: !!name });
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'Bad request',
-          message: 'Email, password, and name are required',
-        }),
-      };
+      return createResponse(400, {
+        error: 'Bad request',
+        message: 'Email, password, and name are required',
+      }, event.requestContext.requestId);
     }
 
     console.log('Checking if user exists for email:', email);
@@ -241,14 +182,10 @@ async function handleSignup(event: APIGatewayProxyEvent): Promise<APIGatewayProx
 
     if (existingUser) {
       console.log('User already exists:', email);
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'User already exists',
-          message: 'An account with this email already exists',
-        }),
-      };
+      return createResponse(400, {
+        error: 'User already exists',
+        message: 'An account with this email already exists',
+      }, event.requestContext.requestId);
     }
 
     console.log('Creating user data object');
@@ -280,58 +217,37 @@ async function handleSignup(event: APIGatewayProxyEvent): Promise<APIGatewayProx
     );
 
     console.log('Signup completed successfully');
-    return {
-      statusCode: 201,
-      headers,
-      body: JSON.stringify({
-        user,
-        token,
-      }),
-    };
+    return createResponse(201, {
+      user,
+      token,
+    }, event.requestContext.requestId);
   } catch (error) {
     console.error('Error in signup:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Failed to create account',
-        details: error instanceof Error ? error.stack : undefined,
-      }),
-    };
+    return createResponse(500, {
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Failed to create account',
+      details: error instanceof Error ? error.stack : undefined,
+    }, event.requestContext.requestId);
   }
 }
 
 async function handleGoogleUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
-
   if (!event.body) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        error: 'Bad request',
-        message: 'Request body is required',
-      }),
-    };
+    return createResponse(400, {
+      error: 'Bad request',
+      message: 'Request body is required',
+    }, event.requestContext.requestId);
   }
 
   try {
     const { googleId, email, name, profilePicture } = JSON.parse(event.body);
 
     if (!googleId || !email) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'Bad request',
-          message: 'Google ID and email are required',
-        }),
-      };
+      return createResponse(400, {
+        error: 'Bad request',
+        message: 'Google ID and email are required',
+      }, event.requestContext.requestId);
     }
 
     // Create or update Google user
@@ -347,122 +263,81 @@ async function handleGoogleUser(event: APIGatewayProxyEvent): Promise<APIGateway
       { userId: user.id, email: user.email }
     );
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        user,
-        token,
-      }),
-    };
+    return createResponse(200, {
+      user,
+      token,
+    }, event.requestContext.requestId);
   } catch (error) {
     console.error('Error storing Google user:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Failed to store Google user',
-      }),
-    };
+    return createResponse(500, {
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Failed to store Google user',
+    }, event.requestContext.requestId);
   }
 }
 
 async function handleGetCurrentUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
-
+  // Accept JWT from Authorization header or token cookie
+  let token = '';
   const authHeader = event.headers.Authorization || event.headers.authorization;
-  
-  if (!authHeader?.startsWith('Bearer ')) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({
-        error: 'Unauthorized',
-        message: 'Valid authorization token required',
-      }),
-    };
+  if (authHeader?.startsWith('Bearer ')) {
+    token = authHeader.substring(7);
+  } else if (event.headers.cookie) {
+    // Parse cookies for token
+    const cookies = event.headers.cookie.split(';').map(c => c.trim());
+    const jwtCookie = cookies.find(c => c.startsWith('token='));
+    if (jwtCookie) {
+      token = jwtCookie.replace('token=', '');
+    }
   }
-
+  if (!token) {
+    return createResponse(401, {
+      error: 'Unauthorized',
+      message: 'Valid authorization token or cookie required',
+    }, event.requestContext.requestId);
+  }
   try {
-    const token = authHeader.substring(7);
     const decoded = verifySimpleToken(token) as { userId: string };
-
     if (!decoded) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({
-          message: 'Invalid token',
-        }),
-      };
+      return createResponse(401, {
+        message: 'Invalid token',
+      }, event.requestContext.requestId);
     }
-
     const user = await userRepository.getUserById(decoded.userId);
-
     if (!user) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({
-          error: 'Not found',
-          message: 'User not found',
-        }),
-      };
+      return createResponse(404, {
+        error: 'Not found',
+        message: 'User not found',
+      }, event.requestContext.requestId);
     }
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        user,
-      }),
-    };
+    return createResponse(200, {
+      user,
+    }, event.requestContext.requestId);
   } catch (error) {
     console.error('Error getting current user:', error);
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({
-        error: 'Unauthorized',
-        message: 'Invalid or expired token',
-      }),
-    };
+    return createResponse(401, {
+      error: 'Unauthorized',
+      message: 'Invalid or expired token',
+    }, event.requestContext.requestId);
   }
 }
 
 async function handleForgotPassword(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
-
   if (!event.body) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        error: 'Bad request',
-        message: 'Request body is required',
-      }),
-    };
+    return createResponse(400, {
+      error: 'Bad request',
+      message: 'Request body is required',
+    }, event.requestContext.requestId);
   }
 
   try {
     const { email } = JSON.parse(event.body);
 
     if (!email) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'Bad request',
-          message: 'Email is required',
-        }),
-      };
+      return createResponse(400, {
+        error: 'Bad request',
+        message: 'Email is required',
+      }, event.requestContext.requestId);
     }
 
     // Generate reset token
@@ -470,13 +345,9 @@ async function handleForgotPassword(event: APIGatewayProxyEvent): Promise<APIGat
 
     if (!resetData) {
       // Don't reveal whether email exists or not for security
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          message: 'If an account with this email exists, a password reset link has been sent.',
-        }),
-      };
+      return createResponse(200, {
+        message: 'If an account with this email exists, a password reset link has been sent.',
+      }, event.requestContext.requestId);
     }
 
     // In a real application, you would send an email here
@@ -485,142 +356,88 @@ async function handleForgotPassword(event: APIGatewayProxyEvent): Promise<APIGat
     
     console.log(`Password reset requested for ${email}. Reset token: ${resetData.token}`);
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        message: 'If an account with this email exists, a password reset link has been sent.',
-        // Remove this in production - only for testing
-        resetToken: resetData.token,
-      }),
-    };
+    return createResponse(200, {
+      message: 'If an account with this email exists, a password reset link has been sent.',
+      // Remove this in production - only for testing
+      resetToken: resetData.token,
+    }, event.requestContext.requestId);
   } catch (error) {
     console.error('Error in forgot password:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Failed to process request',
-      }),
-    };
+    return createResponse(500, {
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Failed to process request',
+    }, event.requestContext.requestId);
   }
 }
 
 async function handleResetPassword(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
-
   if (!event.body) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        error: 'Bad request',
-        message: 'Request body is required',
-      }),
-    };
+    return createResponse(400, {
+      error: 'Bad request',
+      message: 'Request body is required',
+    }, event.requestContext.requestId);
   }
 
   try {
     const { token, newPassword } = JSON.parse(event.body);
 
     if (!token || !newPassword) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'Bad request',
-          message: 'Reset token and new password are required',
-        }),
-      };
+      return createResponse(400, {
+        error: 'Bad request',
+        message: 'Reset token and new password are required',
+      }, event.requestContext.requestId);
     }
 
     if (newPassword.length < 6) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'Bad request',
-          message: 'Password must be at least 6 characters long',
-        }),
-      };
+      return createResponse(400, {
+        error: 'Bad request',
+        message: 'Password must be at least 6 characters long',
+      }, event.requestContext.requestId);
     }
 
     const success = await userRepository.resetPasswordWithToken(token, newPassword);
 
     if (!success) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'Invalid or expired token',
-          message: 'Password reset token is invalid or has expired',
-        }),
-      };
+      return createResponse(400, {
+        error: 'Invalid or expired token',
+        message: 'Password reset token is invalid or has expired',
+      }, event.requestContext.requestId);
     }
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        message: 'Password has been reset successfully',
-      }),
-    };
+    return createResponse(200, {
+      message: 'Password has been reset successfully',
+    }, event.requestContext.requestId);
   } catch (error) {
     console.error('Error in reset password:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Failed to reset password',
-      }),
-    };
+    return createResponse(500, {
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Failed to reset password',
+    }, event.requestContext.requestId);
   }
 }
 
 async function handleVerifyResetToken(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
-
   const token = event.queryStringParameters?.token;
 
   if (!token) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        error: 'Bad request',
-        message: 'Reset token is required',
-      }),
-    };
+    return createResponse(400, {
+      error: 'Bad request',
+      message: 'Reset token is required',
+    }, event.requestContext.requestId);
   }
 
   try {
     const verification = await userRepository.verifyPasswordResetToken(token);
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        valid: verification.valid,
-        email: verification.email,
-      }),
-    };
+    return createResponse(200, {
+      valid: verification.valid,
+      email: verification.email,
+    }, event.requestContext.requestId);
   } catch (error) {
     console.error('Error verifying reset token:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Failed to verify token',
-      }),
-    };
+    return createResponse(500, {
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Failed to verify token',
+    }, event.requestContext.requestId);
   }
 }

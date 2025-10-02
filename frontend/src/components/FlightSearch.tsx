@@ -9,9 +9,25 @@
  * @version 1.0.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FlightOption, FlightSearchRequest, FlightSearchResponse, COMMON_AIRPORTS, FlightUtils } from '../types/flight';
 import { KiwiApiService } from '../services/kiwi-api';
+
+// Add CSS animation for spinner
+const spinKeyframes = `
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+`;
+
+// Inject the keyframes if not already present
+if (typeof document !== 'undefined' && !document.querySelector('#spin-animation')) {
+  const style = document.createElement('style');
+  style.id = 'spin-animation';
+  style.textContent = spinKeyframes;
+  document.head.appendChild(style);
+}
 
 interface FlightSearchProps {
   onFlightSelect?: (flight: FlightOption) => void;
@@ -21,6 +37,7 @@ interface FlightSearchProps {
 
 interface FlightFilters {
   maxPrice?: number;
+  minPrice?: number;
   maxStops?: number;
   preferredAirlines?: string[];
   departureTimeRange?: {
@@ -31,6 +48,10 @@ interface FlightFilters {
   refundable?: boolean;
   checkedBags?: number;
   includeBaggageCosts?: boolean;
+  maxDuration?: number;
+  minDuration?: number;
+  cabinClass?: string;
+  searchText?: string;
 }
 
 interface FlightPreferences {
@@ -45,9 +66,9 @@ interface FlightPreferences {
 
 export default function FlightSearch({ onFlightSelect, initialSearch, className = '' }: Readonly<FlightSearchProps>) {
   const [searchRequest, setSearchRequest] = useState<FlightSearchRequest>({
-    origin: initialSearch?.origin || 'JFK',
-    destination: initialSearch?.destination || 'CDG',
-    departureDate: initialSearch?.departureDate || new Date().toISOString().split('T')[0],
+    origin: initialSearch?.origin || '',
+    destination: initialSearch?.destination || '',
+    departureDate: initialSearch?.departureDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Tomorrow as default
     returnDate: initialSearch?.returnDate,
     passengers: initialSearch?.passengers || { adults: 1, children: 0, infants: 0 },
     cabinClass: initialSearch?.cabinClass || 'economy',
@@ -72,6 +93,9 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   const [sortBy, setSortBy] = useState<'price-asc' | 'price-desc' | 'duration-asc' | 'duration-desc' | 'departure-asc' | 'recommended'>('recommended');
   const [useRealData, setUseRealData] = useState(false);
   const [kiwiApiService] = useState(() => new KiwiApiService());
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [autoSearch, setAutoSearch] = useState(true);
 
   // Group airports by region for better organization
   const airportsByRegion = COMMON_AIRPORTS.reduce((acc, airport) => {
@@ -82,10 +106,126 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
     return acc;
   }, {} as Record<string, typeof COMMON_AIRPORTS>);
 
+  // Auto-search effect
+  useEffect(() => {
+    if (autoSearch && searchRequest.origin && searchRequest.destination && searchRequest.departureDate) {
+      const debounceTimer = setTimeout(() => {
+        handleSearch();
+      }, 1000); // Debounce for 1 second
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [searchRequest.origin, searchRequest.destination, searchRequest.departureDate, searchRequest.passengers, autoSearch]);
+
+  // Generate more comprehensive mock data
+  const generateEnhancedMockFlights = (count = 15) => {
+    const airlines = ['American Airlines', 'Delta Air Lines', 'United Airlines', 'British Airways', 'Lufthansa', 'Emirates', 'Air France', 'KLM', 'Swiss International', 'Turkish Airlines', 'Qatar Airways', 'Singapore Airlines', 'Cathay Pacific', 'Japan Airlines', 'Korean Air'];
+    const aircraftTypes = ['Boeing 737', 'Airbus A320', 'Boeing 777', 'Airbus A350', 'Boeing 787', 'Airbus A380'];
+    
+    return Array.from({ length: count }, (_, index) => {
+      const airline = airlines[index % airlines.length];
+      const basePrice = Math.floor(Math.random() * 1200) + 200;
+      const stops = Math.floor(Math.random() * 3);
+      const durationMinutes = 180 + (stops * 120) + Math.floor(Math.random() * 300);
+      const departureHour = 6 + Math.floor(Math.random() * 16);
+      const departureMinute = Math.floor(Math.random() * 60);
+      const arrivalTime = new Date();
+      arrivalTime.setHours(departureHour);
+      arrivalTime.setMinutes(departureMinute + durationMinutes);
+      
+      return {
+        id: `enhanced-flight-${index}`,
+        airline,
+        flightNumber: `${airline.split(' ')[0].substring(0, 2).toUpperCase()}${1000 + index}`,
+        aircraft: aircraftTypes[index % aircraftTypes.length],
+        departure: {
+          airport: searchRequest.origin,
+          city: 'Origin City',
+          time: `${departureHour.toString().padStart(2, '0')}:${departureMinute.toString().padStart(2, '0')}`,
+          date: searchRequest.departureDate,
+          terminal: `Terminal ${Math.floor(Math.random() * 5) + 1}`
+        },
+        arrival: {
+          airport: searchRequest.destination,
+          city: 'Destination City',
+          time: `${arrivalTime.getHours().toString().padStart(2, '0')}:${arrivalTime.getMinutes().toString().padStart(2, '0')}`,
+          date: searchRequest.departureDate,
+          terminal: `Terminal ${Math.floor(Math.random() * 5) + 1}`
+        },
+        duration: `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`,
+        durationMinutes,
+        price: basePrice + (stops * 50),
+        currency: 'USD',
+        stops,
+        layovers: stops > 0 ? Array.from({ length: stops }, (_, i) => ({
+          airport: `LAY${i + 1}`,
+          duration: `${Math.floor(Math.random() * 180) + 30}m`
+        })) : [],
+        baggage: {
+          carry: true,
+          checked: Math.random() > 0.3 ? 1 : 0,
+          checkedBagCost: Math.floor(Math.random() * 75) + 25,
+          maxCheckedBags: 3
+        },
+        refundable: Math.random() > 0.4,
+        changeable: Math.random() > 0.2,
+        source: 'mock' as const,
+        score: Math.random() * 0.4 + 0.6,
+        seatAvailability: {
+          economy: Math.floor(Math.random() * 50) + 10,
+          business: Math.floor(Math.random() * 20) + 5,
+          first: Math.floor(Math.random() * 8) + 2
+        },
+        onTimePerformance: Math.floor(Math.random() * 30) + 70,
+        carbonEmission: Math.floor(Math.random() * 500) + 200
+      } as FlightOption & {
+        aircraft: string;
+        layovers: Array<{ airport: string; duration: string }>;
+        seatAvailability: { economy: number; business: number; first: number };
+        onTimePerformance: number;
+        carbonEmission: number;
+      };
+    });
+  };
+
   const handleSearch = async () => {
+    setLoading(true);
+    setError(null);
+    setSearchResults(null);
+    
+    // Validate required fields before proceeding
+    if (!searchRequest.origin || !searchRequest.destination || !searchRequest.departureDate) {
+      setError('Please fill in all required fields: Origin, Destination, and Departure Date');
+      setLoading(false);
+      return;
+    }
+
+    // Ensure departure date is not in the past
+    const today = new Date().toISOString().split('T')[0];
+    if (searchRequest.departureDate < today) {
+      setError('Departure date cannot be in the past');
+      setLoading(false);
+      return;
+    }
+
+    // Validate return date if provided
+    if (searchRequest.returnDate && searchRequest.returnDate < searchRequest.departureDate) {
+      setError('Return date cannot be before departure date');
+      setLoading(false);
+      return;
+    }
+    
     try {
       const request: FlightSearchRequest = {
         ...searchRequest,
+        // Ensure all required fields are present
+        origin: searchRequest.origin.trim().toUpperCase(),
+        destination: searchRequest.destination.trim().toUpperCase(),
+        departureDate: searchRequest.departureDate,
+        passengers: {
+          adults: searchRequest.passengers.adults || 1,
+          children: searchRequest.passengers.children || 0,
+          infants: searchRequest.passengers.infants || 0
+        },
         filters: Object.keys(filters).length > 0 ? filters : undefined,
         preferences: preferences
       };
@@ -152,146 +292,135 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
         }
       }
 
-      // Fallback to mock data
-      console.log('🔍 Using mock data (fallback)...');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:3000';
-      const response = await fetch(`${apiUrl}/plan-trip`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          preferences: {
-            destination: request.destination,
-            budget: request.filters?.maxPrice || 2000,
-            duration: 5,
-            travelers: request.passengers.adults,
-            startDate: request.departureDate,
-            travelStyle: request.preferences?.userTravelStyle || 'mid-range',
-            interests: ['culture', 'food']
-          }
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      // Use Express backend for flight search
+      console.log('✈️ Searching flights with Express backend...');
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
       
-      if (data.success && data.itinerary?.flights) {
-        // Convert the existing API response to our enhanced flight search format
-        const mockFlights = data.itinerary.flights.map((flight: any, index: number) => ({
-          id: `flight-${index}`,
-          airline: flight.airline || 'Mock Airlines',
-          flightNumber: flight.flightNumber || `MA${1000 + index}`,
-          departure: {
-            airport: request.origin,
-            city: 'Origin City',
-            time: flight.departureTime || '10:00',
-            date: request.departureDate
+      try {
+        const response = await fetch(`${backendUrl}/flights/search`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': localStorage.getItem('authToken') || ''
           },
-          arrival: {
-            airport: request.destination,
-            city: 'Destination City',
-            time: flight.arrivalTime || '14:00',
-            date: request.departureDate
-          },
-          duration: flight.duration || '4h 00m',
-          durationMinutes: flight.durationMinutes || 240,
-          price: flight.price || Math.floor(Math.random() * 800) + 200,
-          currency: 'USD',
-          stops: flight.stops || 0,
-          baggage: {
-            carry: true,
-            checked: Math.random() > 0.3 ? 1 : 0,
-            checkedBagCost: Math.floor(Math.random() * 50) + 25, // $25-$75 per bag
-            maxCheckedBags: 3
-          },
-          refundable: Math.random() > 0.5,
-          changeable: Math.random() > 0.3,
-          source: 'mock' as const,
-          score: Math.random() * 0.4 + 0.6 // Random score between 0.6-1.0
-        }));
+          credentials: 'include',
+          body: JSON.stringify({
+            origin: request.origin.trim().toUpperCase(),
+            destination: request.destination.trim().toUpperCase(),
+            departureDate: request.departureDate,
+            returnDate: request.returnDate,
+            passengers: {
+              adults: request.passengers.adults || 1,
+              children: request.passengers.children || 0,
+              infants: request.passengers.infants || 0
+            },
+            cabinClass: request.cabinClass,
+            currency: request.currency || 'USD',
+            filters: filters,
+            preferences: preferences,
+            userContext: {
+              sessionId: localStorage.getItem('sessionId') || `session_${Date.now()}`,
+              userId: localStorage.getItem('userId'),
+              flightPreferences: preferences
+            }
+          })
+        });
 
-        const mockResponse: FlightSearchResponse = {
-          success: true,
-          flights: mockFlights as FlightOption[],
-          totalResults: mockFlights.length,
-          searchId: `search-${Date.now()}`,
-          searchTime: Math.floor(Math.random() * 1000) + 500,
-          filters: request.filters || {},
-          recommendations: {
-            bestPrice: (mockFlights as FlightOption[]).reduce((min: FlightOption, flight: FlightOption) => {
-              const minPrice = FlightUtils.getTotalPrice(min, filters.checkedBags || 0);
-              const flightPrice = FlightUtils.getTotalPrice(flight, filters.checkedBags || 0);
-              return flightPrice < minPrice ? flight : min;
-            }, mockFlights[0]),
-            bestValue: null,
-            fastest: null,
-            mostConvenient: null
-          },
-          fallbackUsed: true,
-          fallbackReason: 'Using trip planning API with mock flight data'
-        };
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
 
-        setSearchResults(mockResponse);
-      } else {
-        // If no flights in response, create some mock data
-        const mockFlights = Array.from({ length: 5 }, (_, index) => ({
-          id: `mock-flight-${index}`,
-          airline: ['American Airlines', 'Delta Air Lines', 'United Airlines', 'British Airways', 'Lufthansa'][index],
-          flightNumber: `AA${1000 + index}`,
-          departure: {
-            airport: request.origin,
-            city: 'Origin City',
-            time: `${8 + index * 2}:${index * 15}`,
-            date: request.departureDate
-          },
-          arrival: {
-            airport: request.destination,
-            city: 'Destination City',
-            time: `${12 + index * 2}:${index * 15}`,
-            date: request.departureDate
-          },
-          duration: `${3 + index}h ${index * 15}m`,
-          durationMinutes: 180 + index * 60,
-          price: Math.floor(Math.random() * 800) + 200,
-          currency: 'USD',
-          stops: index % 3 === 0 ? 0 : 1,
-          baggage: {
-            carry: true,
-            checked: Math.random() > 0.3 ? 1 : 0,
-            checkedBagCost: Math.floor(Math.random() * 50) + 25, // $25-$75 per bag
-            maxCheckedBags: 3
-          },
-          refundable: Math.random() > 0.5,
-          changeable: Math.random() > 0.3,
-          source: 'mock' as const,
-          score: Math.random() * 0.4 + 0.6
-        }));
+        const expressResponse = await response.json();
+        console.log('Express Backend Response:', expressResponse);
 
-        const mockResponse: FlightSearchResponse = {
-          success: true,
-          flights: mockFlights as FlightOption[],
-          totalResults: mockFlights.length,
-          searchId: `search-${Date.now()}`,
-          searchTime: Math.floor(Math.random() * 1000) + 500,
-          filters: request.filters || {},
-          recommendations: {
-            bestPrice: (mockFlights as FlightOption[]).reduce((min: FlightOption, flight: FlightOption) => {
-              const minPrice = FlightUtils.getTotalPrice(min, filters.checkedBags || 0);
-              const flightPrice = FlightUtils.getTotalPrice(flight, filters.checkedBags || 0);
-              return flightPrice < minPrice ? flight : min;
-            }, mockFlights[0]),
-            bestValue: null,
-            fastest: null,
-            mostConvenient: null
-          }
-        };
+        if (expressResponse.success && expressResponse.flights) {
+          // Convert Express response to expected format
+          const convertedResponse: FlightSearchResponse = {
+            success: true,
+            flights: expressResponse.flights.map((flight: any) => ({
+              id: flight.id || `flight-${Math.random()}`,
+              airline: flight.airline || 'Unknown Airline',
+              flightNumber: flight.flightNumber || 'N/A',
+              departure: {
+                airport: flight.origin || request.origin,
+                city: flight.originCity || 'Origin City',
+                time: flight.departureTime ? new Date(flight.departureTime).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) : '00:00',
+                date: flight.departureDate || request.departureDate
+              },
+              arrival: {
+                airport: flight.destination || request.destination,
+                city: flight.destinationCity || 'Destination City', 
+                time: flight.arrivalTime ? new Date(flight.arrivalTime).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) : '00:00',
+                date: flight.arrivalDate || request.departureDate
+              },
+              duration: flight.duration || '4h 00m',
+              durationMinutes: flight.durationMinutes || 240,
+              price: flight.price || 500,
+              currency: flight.currency || 'USD',
+              stops: flight.stops || 0,
+              baggage: {
+                carry: true,
+                checked: flight.baggage?.checked !== 'Not included' ? 1 : 0,
+                checkedBagCost: flight.baggage?.checkedBagCost || 50,
+                maxCheckedBags: 3
+              },
+              refundable: flight.refundable || false,
+              changeable: flight.changeable || false,
+              source: 'express' as const,
+              score: flight.personalizedScore || 0.7
+            })),
+            totalResults: expressResponse.totalResults || expressResponse.flights.length,
+            searchId: expressResponse.searchId || `search-${Date.now()}`,
+            searchTime: expressResponse.searchTime || 1000,
+            filters: request.filters || {},
+            recommendations: expressResponse.recommendations || {
+              bestPrice: null,
+              bestValue: null,
+              fastest: null,
+              mostConvenient: null
+            },
+            fallbackUsed: expressResponse.fallbackUsed || false,
+            fallbackReason: expressResponse.fallbackReason || 'Express backend search'
+          };
 
-        setSearchResults(mockResponse);
+          setSearchResults(convertedResponse);
+          console.log('✅ Express backend search completed:', convertedResponse.flights.length, 'flights');
+          return;
+        }
+      } catch (expressError: any) {
+        console.error('Express backend error:', expressError);
+        // Continue to fallback mock data
       }
+
+      // Fallback to enhanced mock data
+      console.log('📝 Using enhanced mock flight data as fallback...');
+      const mockFlights = generateEnhancedMockFlights(20);
+
+      const mockResponse: FlightSearchResponse = {
+        success: true,
+        flights: mockFlights as FlightOption[],
+        totalResults: mockFlights.length,
+        searchId: `search-${Date.now()}`,
+        searchTime: Math.floor(Math.random() * 1000) + 500,
+        filters: request.filters || {},
+        recommendations: {
+          bestPrice: mockFlights.reduce((min, flight) => flight.price < min.price ? flight : min, mockFlights[0]) as FlightOption,
+          bestValue: mockFlights.sort((a, b) => (a.price / a.durationMinutes) - (b.price / b.durationMinutes))[0] as FlightOption,
+          fastest: mockFlights.reduce((min, flight) => flight.durationMinutes < min.durationMinutes ? flight : min, mockFlights[0]) as FlightOption,
+          mostConvenient: mockFlights.find(f => f.stops === 0) || mockFlights[0] as FlightOption
+        },
+        fallbackUsed: true,
+        fallbackReason: 'Using enhanced mock flight data as fallback'
+      };
+
+      setSearchResults(mockResponse);
     } catch (err: any) {
       setError(err.message || 'Unknown error occurred during flight search');
       console.error('Flight search error:', err);
@@ -311,7 +440,8 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
     setFilters(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -319,11 +449,15 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   };
 
   const handlePreferenceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-            const target = e.target as HTMLInputElement;
-            const { name, value, type } = target;
-            const checked = target.checked;
-            // Handle preference change logic here
-          };
+    const target = e.target as HTMLInputElement;
+    const { name, value, type } = target;
+    const checked = target.checked;
+    
+    setPreferences(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
 
   const toggleFilters = () => {
     setShowFilters(prev => !prev);
@@ -337,12 +471,57 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
     setUseRealData(prev => !prev);
   };
 
-  // Sort flights based on the selected criteria
-  const sortedFlights = React.useMemo(() => {
+  // Enhanced filtering and sorting with Excel-like capabilities
+  const filteredAndSortedFlights = React.useMemo(() => {
     if (!searchResults?.flights) return [];
 
-    const flights = [...searchResults.flights];
+    let flights = [...searchResults.flights];
 
+    // Apply column filters (Excel-like)
+    Object.entries(columnFilters).forEach(([column, filterValue]) => {
+      if (!filterValue) return;
+      
+      const searchTerm = filterValue.toLowerCase();
+      flights = flights.filter(flight => {
+        switch (column) {
+          case 'airline':
+            return flight.airline.toLowerCase().includes(searchTerm);
+          case 'flightNumber':
+            return flight.flightNumber.toLowerCase().includes(searchTerm);
+          case 'price':
+            return flight.price.toString().includes(searchTerm);
+          case 'duration':
+            return flight.duration.toLowerCase().includes(searchTerm);
+          case 'stops':
+            return flight.stops.toString().includes(searchTerm);
+          case 'departure':
+            return flight.departure.time.includes(searchTerm) || flight.departure.airport.toLowerCase().includes(searchTerm);
+          case 'arrival':
+            return flight.arrival.time.includes(searchTerm) || flight.arrival.airport.toLowerCase().includes(searchTerm);
+          default:
+            return true;
+        }
+      });
+    });
+
+    // Apply advanced filters
+    if (filters.minPrice) flights = flights.filter(f => f.price >= filters.minPrice!);
+    if (filters.maxPrice) flights = flights.filter(f => f.price <= filters.maxPrice!);
+    if (filters.maxStops !== undefined) flights = flights.filter(f => f.stops <= filters.maxStops!);
+    if (filters.directFlightsOnly) flights = flights.filter(f => f.stops === 0);
+    if (filters.refundable) flights = flights.filter(f => f.refundable);
+    if (filters.cabinClass) flights = flights.filter(f => f.cabinClass?.toLowerCase() === filters.cabinClass?.toLowerCase());
+    if (filters.searchText) {
+      const searchTerm = filters.searchText.toLowerCase();
+      flights = flights.filter(f => 
+        f.airline.toLowerCase().includes(searchTerm) ||
+        f.flightNumber.toLowerCase().includes(searchTerm) ||
+        f.departure.airport.toLowerCase().includes(searchTerm) ||
+        f.arrival.airport.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Sort flights
     switch (sortBy) {
       case 'price-asc':
         flights.sort((a, b) => a.price - b.price);
@@ -370,83 +549,1077 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
     }
 
     return flights;
-  }, [searchResults?.flights, sortBy]);
+  }, [searchResults?.flights, sortBy, columnFilters, filters]);
+
+  const handleColumnFilter = (column: string, value: string) => {
+    setColumnFilters(prev => ({
+      ...prev,
+      [column]: value
+    }));
+  };
+
+  const clearAllFilters = () => {
+    setColumnFilters({});
+    setFilters({});
+  };
 
   return (
-    <div className={`flight-search ${className}`}>
-      <div className="search-header">
-        <h2>Flight Search</h2>
-        <button onClick={toggleFilters} className="toggle-filters">
-          {showFilters ? 'Hide Filters' : 'Show Filters'}
+    <div style={{
+      maxWidth: '1200px',
+      margin: '0 auto',
+      padding: '20px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    }} className={className}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '25px',
+        padding: '20px',
+        background: 'white',
+        borderRadius: '15px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+        border: '1px solid #e1e5e9'
+      }}>
+        <h2 style={{
+          margin: 0,
+          color: '#495057',
+          fontSize: '2rem',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          ✈️ Flight Search
+        </h2>
+        <button 
+          onClick={toggleFilters}
+          style={{
+            padding: '10px 20px',
+            background: showFilters ? '#28a745' : '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '600',
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+          onMouseOver={(e) => (e.target as HTMLElement).style.background = showFilters ? '#218838' : '#0056b3'}
+          onMouseOut={(e) => (e.target as HTMLElement).style.background = showFilters ? '#28a745' : '#007bff'}
+        >
+          {showFilters ? '🔍 Hide Filters' : '🔧 Show Filters'}
         </button>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
+      {error && (
+        <div style={{
+          background: '#f8d7da',
+          color: '#721c24',
+          padding: '15px 20px',
+          borderRadius: '10px',
+          margin: '20px 0',
+          border: '1px solid #f5c6cb',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
+          ⚠️ {error}
+        </div>
+      )}
 
-      <div className="search-form">
-        <div className="form-group">
-          <label htmlFor="origin">Origin</label>
-          <input type="text" id="origin" name="origin" value={searchRequest.origin} onChange={handleInputChange} />
+      <div style={{
+        background: 'white',
+        borderRadius: '15px',
+        padding: '30px',
+        boxShadow: '0 5px 20px rgba(0,0,0,0.08)',
+        marginBottom: '25px',
+        border: '1px solid #e1e5e9'
+      }}>
+        {/* Popular Airport Codes Helper */}
+        <div className="airport-helper" style={{ 
+          background: '#f8f9fa', 
+          padding: '15px', 
+          borderRadius: '8px', 
+          marginBottom: '20px',
+          fontSize: '14px'
+        }}>
+          <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>
+            Popular Airport Codes:
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
+            <div><strong>New York:</strong> JFK, LGA, EWR</div>
+            <div><strong>London:</strong> LHR, LGW, STN</div>
+            <div><strong>Paris:</strong> CDG, ORY</div>
+            <div><strong>Tokyo:</strong> NRT, HND</div>
+            <div><strong>Los Angeles:</strong> LAX</div>
+            <div><strong>Chicago:</strong> ORD, MDW</div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label htmlFor="origin" style={{
+            display: 'block',
+            marginBottom: '8px',
+            fontWeight: '600',
+            color: '#495057',
+            fontSize: '14px'
+          }}>
+            ✈️ Origin Airport Code *
+          </label>
+          <input 
+            type="text" 
+            id="origin" 
+            name="origin" 
+            value={searchRequest.origin} 
+            onChange={handleInputChange}
+            placeholder="e.g., JFK, LAX, LHR"
+            required
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              border: `2px solid ${!searchRequest.origin ? '#ff6b6b' : '#e1e5e9'}`,
+              borderRadius: '10px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'all 0.3s ease',
+              background: '#fafbfc'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#007bff'}
+            onBlur={(e) => e.target.style.borderColor = !searchRequest.origin ? '#ff6b6b' : '#e1e5e9'}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label htmlFor="destination" style={{
+            display: 'block',
+            marginBottom: '8px',
+            fontWeight: '600',
+            color: '#495057',
+            fontSize: '14px'
+          }}>
+            🛬 Destination Airport Code *
+          </label>
+          <input 
+            type="text" 
+            id="destination" 
+            name="destination" 
+            value={searchRequest.destination} 
+            onChange={handleInputChange}
+            placeholder="e.g., CDG, NRT, SYD"
+            required
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              border: `2px solid ${!searchRequest.destination ? '#ff6b6b' : '#e1e5e9'}`,
+              borderRadius: '10px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'all 0.3s ease',
+              background: '#fafbfc'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#007bff'}
+            onBlur={(e) => e.target.style.borderColor = !searchRequest.destination ? '#ff6b6b' : '#e1e5e9'}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label htmlFor="departureDate" style={{
+            display: 'block',
+            marginBottom: '8px',
+            fontWeight: '600',
+            color: '#495057',
+            fontSize: '14px'
+          }}>
+            📅 Departure Date *
+          </label>
+          <input 
+            type="date" 
+            id="departureDate" 
+            name="departureDate" 
+            value={searchRequest.departureDate} 
+            onChange={handleInputChange}
+            min={new Date().toISOString().split('T')[0]}
+            required
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              border: `2px solid ${!searchRequest.departureDate ? '#ff6b6b' : '#e1e5e9'}`,
+              borderRadius: '10px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'all 0.3s ease',
+              background: '#fafbfc'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#007bff'}
+            onBlur={(e) => e.target.style.borderColor = !searchRequest.departureDate ? '#ff6b6b' : '#e1e5e9'}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label htmlFor="returnDate" style={{
+            display: 'block',
+            marginBottom: '8px',
+            fontWeight: '600',
+            color: '#495057',
+            fontSize: '14px'
+          }}>
+            🔁 Return Date
+          </label>
+          <input 
+            type="date" 
+            id="returnDate" 
+            name="returnDate" 
+            value={searchRequest.returnDate || ''} 
+            onChange={handleInputChange}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              border: '2px solid #e1e5e9',
+              borderRadius: '10px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'all 0.3s ease',
+              background: '#fafbfc'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#007bff'}
+            onBlur={(e) => e.target.style.borderColor = '#e1e5e9'}
+          />
         </div>
 
         <div className="form-group">
-          <label htmlFor="destination">Destination</label>
-          <input type="text" id="destination" name="destination" value={searchRequest.destination} onChange={handleInputChange} />
+          <label htmlFor="adults">Adults</label>
+          <input 
+            type="number" 
+            id="adults" 
+            name="adults" 
+            min="1" 
+            value={searchRequest.passengers.adults} 
+            onChange={(e) => setSearchRequest(prev => ({
+              ...prev,
+              passengers: { ...prev.passengers, adults: parseInt(e.target.value) }
+            }))} 
+          />
         </div>
 
         <div className="form-group">
-          <label htmlFor="departureDate">Departure Date</label>
-          <input type="date" id="departureDate" name="departureDate" value={searchRequest.departureDate} onChange={handleInputChange} />
+          <label htmlFor="children">Children</label>
+          <input 
+            type="number" 
+            id="children" 
+            name="children" 
+            min="0" 
+            value={searchRequest.passengers.children || 0} 
+            onChange={(e) => setSearchRequest(prev => ({
+              ...prev,
+              passengers: { ...prev.passengers, children: parseInt(e.target.value) }
+            }))} 
+          />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="returnDate">Return Date</label>
-          <input type="date" id="returnDate" name="returnDate" value={searchRequest.returnDate} onChange={handleInputChange} />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="passengers">Passengers</label>
-          <input type="number" id="adults" name="adults" min="1" value={searchRequest.passengers.adults} onChange={handleInputChange} />
-          <input type="number" id="children" name="children" min="0" value={searchRequest.passengers.children} onChange={handleInputChange} />
-          <input type="number" id="infants" name="infants" min="0" value={searchRequest.passengers.infants} onChange={handleInputChange} />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="cabinClass">Cabin Class</label>
-          <select id="cabinClass" name="cabinClass" value={searchRequest.cabinClass} onChange={handleInputChange}>
-            <option value="economy">Economy</option>
-            <option value="business">Business</option>
-            <option value="first">First</option>
+        <div style={{ marginBottom: '30px' }}>
+          <label htmlFor="cabinClass" style={{
+            display: 'block',
+            marginBottom: '8px',
+            fontWeight: '600',
+            color: '#495057',
+            fontSize: '14px'
+          }}>
+            💺 Cabin Class
+          </label>
+          <select 
+            id="cabinClass" 
+            name="cabinClass" 
+            value={searchRequest.cabinClass} 
+            onChange={handleInputChange}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              border: '2px solid #e1e5e9',
+              borderRadius: '10px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'all 0.3s ease',
+              background: '#fafbfc',
+              cursor: 'pointer'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#007bff'}
+            onBlur={(e) => e.target.style.borderColor = '#e1e5e9'}
+          >
+            <option value="economy">Economy Class</option>
+            <option value="business">Business Class</option>
+            <option value="first">First Class</option>
           </select>
         </div>
+
+        <button 
+          onClick={handleSearch} 
+          disabled={loading || !searchRequest.origin || !searchRequest.destination || !searchRequest.departureDate} 
+          style={{
+            width: '100%',
+            padding: '16px 24px',
+            background: loading || (!searchRequest.origin || !searchRequest.destination || !searchRequest.departureDate) 
+              ? 'linear-gradient(135deg, #ccc 0%, #999 100%)' 
+              : 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '12px',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            cursor: (!searchRequest.origin || !searchRequest.destination || !searchRequest.departureDate) ? 'not-allowed' : 'pointer',
+            transition: 'all 0.3s ease',
+            boxShadow: loading || (!searchRequest.origin || !searchRequest.destination || !searchRequest.departureDate) 
+              ? 'none' 
+              : '0 4px 15px rgba(0, 123, 255, 0.3)',
+            transform: 'translateY(0)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px'
+          }}
+          onMouseEnter={(e) => {
+            if (!loading && searchRequest.origin && searchRequest.destination && searchRequest.departureDate) {
+              (e.target as HTMLElement).style.transform = 'translateY(-2px)';
+              (e.target as HTMLElement).style.boxShadow = '0 6px 20px rgba(0, 123, 255, 0.4)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            (e.target as HTMLElement).style.transform = 'translateY(0)';
+            (e.target as HTMLElement).style.boxShadow = loading || (!searchRequest.origin || !searchRequest.destination || !searchRequest.departureDate) 
+              ? 'none' 
+              : '0 4px 15px rgba(0, 123, 255, 0.3)';
+          }}
+        >
+          {loading ? (
+            <>
+              <div style={{
+                width: '20px',
+                height: '20px',
+                border: '2px solid #ffffff30',
+                borderTop: '2px solid white',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}></div>
+              Searching Flights...
+            </>
+          ) : (
+            <>
+              ✈️ Search Flights
+            </>
+          )}
+        </button>
       </div>
 
       {showFilters && (
-        <div className="filter-section">
-          <div className="form-group">
-            <label htmlFor="directFlightsOnly">Direct Flights Only</label>
-            <input type="checkbox" id="directFlightsOnly" name="directFlightsOnly" checked={filters.directFlightsOnly || false} onChange={handleFilterChange} />
+        <div style={{
+          background: 'white',
+          borderRadius: '15px',
+          padding: '25px',
+          boxShadow: '0 5px 20px rgba(0,0,0,0.08)',
+          marginBottom: '25px',
+          border: '1px solid #e1e5e9'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 20px 0', 
+            color: '#495057', 
+            fontSize: '1.2rem',
+            fontWeight: 'bold'
+          }}>
+            🔧 Advanced Filters
+          </h3>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+            {/* Price Range */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057', fontSize: '14px' }}>
+                💰 Price Range
+              </label>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={filters.minPrice || ''}
+                  onChange={(e) => setFilters(prev => ({ ...prev, minPrice: e.target.value ? parseInt(e.target.value) : undefined }))}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                />
+                <span style={{ color: '#6c757d' }}>-</span>
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={filters.maxPrice || ''}
+                  onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value ? parseInt(e.target.value) : undefined }))}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Max Stops */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057', fontSize: '14px' }}>
+                🔄 Maximum Stops
+              </label>
+              <select
+                value={filters.maxStops ?? ''}
+                onChange={(e) => setFilters(prev => ({ ...prev, maxStops: e.target.value ? parseInt(e.target.value) : undefined }))}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '2px solid #e1e5e9',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  background: 'white'
+                }}
+              >
+                <option value="">Any number of stops</option>
+                <option value="0">Direct flights only</option>
+                <option value="1">Maximum 1 stop</option>
+                <option value="2">Maximum 2 stops</option>
+              </select>
+            </div>
+
+            {/* Cabin Class Filter */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057', fontSize: '14px' }}>
+                💺 Cabin Class
+              </label>
+              <select
+                value={filters.cabinClass || ''}
+                onChange={(e) => setFilters(prev => ({ ...prev, cabinClass: e.target.value || undefined }))}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '2px solid #e1e5e9',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  background: 'white'
+                }}
+              >
+                <option value="">Any class</option>
+                <option value="economy">Economy</option>
+                <option value="business">Business</option>
+                <option value="first">First Class</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Checkbox Filters */}
+          <div style={{ marginTop: '20px', display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={filters.directFlightsOnly || false} 
+                onChange={(e) => setFilters(prev => ({ ...prev, directFlightsOnly: e.target.checked }))}
+                style={{ transform: 'scale(1.2)' }}
+              />
+              <span style={{ fontWeight: '500', color: '#495057' }}>✈️ Direct Flights Only</span>
+            </label>
+            
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={filters.refundable || false} 
+                onChange={(e) => setFilters(prev => ({ ...prev, refundable: e.target.checked }))}
+                style={{ transform: 'scale(1.2)' }}
+              />
+              <span style={{ fontWeight: '500', color: '#495057' }}>💰 Refundable Only</span>
+            </label>
+            
+            {/* Clear Filters Button */}
+            <button
+              onClick={() => setFilters({})}
+              style={{
+                padding: '8px 16px',
+                background: '#ff6b6b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                marginLeft: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => (e.target as HTMLElement).style.background = '#ff5252'}
+              onMouseOut={(e) => (e.target as HTMLElement).style.background = '#ff6b6b'}
+            >
+              🗑️ Clear All Filters
+            </button>
           </div>
         </div>
       )}
 
       {searchResults && (
-        <div className="results-section">
-          {sortedFlights.map(flight => (
-            <div key={flight.id} className="flight-option">
-              <h3>{flight.airline}</h3>
-              <p>{flight.price} {flight.currency}</p>
+        <div style={{ marginTop: '30px' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '25px',
+            padding: '20px',
+            background: 'white',
+            borderRadius: '12px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.05)'
+          }}>
+            <div>
+              <h3 style={{ margin: 0, color: '#495057', fontSize: '1.3rem' }}>
+                ✅ Found {searchResults.totalResults} flights
+              </h3>
+              <p style={{ margin: '5px 0 0 0', color: '#6c757d', fontSize: '14px' }}>
+                Search completed in {searchResults.searchTime}ms
+              </p>
             </div>
-          ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+              {/* View Mode Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontWeight: '600', color: '#495057', fontSize: '14px' }}>📊 View:</span>
+                <div style={{ display: 'flex', background: '#f8f9fa', borderRadius: '8px', padding: '2px' }}>
+                  <button
+                    onClick={() => setViewMode('cards')}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      background: viewMode === 'cards' ? '#667eea' : 'transparent',
+                      color: viewMode === 'cards' ? 'white' : '#6c757d',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    🃏 Cards
+                  </button>
+                  <button
+                    onClick={() => setViewMode('table')}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      background: viewMode === 'table' ? '#667eea' : 'transparent',
+                      color: viewMode === 'table' ? 'white' : '#6c757d',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    📋 Table
+                  </button>
+                </div>
+              </div>
 
-          {searchResults?.totalResults > sortedFlights.length && (
-            <button onClick={() => setSearchResults(prev => prev ? {
-              ...prev,
-              flights: [...prev.flights, ...sortedFlights],
-              totalResults: prev.totalResults + sortedFlights.length
-            } : null)}>
-              Load More
-            </button>
+              {/* Global Search */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontWeight: '600', color: '#495057', fontSize: '14px' }}>🔍 Search:</span>
+                <input
+                  type="text"
+                  placeholder="Search flights..."
+                  value={filters.searchText || ''}
+                  onChange={(e) => setFilters(prev => ({ ...prev, searchText: e.target.value }))}
+                  style={{
+                    padding: '6px 12px',
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    outline: 'none',
+                    width: '150px'
+                  }}
+                />
+              </div>
+
+              {/* Sort Control */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label htmlFor="sortBy" style={{ fontWeight: '600', color: '#495057', fontSize: '14px' }}>🔄 Sort:</label>
+                <select 
+                  id="sortBy" 
+                  value={sortBy} 
+                  onChange={(e) => handleSortChange(e.target.value as any)}
+                  style={{
+                    padding: '6px 12px',
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    minWidth: '150px'
+                  }}
+                >
+                  <option value="recommended">⭐ Recommended</option>
+                  <option value="price-asc">💰 Price ↑</option>
+                  <option value="price-desc">💸 Price ↓</option>
+                  <option value="duration-asc">⚡ Duration ↑</option>
+                  <option value="duration-desc">🐌 Duration ↓</option>
+                  <option value="departure-asc">🕐 Departure ↑</option>
+                </select>
+              </div>
+
+              {/* Clear Filters Button */}
+              {(Object.values(columnFilters).some(v => v) || Object.keys(filters).some(k => filters[k as keyof typeof filters])) && (
+                <button
+                  onClick={clearAllFilters}
+                  style={{
+                    padding: '6px 12px',
+                    border: '1px solid #dc3545',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    background: 'white',
+                    color: '#dc3545',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = '#dc3545';
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.color = '#dc3545';
+                  }}
+                >
+                  🗑️ Clear All
+                </button>
+              )}
+            </div>
+          </div>
+
+          {viewMode === 'table' ? (
+            /* Table View */
+            <div style={{
+              background: 'white',
+              borderRadius: '15px',
+              overflow: 'hidden',
+              boxShadow: '0 5px 20px rgba(0,0,0,0.08)',
+              border: '1px solid #e1e5e9'
+            }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+                      <th style={{ padding: '15px 12px', textAlign: 'left', fontWeight: '600', minWidth: '140px' }}>
+                        <div>✈️ Airline</div>
+                        <input
+                          type="text"
+                          placeholder="Filter..."
+                          value={columnFilters.airline || ''}
+                          onChange={(e) => handleColumnFilter('airline', e.target.value)}
+                          style={{
+                            marginTop: '8px',
+                            padding: '4px 8px',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            background: 'rgba(255,255,255,0.1)',
+                            color: 'white'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </th>
+                      <th style={{ padding: '15px 12px', textAlign: 'left', fontWeight: '600', minWidth: '100px' }}>
+                        <div>🔢 Flight #</div>
+                        <input
+                          type="text"
+                          placeholder="Filter..."
+                          value={columnFilters.flightNumber || ''}
+                          onChange={(e) => handleColumnFilter('flightNumber', e.target.value)}
+                          style={{
+                            marginTop: '8px',
+                            padding: '4px 8px',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            background: 'rgba(255,255,255,0.1)',
+                            color: 'white'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </th>
+                      <th style={{ padding: '15px 12px', textAlign: 'left', fontWeight: '600', minWidth: '120px' }}>
+                        <div>🛫 Departure</div>
+                        <input
+                          type="text"
+                          placeholder="Filter..."
+                          value={columnFilters.departure || ''}
+                          onChange={(e) => handleColumnFilter('departure', e.target.value)}
+                          style={{
+                            marginTop: '8px',
+                            padding: '4px 8px',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            background: 'rgba(255,255,255,0.1)',
+                            color: 'white'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </th>
+                      <th style={{ padding: '15px 12px', textAlign: 'left', fontWeight: '600', minWidth: '120px' }}>
+                        <div>🛬 Arrival</div>
+                        <input
+                          type="text"
+                          placeholder="Filter..."
+                          value={columnFilters.arrival || ''}
+                          onChange={(e) => handleColumnFilter('arrival', e.target.value)}
+                          style={{
+                            marginTop: '8px',
+                            padding: '4px 8px',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            background: 'rgba(255,255,255,0.1)',
+                            color: 'white'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </th>
+                      <th style={{ padding: '15px 12px', textAlign: 'left', fontWeight: '600', minWidth: '100px' }}>
+                        <div>⏱️ Duration</div>
+                        <input
+                          type="text"
+                          placeholder="Filter..."
+                          value={columnFilters.duration || ''}
+                          onChange={(e) => handleColumnFilter('duration', e.target.value)}
+                          style={{
+                            marginTop: '8px',
+                            padding: '4px 8px',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            background: 'rgba(255,255,255,0.1)',
+                            color: 'white'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </th>
+                      <th style={{ padding: '15px 12px', textAlign: 'center', fontWeight: '600', minWidth: '80px' }}>
+                        <div>🔄 Stops</div>
+                        <input
+                          type="text"
+                          placeholder="Filter..."
+                          value={columnFilters.stops || ''}
+                          onChange={(e) => handleColumnFilter('stops', e.target.value)}
+                          style={{
+                            marginTop: '8px',
+                            padding: '4px 8px',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            background: 'rgba(255,255,255,0.1)',
+                            color: 'white'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </th>
+                      <th style={{ padding: '15px 12px', textAlign: 'right', fontWeight: '600', minWidth: '100px' }}>
+                        <div>💰 Price</div>
+                        <input
+                          type="text"
+                          placeholder="Filter..."
+                          value={columnFilters.price || ''}
+                          onChange={(e) => handleColumnFilter('price', e.target.value)}
+                          style={{
+                            marginTop: '8px',
+                            padding: '4px 8px',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            background: 'rgba(255,255,255,0.1)',
+                            color: 'white'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </th>
+                      <th style={{ padding: '15px 12px', textAlign: 'center', fontWeight: '600', minWidth: '120px' }}>
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAndSortedFlights.map((flight: any, index: number) => (
+                      <tr 
+                        key={flight.id}
+                        style={{
+                          borderBottom: '1px solid #e9ecef',
+                          transition: 'background-color 0.2s ease',
+                          cursor: 'pointer'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                        onClick={() => onFlightSelect?.(flight)}
+                      >
+                        <td style={{ padding: '12px', borderBottom: '1px solid #e9ecef' }}>
+                          <div style={{ fontWeight: '600', color: '#495057' }}>{flight.airline}</div>
+                          <div style={{ fontSize: '12px', color: '#6c757d' }}>
+                            {flight.aircraft || 'Aircraft N/A'}
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #e9ecef' }}>
+                          <div style={{ fontWeight: '600', color: '#667eea' }}>{flight.flightNumber}</div>
+                        </td>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #e9ecef' }}>
+                          <div style={{ fontWeight: '600' }}>{flight.departure.time}</div>
+                          <div style={{ fontSize: '12px', color: '#6c757d' }}>{flight.departure.airport}</div>
+                        </td>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #e9ecef' }}>
+                          <div style={{ fontWeight: '600' }}>{flight.arrival.time}</div>
+                          <div style={{ fontSize: '12px', color: '#6c757d' }}>{flight.arrival.airport}</div>
+                        </td>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #e9ecef' }}>
+                          <div style={{ fontWeight: '600' }}>{flight.duration}</div>
+                        </td>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #e9ecef', textAlign: 'center' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 8px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            background: flight.stops === 0 ? '#d4edda' : '#fff3cd',
+                            color: flight.stops === 0 ? '#155724' : '#856404'
+                          }}>
+                            {flight.stops === 0 ? 'Direct' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}`}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #e9ecef', textAlign: 'right' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#667eea' }}>
+                            ${flight.price}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#6c757d' }}>{flight.currency}</div>
+                        </td>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #e9ecef', textAlign: 'center' }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onFlightSelect?.(flight);
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            Select
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            /* Card View */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {filteredAndSortedFlights.map((flight: any, index: number) => (
+              <div 
+                key={flight.id} 
+                onClick={() => onFlightSelect?.(flight)}
+                style={{
+                  background: 'white',
+                  borderRadius: '15px',
+                  padding: '25px',
+                  boxShadow: '0 5px 20px rgba(0,0,0,0.08)',
+                  border: '1px solid #e1e5e9',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.15)';
+                  e.currentTarget.style.borderColor = '#667eea';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 5px 20px rgba(0,0,0,0.08)';
+                  e.currentTarget.style.borderColor = '#e1e5e9';
+                }}
+              >
+                {index === 0 && sortBy === 'recommended' && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    padding: '8px 15px',
+                    borderBottomLeftRadius: '10px',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }}>
+                    ⭐ RECOMMENDED
+                  </div>
+                )}
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 5px 0', fontSize: '1.2rem', fontWeight: 'bold', color: '#495057' }}>
+                      {flight.airline} {flight.flightNumber}
+                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: '#6c757d' }}>
+                      <span style={{ background: '#e9ecef', padding: '4px 8px', borderRadius: '12px' }}>
+                        {flight.stops === 0 ? '✈️ Direct' : `🔄 ${flight.stops} stop${flight.stops > 1 ? 's' : ''}`}
+                      </span>
+                      <span style={{ background: '#e9ecef', padding: '4px 8px', borderRadius: '12px' }}>
+                        📍 {flight.source}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#667eea' }}>
+                      ${flight.price}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6c757d' }}>
+                      {flight.currency} per person
+                    </div>
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#495057' }}>
+                        {flight.departure.time}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6c757d' }}>
+                        {flight.departure.airport}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#adb5bd' }}>
+                        {flight.departure.city}
+                      </div>
+                    </div>
+                    
+                    <div style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
+                      <div style={{ 
+                        height: '2px', 
+                        background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)', 
+                        position: 'relative',
+                        margin: '10px 0'
+                      }}>
+                        <div style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: '-3px',
+                          width: 0,
+                          height: 0,
+                          borderLeft: '8px solid #764ba2',
+                          borderTop: '4px solid transparent',
+                          borderBottom: '4px solid transparent'
+                        }}></div>
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6c757d', fontWeight: '500' }}>
+                        {flight.duration}
+                      </div>
+                    </div>
+                    
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#495057' }}>
+                        {flight.arrival.time}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6c757d' }}>
+                        {flight.arrival.airport}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#adb5bd' }}>
+                        {flight.arrival.city}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div style={{ marginLeft: '20px' }}>
+                    <button style={{
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 20px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}>
+                      Select Flight
+                    </button>
+                  </div>
+                </div>
+                
+                {flight.baggage && (
+                  <div style={{ 
+                    marginTop: '15px', 
+                    padding: '12px', 
+                    background: '#f8f9fa', 
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    color: '#6c757d'
+                  }}>
+                    <span style={{ marginRight: '15px' }}>🎒 Carry-on: Included</span>
+                    <span style={{ marginRight: '15px' }}>
+                      🧳 Checked: {flight.baggage.checked > 0 ? `${flight.baggage.checked} bag included` : `+$${flight.baggage.checkedBagCost}`}
+                    </span>
+                    {flight.refundable && <span style={{ marginRight: '15px' }}>💰 Refundable</span>}
+                    {flight.changeable && <span>🔄 Changeable</span>}
+                  </div>
+                )}
+              </div>
+            ))}
+            </div>
+          )}
+
+          {searchResults.fallbackUsed && (
+            <div style={{
+              background: '#fff3cd',
+              color: '#856404',
+              padding: '15px 20px',
+              borderRadius: '10px',
+              marginTop: '20px',
+              border: '1px solid #ffeaa7',
+              fontSize: '14px'
+            }}>
+              ℹ️ <strong>Note:</strong> {searchResults.fallbackReason}
+            </div>
           )}
         </div>
       )}

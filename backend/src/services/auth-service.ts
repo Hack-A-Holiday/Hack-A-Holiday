@@ -1,60 +1,39 @@
 import { OAuth2Client } from 'google-auth-library';
+import jwt from 'jsonwebtoken';
 import { UserProfile } from '../types';
 
 export class AuthService {
-  private readonly jwtSecret: string;
   private readonly googleClient: OAuth2Client;
 
+  private readonly jwtSecret: string;
+
   constructor() {
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    if (!googleClientId) {
+      throw new Error('GOOGLE_CLIENT_ID environment variable is required');
+    }
+    this.googleClient = new OAuth2Client(googleClientId);
+
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       throw new Error('JWT_SECRET environment variable is required');
     }
     this.jwtSecret = jwtSecret;
-
-    const googleClientId = process.env.GOOGLE_CLIENT_ID;
-
-    if (!googleClientId) {
-      throw new Error('GOOGLE_CLIENT_ID environment variable is required');
-    }
-
-    this.googleClient = new OAuth2Client(googleClientId);
   }
 
+
   /**
-   * Generate token for authenticated user
+   * Generate JWT for user
    */
-  generateToken(user: Omit<UserProfile, 'password'>): string {
-    const payload = {
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      name: user.name,
-    };
-
-    const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
-    const signature = Buffer.from(this.jwtSecret).toString('base64');
-
-    return `${base64Payload}.${signature}`;
+  generateToken(payload: Record<string, any>, expiresIn = '7d'): string {
+  return jwt.sign(payload, this.jwtSecret, { expiresIn } as jwt.SignOptions);
   }
 
   /**
-   * Verify and decode token
+   * Verify and decode JWT token
    */
   verifyToken(token: string): any {
-    try {
-      const [base64Payload, signature] = token.split('.');
-
-      if (signature !== Buffer.from(this.jwtSecret).toString('base64')) {
-        throw new Error('Invalid token signature');
-      }
-
-      const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString('utf-8'));
-      return payload;
-    } catch (error) {
-      console.error('Token verification failed:', error instanceof Error ? error.message : 'Unknown error');
-      throw new Error('Invalid or expired token');
-    }
+    return jwt.verify(token, this.jwtSecret);
   }
 
   /**
@@ -84,7 +63,7 @@ export class AuthService {
         profilePicture: payload.picture || '',
       };
     } catch (error) {
-      console.error('Google token verification failed:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Google token verification failed:', error instanceof Error ? error : 'Unknown error');
       throw new Error('Invalid Google token');
     }
   }
@@ -98,6 +77,16 @@ export class AuthService {
     }
 
     return authHeader.substring(7); // Remove 'Bearer ' prefix
+  }
+
+  /**
+   * Extract JWT from cookie string
+   */
+  extractTokenFromCookie(cookieHeader?: string): string | null {
+    if (!cookieHeader) return null;
+    const regex = /jwt=([^;]+)/;
+    const match = regex.exec(cookieHeader);
+    return match ? match[1] : null;
   }
 
   /**

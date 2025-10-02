@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient, PutItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+import { createResponse } from '../utils/lambda-utils';
 
 const dynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 const USERS_TABLE = process.env.USERS_TABLE_NAME || 'TravelCompanion-Users';
@@ -18,21 +19,10 @@ interface FirebaseUser {
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  };
-
   try {
     // Handle CORS preflight
     if (event.httpMethod === 'OPTIONS') {
-      return {
-        statusCode: 200,
-        headers,
-        body: '',
-      };
+  return createResponse(200, '', event.requestContext.requestId);
     }
 
     if (event.httpMethod === 'POST') {
@@ -43,42 +33,25 @@ export const handler = async (
       return await getUser(event);
     }
 
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({
-        error: 'Method not allowed',
-        message: `HTTP method ${event.httpMethod} is not supported.`,
-      }),
-    };
+    return createResponse(405, {
+      error: 'Method not allowed',
+      message: `HTTP method ${event.httpMethod} is not supported.`,
+    }, event.requestContext.requestId);
   } catch (error) {
     console.error('Error processing request:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
-      }),
-    };
+    return createResponse(500, {
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
+    }, event.requestContext.requestId);
   }
 };
 
 async function createOrUpdateUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
-
   if (!event.body) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        error: 'Bad request',
-        message: 'Request body is required',
-      }),
-    };
+    return createResponse(400, {
+      error: 'Bad request',
+      message: 'Request body is required',
+    }, event.requestContext.requestId);
   }
 
   try {
@@ -86,14 +59,10 @@ async function createOrUpdateUser(event: APIGatewayProxyEvent): Promise<APIGatew
 
     // Validate required fields
     if (!userData.userId || !userData.email) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'Bad request',
-          message: 'userId and email are required fields',
-        }),
-      };
+      return createResponse(400, {
+        error: 'Bad request',
+        message: 'userId and email are required fields',
+      }, event.requestContext.requestId);
     }
 
     // Check if user already exists
@@ -125,44 +94,27 @@ async function createOrUpdateUser(event: APIGatewayProxyEvent): Promise<APIGatew
 
     await dynamoDBClient.send(putCommand);
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        message: 'User stored successfully',
-        user: userItem,
-      }),
-    };
+    return createResponse(200, {
+      message: 'User stored successfully',
+      user: userItem,
+    }, event.requestContext.requestId);
   } catch (error) {
     console.error('Error storing user:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Failed to store user',
-      }),
-    };
+    return createResponse(500, {
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Failed to store user',
+    }, event.requestContext.requestId);
   }
 }
 
 async function getUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
-
   const userId = event.pathParameters?.userId;
   
   if (!userId) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        error: 'Bad request',
-        message: 'userId path parameter is required',
-      }),
-    };
+    return createResponse(400, {
+      error: 'Bad request',
+      message: 'userId path parameter is required',
+    }, event.requestContext.requestId);
   }
 
   try {
@@ -174,34 +126,22 @@ async function getUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResu
     const result = await dynamoDBClient.send(getCommand);
 
     if (!result.Item) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({
-          error: 'Not found',
-          message: 'User not found',
-        }),
-      };
+      return createResponse(404, {
+        error: 'Not found',
+        message: 'User not found',
+      }, event.requestContext.requestId);
     }
 
     const user = unmarshall(result.Item);
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        user,
-      }),
-    };
+    return createResponse(200, {
+      user,
+    }, event.requestContext.requestId);
   } catch (error) {
     console.error('Error retrieving user:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Failed to retrieve user',
-      }),
-    };
+    return createResponse(500, {
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Failed to retrieve user',
+    }, event.requestContext.requestId);
   }
 }

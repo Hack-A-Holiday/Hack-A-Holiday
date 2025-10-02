@@ -100,7 +100,7 @@ export default function Navbar() {
             <Link href="/home" style={getLinkStyle('/home')}>
               Home
             </Link>
-            <Link href="/dashboard" style={getLinkStyle('/dashboard')}>
+            <Link href="/plantrip" style={getLinkStyle('/plantrip')}>
               Plan Trip
             </Link>
             <Link href="/flight-search" style={getLinkStyle('/flight-search')}>
@@ -239,15 +239,15 @@ export default function Navbar() {
               }}>
                 🏠 Home
               </Link>
-              <Link href="/dashboard" onClick={closeMobileMenu} style={{
+              <Link href="/plantrip" onClick={closeMobileMenu} style={{
                 textDecoration: 'none',
-                color: router.pathname === '/dashboard' ? '#667eea' : '#333',
+                color: router.pathname === '/plantrip' ? '#667eea' : '#333',
                 fontSize: '1.2rem',
-                fontWeight: router.pathname === '/dashboard' ? '600' : '400',
+                fontWeight: router.pathname === '/plantrip' ? '600' : '400',
                 padding: '15px 20px',
                 borderRadius: '10px',
-                background: router.pathname === '/dashboard' ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
-                border: router.pathname === '/dashboard' ? '2px solid rgba(102, 126, 234, 0.2)' : '2px solid transparent',
+                background: router.pathname === '/plantrip' ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
+                border: router.pathname === '/plantrip' ? '2px solid rgba(102, 126, 234, 0.2)' : '2px solid transparent',
                 display: 'block'
               }}>
                 ✈️ Plan Trip

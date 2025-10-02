@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getUserProfile } from '@/services/user-service';
+import { getUserProfile } from '../services/user-service';
 
 export const authMiddleware = async (
   event: APIGatewayProxyEvent,

@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, Context } from 'aws-lambda';
-import { planTrip, getTrip, listTrips } from '../plan-trip';
+import { handler as planTrip, getTrip, listTrips } from '../plan-trip';
 import { TripRepository } from '../../repositories/trip-repository';
 import { S3Service } from '../../services/s3-service';
 
@@ -17,26 +17,13 @@ describe('Plan Trip Lambda Functions', () => {
     process.env.TRIPS_TABLE_NAME = 'test-trips-table';
     process.env.S3_BUCKET_NAME = 'test-bucket';
     process.env.AWS_REGION = 'us-east-1';
-    process.env.NODE_ENV = 'test';
+
 
     // Create mocks
     mockTripRepository = new TripRepository() as jest.Mocked<TripRepository>;
     mockS3Service = new S3Service({ bucketName: 'test' }) as jest.Mocked<S3Service>;
 
-    mockContext = {
-      callbackWaitsForEmptyEventLoop: false,
-      functionName: 'test-function',
-      functionVersion: '1',
-      invokedFunctionArn: 'arn:aws:lambda:us-east-1:123456789012:function:test',
-      memoryLimitInMB: '512',
-      awsRequestId: 'test-request-id',
-      logGroupName: 'test-log-group',
-      logStreamName: 'test-log-stream',
-      getRemainingTimeInMillis: () => 30000,
-      done: jest.fn(),
-      fail: jest.fn(),
-      succeed: jest.fn(),
-    };
+
 
     // Clear all mocks
     jest.clearAllMocks();
@@ -52,7 +39,7 @@ describe('Plan Trip Lambda Functions', () => {
       travelers: 2,
     };
 
-    const mockEvent: APIGatewayProxyEvent = {
+  const mockEvent: APIGatewayProxyEvent = {
       httpMethod: 'POST',
       path: '/plan-trip',
       resource: '/plan-trip',
@@ -61,7 +48,8 @@ describe('Plan Trip Lambda Functions', () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      multiValueHeaders: {},
+  multiValueHeaders: {},
+  multiValueQueryStringParameters: null,
       body: JSON.stringify({ preferences: validTripPreferences }),
       isBase64Encoded: false,
       stageVariables: null,
@@ -90,6 +78,7 @@ describe('Plan Trip Lambda Functions', () => {
           principalOrgId: null,
           user: null,
           userArn: null,
+          clientCert: null,
         },
         accountId: '123456789012',
         apiId: 'test-api-id',
@@ -109,7 +98,7 @@ describe('Plan Trip Lambda Functions', () => {
       mockS3Service.uploadItinerary.mockResolvedValueOnce(mockS3Key);
       mockS3Service.getItinerarySignedUrl.mockResolvedValueOnce(mockSignedUrl);
 
-      const result = await planTrip(mockEvent, mockContext);
+  const result = await planTrip(mockEvent);
 
       expect(result.statusCode).toBe(201);
       expect(JSON.parse(result.body).success).toBe(true);
@@ -128,7 +117,7 @@ describe('Plan Trip Lambda Functions', () => {
         body: JSON.stringify({ invalid: 'data' }),
       };
 
-      const result = await planTrip(invalidEvent, mockContext);
+  const result = await planTrip(invalidEvent);
 
       expect(result.statusCode).toBe(400);
       expect(JSON.parse(result.body).success).toBe(false);
@@ -141,7 +130,7 @@ describe('Plan Trip Lambda Functions', () => {
         body: null,
       };
 
-      const result = await planTrip(invalidEvent, mockContext);
+  const result = await planTrip(invalidEvent);
 
       expect(result.statusCode).toBe(400);
       expect(JSON.parse(result.body).success).toBe(false);
@@ -153,7 +142,7 @@ describe('Plan Trip Lambda Functions', () => {
         httpMethod: 'GET',
       };
 
-      const result = await planTrip(invalidEvent, mockContext);
+  const result = await planTrip(invalidEvent);
 
       expect(result.statusCode).toBe(405);
       expect(JSON.parse(result.body).error.message).toContain('not allowed');
@@ -162,7 +151,7 @@ describe('Plan Trip Lambda Functions', () => {
     it('should handle repository errors', async () => {
       mockTripRepository.createTrip.mockRejectedValueOnce(new Error('Database error'));
 
-      const result = await planTrip(mockEvent, mockContext);
+  const result = await planTrip(mockEvent);
 
       expect(result.statusCode).toBe(500);
       expect(JSON.parse(result.body).success).toBe(false);
@@ -171,7 +160,7 @@ describe('Plan Trip Lambda Functions', () => {
   });
 
   describe('getTrip', () => {
-    const mockItinerary = {
+  const mockItinerary = {
       id: 'test-trip-id',
       userId: 'test-user-id',
       destination: 'Paris, France',
@@ -186,16 +175,49 @@ describe('Plan Trip Lambda Functions', () => {
         transportation: 0,
         miscellaneous: 0,
       },
-      days: [],
-      flights: {} as any,
-      hotels: [],
-      status: 'ready' as const,
+  days: [] as any[],
+      flights: {
+        outbound: {
+          id: '1',
+          airline: 'Test Air',
+          flightNumber: 'TA123',
+          departure: { airport: 'JFK', city: 'New York', time: '10:00', date: '2024-06-01' },
+          arrival: { airport: 'CDG', city: 'Paris', time: '22:00', date: '2024-06-01' },
+          duration: '8h 0m',
+          durationMinutes: 480,
+          price: 600,
+          stops: 0,
+          baggage: { carry: true, checked: 1 },
+          currency: 'USD',
+          refundable: true,
+          changeable: true,
+          source: 'mock' as 'mock',
+        },
+  return: {
+          id: '2',
+          airline: 'Test Air',
+          flightNumber: 'TA456',
+          departure: { airport: 'CDG', city: 'Paris', time: '14:00', date: '2024-06-06' },
+          arrival: { airport: 'JFK', city: 'New York', time: '18:00', date: '2024-06-06' },
+          duration: '8h 0m',
+          durationMinutes: 480,
+          price: 650,
+          stops: 0,
+          baggage: { carry: true, checked: 1 },
+          currency: 'USD',
+          refundable: true,
+          changeable: true,
+          source: 'mock' as 'mock',
+        }
+      },
+  hotels: [] as any[],
+  status: 'ready',
       createdAt: '2024-01-01T00:00:00.000Z',
       updatedAt: '2024-01-01T00:00:00.000Z',
       confidence: 0.9,
-    };
+  } as const;
 
-    const mockEvent: APIGatewayProxyEvent = {
+  const mockEvent: APIGatewayProxyEvent = {
       httpMethod: 'GET',
       path: '/trips/test-trip-id',
       resource: '/trips/{tripId}',
@@ -204,7 +226,8 @@ describe('Plan Trip Lambda Functions', () => {
       },
       queryStringParameters: null,
       headers: {},
-      multiValueHeaders: {},
+  multiValueHeaders: {},
+  multiValueQueryStringParameters: null,
       body: null,
       isBase64Encoded: false,
       stageVariables: null,
@@ -233,6 +256,7 @@ describe('Plan Trip Lambda Functions', () => {
           principalOrgId: null,
           user: null,
           userArn: null,
+          clientCert: null,
         },
         accountId: '123456789012',
         apiId: 'test-api-id',
@@ -249,7 +273,7 @@ describe('Plan Trip Lambda Functions', () => {
       mockTripRepository.getTripById.mockResolvedValueOnce(mockItinerary);
       mockS3Service.getItinerarySignedUrl.mockResolvedValueOnce(mockSignedUrl);
 
-      const result = await getTrip(mockEvent, mockContext);
+  const result = await getTrip(mockEvent);
 
       expect(result.statusCode).toBe(200);
       expect(JSON.parse(result.body).success).toBe(true);
@@ -263,7 +287,7 @@ describe('Plan Trip Lambda Functions', () => {
         pathParameters: null,
       };
 
-      const result = await getTrip(invalidEvent, mockContext);
+  const result = await getTrip(invalidEvent);
 
       expect(result.statusCode).toBe(400);
       expect(JSON.parse(result.body).error.message).toContain('Trip ID is required');
@@ -272,7 +296,7 @@ describe('Plan Trip Lambda Functions', () => {
     it('should handle trip not found', async () => {
       mockTripRepository.getTripById.mockResolvedValueOnce(null);
 
-      const result = await getTrip(mockEvent, mockContext);
+  const result = await getTrip(mockEvent);
 
       expect(result.statusCode).toBe(404);
       expect(JSON.parse(result.body).error.code).toBe('NOT_FOUND');
@@ -295,7 +319,7 @@ describe('Plan Trip Lambda Functions', () => {
       },
     ];
 
-    const mockEvent: APIGatewayProxyEvent = {
+  const mockEvent: APIGatewayProxyEvent = {
       httpMethod: 'GET',
       path: '/trips',
       resource: '/trips',
@@ -306,7 +330,8 @@ describe('Plan Trip Lambda Functions', () => {
       headers: {
         'x-user-id': 'test-user-id',
       },
-      multiValueHeaders: {},
+  multiValueHeaders: {},
+  multiValueQueryStringParameters: null,
       body: null,
       isBase64Encoded: false,
       stageVariables: null,
@@ -335,6 +360,7 @@ describe('Plan Trip Lambda Functions', () => {
           principalOrgId: null,
           user: null,
           userArn: null,
+          clientCert: null,
         },
         accountId: '123456789012',
         apiId: 'test-api-id',
@@ -351,7 +377,7 @@ describe('Plan Trip Lambda Functions', () => {
         lastEvaluatedKey: undefined,
       });
 
-      const result = await listTrips(mockEvent, mockContext);
+  const result = await listTrips(mockEvent);
 
       expect(result.statusCode).toBe(200);
       expect(JSON.parse(result.body).success).toBe(true);
@@ -365,7 +391,7 @@ describe('Plan Trip Lambda Functions', () => {
         headers: {},
       };
 
-      const result = await listTrips(invalidEvent, mockContext);
+  const result = await listTrips(invalidEvent);
 
       expect(result.statusCode).toBe(401);
       expect(JSON.parse(result.body).error.code).toBe('UNAUTHORIZED');

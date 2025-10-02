@@ -3,14 +3,15 @@ import { UserRepository } from '../repositories/user-repository';
 import { AuthService } from '../services/auth-service';
 import { LoginRequest, AuthResponse } from '../types';
 import { createErrorResponse, createResponse, parseJsonBody } from '../utils/lambda-utils';
+import jwt from 'jsonwebtoken';
 
 const userRepository = new UserRepository();
 const authService = new AuthService();
 
-export async function login(
+export const login = async (
   event: APIGatewayProxyEvent,
   context: Context
-): Promise<APIGatewayProxyResult> {
+): Promise<APIGatewayProxyResult> => {
   const requestId = context.awsRequestId;
 
   try {
@@ -38,17 +39,24 @@ export async function login(
       return createErrorResponse(401, 'Invalid email or password', requestId);
     }
 
-    // Generate JWT token
-    const token = authService.generateToken(authService.createUserResponse(user));
+
+    // Create JWT with userId and preferences for cookie
+    const cookiePayload = {
+      userId: user.id,
+      preferences: user.preferences || {},
+    };
+    const cookieToken = jwt.sign(cookiePayload, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
     const response: AuthResponse = {
       success: true,
       user: authService.createUserResponse(user),
-      token,
+      token: cookieToken,
       message: 'Login successful',
     };
 
-    return createResponse(200, response, requestId);
+    // Set cookie in response header
+    const cookieHeader = `token=${cookieToken}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`;
+    return createResponse(200, response, requestId, { 'Set-Cookie': cookieHeader });
 
   } catch (error) {
     console.error('Login error:', error);
@@ -56,4 +64,4 @@ export async function login(
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     return createErrorResponse(500, errorMessage, requestId);
   }
-}
+};

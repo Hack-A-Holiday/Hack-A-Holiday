@@ -7,10 +7,10 @@ import { createErrorResponse, createResponse, parseJsonBody } from '../utils/lam
 const userRepository = new UserRepository();
 const authService = new AuthService();
 
-export async function signup(
+export const signup = async (
   event: APIGatewayProxyEvent,
   context: Context
-): Promise<APIGatewayProxyResult> {
+): Promise<APIGatewayProxyResult> => {
   const requestId = context.awsRequestId;
 
   try {
@@ -82,4 +82,4 @@ export async function signup(
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     return createErrorResponse(500, errorMessage, requestId);
   }
-}
+};

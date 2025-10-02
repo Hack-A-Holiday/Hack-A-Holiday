@@ -118,7 +118,7 @@ describe('AuthContext', () => {
       })
 
       expect(dynamoDBAuthService.login).toHaveBeenCalledWith('test@example.com', 'password')
-      expect(mockPush).toHaveBeenCalledWith('/dashboard')
+  expect(mockPush).toHaveBeenCalledWith('/plantrip')
     })
 
     it('should handle login errors', async () => {
@@ -162,7 +162,7 @@ describe('AuthContext', () => {
       })
 
       expect(dynamoDBAuthService.signup).toHaveBeenCalledWith('test@example.com', 'password', 'Test User')
-      expect(mockPush).toHaveBeenCalledWith('/dashboard')
+  expect(mockPush).toHaveBeenCalledWith('/plantrip')
     })
 
     it('should handle signup errors', async () => {
@@ -213,7 +213,7 @@ describe('AuthContext', () => {
 
       expect(googleAuthService.signInWithGoogle).toHaveBeenCalled()
       expect(dynamoDBAuthService.storeGoogleUser).toHaveBeenCalledWith(mockGoogleUser)
-      expect(mockPush).toHaveBeenCalledWith('/dashboard')
+  expect(mockPush).toHaveBeenCalledWith('/plantrip')
     })
 
     it('should handle Google auth errors', async () => {

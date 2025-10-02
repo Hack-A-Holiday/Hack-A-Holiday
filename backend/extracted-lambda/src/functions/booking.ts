@@ -1,3 +1,5 @@
+// LOG: Booking Lambda loaded at runtime - 2025-09-29
+// Export handler for AWS Lambda
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 import { 
   withMiddleware, 
@@ -7,7 +9,8 @@ import {
   validateMethod,
   applyRateLimit,
   validateEnvironment,
-  RequestContext
+  RequestContext,
+  extractUserId
 } from '../utils/lambda-utils';
 import { validateBookingRequest } from '../utils/validation';
 import { TripRepository } from '../repositories/trip-repository';
@@ -55,6 +58,9 @@ async function createBookingHandler(
   context: Context,
   requestContext: RequestContext
 ): Promise<APIGatewayProxyResult> {
+  // LOG: Entered createBookingHandler
+  console.log('LOG: Entered createBookingHandler');
+  console.log('LOG: Method:', event.httpMethod, 'User-Agent:', event.headers['User-Agent']);
   // Validate HTTP method
   const methodError = validateMethod(event, ['POST']);
   if (methodError) return methodError;
@@ -68,7 +74,8 @@ async function createBookingHandler(
 
   try {
     // Parse request body
-    const body = parseJsonBody<BookingRequest>(event);
+  const body = parseJsonBody<BookingRequest>(event);
+  console.log('LOG: Booking request body:', event.body);
     if (!body) {
       return createErrorResponse(
         400,
@@ -83,8 +90,9 @@ async function createBookingHandler(
     }
 
     // Validate booking request
-    const validation = validateBookingRequest(body);
-    if (!validation.isValid) {
+  const validation = validateBookingRequest(body);
+  console.log('LOG: Booking request validated:', validation);
+  if (!validation.isValid) {
       return createErrorResponse(
         400,
         {
@@ -98,8 +106,9 @@ async function createBookingHandler(
       );
     }
 
-    const bookingRequest = validation.data!;
-    const userId = bookingRequest.userId || requestContext.userId;
+  const bookingRequest = validation.data!;
+  const userId = extractUserId(event);
+  console.log('LOG: Booking userId:', userId);
 
     console.log('Processing booking request', {
       requestId: requestContext.requestId,
@@ -107,8 +116,9 @@ async function createBookingHandler(
       itineraryId: bookingRequest.itineraryId,
     });
 
-    // Get the itinerary to validate and get booking details
-    const itinerary = await tripRepository.getTripById(bookingRequest.itineraryId);
+  // Get the itinerary to validate and get booking details
+  const itinerary = await tripRepository.getTripById(bookingRequest.itineraryId);
+  console.log('LOG: Itinerary:', itinerary);
     if (!itinerary) {
       return createErrorResponse(
         404,
@@ -156,27 +166,24 @@ async function createBookingHandler(
     // Process flight bookings
     for (const flightId of bookingRequest.selectedOptions.flightIds) {
       let flight = null;
-      
       // Find flight in outbound or return flights
-      if (itinerary.flights.outbound?.id === flightId) {
+      if (itinerary.flights && itinerary.flights.outbound && itinerary.flights.outbound.id === flightId) {
         flight = itinerary.flights.outbound;
-      } else if (itinerary.flights.return?.id === flightId) {
+      } else if (itinerary.flights && itinerary.flights.return && itinerary.flights.return.id === flightId) {
         flight = itinerary.flights.return;
       }
-
-      if (!flight) {
+      if (!flight || !flight.id || !flight.airline || !flight.flightNumber) {
         return createErrorResponse(
           400,
           {
             code: ERROR_CODES.INVALID_INPUT,
-            message: `Flight ${flightId} not found in itinerary`,
+            message: `Flight ${flightId} not found or invalid in itinerary`,
             requestId: requestContext.requestId,
             timestamp: new Date().toISOString(),
           },
           requestContext.requestId
         );
       }
-
       const booking = await bookingRepository.createBooking(
         bookingRequest.itineraryId,
         userId,
@@ -192,26 +199,26 @@ async function createBookingHandler(
           duration: flight.duration,
         }
       );
-
       bookings.push(booking);
       totalCost += flight.price;
     }
 
     // Process hotel booking
-    const hotel = itinerary.hotels.find(h => h.id === bookingRequest.selectedOptions.hotelId);
-    if (!hotel) {
+    const hotel = Array.isArray(itinerary.hotels)
+      ? itinerary.hotels.find(h => h && h.id === bookingRequest.selectedOptions.hotelId)
+      : null;
+    if (!hotel || !hotel.id || !hotel.name) {
       return createErrorResponse(
         400,
         {
           code: ERROR_CODES.INVALID_INPUT,
-          message: `Hotel ${bookingRequest.selectedOptions.hotelId} not found in itinerary`,
+          message: `Hotel ${bookingRequest.selectedOptions.hotelId} not found or invalid in itinerary`,
           requestId: requestContext.requestId,
           timestamp: new Date().toISOString(),
         },
         requestContext.requestId
       );
     }
-
     const hotelBooking = await bookingRepository.createBooking(
       bookingRequest.itineraryId,
       userId,
@@ -228,7 +235,6 @@ async function createBookingHandler(
         rating: hotel.rating,
       }
     );
-
     bookings.push(hotelBooking);
     totalCost += hotel.totalPrice;
 
@@ -236,18 +242,34 @@ async function createBookingHandler(
     if (bookingRequest.selectedOptions.activityIds) {
       for (const activityId of bookingRequest.selectedOptions.activityIds) {
         let activity = null;
-        
         // Find activity in daily plans
-        for (const day of itinerary.days) {
-          activity = day.activities.find(a => a.id === activityId);
-          if (activity) break;
+        if (Array.isArray(itinerary.days)) {
+          for (const day of itinerary.days) {
+            if (Array.isArray(day.activities)) {
+              activity = day.activities.find(a => a && a.id === activityId);
+              if (activity) break;
+            }
+          }
         }
-
-        if (!activity) {
-          console.warn(`Activity ${activityId} not found in itinerary, skipping`);
-          continue;
+        if (!activity || !activity.id || !activity.name) {
+          const ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+          const corsHeaders = {
+            'Access-Control-Allow-Origin': ORIGIN,
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+          };
+          return { ...createErrorResponse(
+            400,
+            {
+              code: ERROR_CODES.INVALID_INPUT,
+              message: `Activity ${activityId} not found or invalid in itinerary`,
+              requestId: requestContext.requestId,
+              timestamp: new Date().toISOString(),
+            },
+            requestContext.requestId
+          ), headers: { ...corsHeaders, ...createErrorResponse(400, '', requestContext.requestId).headers } };
         }
-
         const activityBooking = await bookingRepository.createBooking(
           bookingRequest.itineraryId,
           userId,
@@ -263,7 +285,6 @@ async function createBookingHandler(
             address: activity.address,
           }
         );
-
         bookings.push(activityBooking);
         totalCost += activity.price;
       }
@@ -278,13 +299,12 @@ async function createBookingHandler(
     // Generate a master confirmation number
     const masterConfirmationNumber = `TC${Date.now().toString(36).toUpperCase()}`;
 
-    console.log('Booking completed successfully', {
-      requestId: requestContext.requestId,
-      userId,
-      itineraryId: bookingRequest.itineraryId,
-      masterConfirmationNumber,
-      totalBookings: bookings.length,
+    console.log('LOG: Bookings array after processing:', bookings);
+    console.log('LOG: Returning booking response:', {
+      confirmationNumber: masterConfirmationNumber,
+      bookings,
       totalCost,
+      itineraryId: bookingRequest.itineraryId
     });
 
     return createResponse(
@@ -435,7 +455,7 @@ async function getUserBookingsHandler(
   initializeServices();
 
   try {
-    const userId = requestContext.userId;
+  const userId = extractUserId(event);
     if (!userId) {
       return createErrorResponse(
         401,
@@ -496,7 +516,27 @@ async function getUserBookingsHandler(
   }
 }
 
-// Export handlers with middleware
-export const createBooking = withMiddleware(createBookingHandler);
-export const getTripBookings = withMiddleware(getTripBookingsHandler);
-export const getUserBookings = withMiddleware(getUserBookingsHandler);
+// Unified handler for all booking-related routes (single export)
+const createBooking = withMiddleware(createBookingHandler);
+const getTripBookings = withMiddleware(getTripBookingsHandler);
+const getUserBookings = withMiddleware(getUserBookingsHandler);
+
+// Export the Lambda handler (single export, after definition)
+export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  const resource = event.resource || event.path;
+  const method = event.httpMethod;
+  if ((resource.endsWith('/bookings') || resource === '/bookings') && method === 'POST') {
+    return createBooking(event, {} as any); // Context is not used in handler
+  }
+  if ((resource.endsWith('/trips/{tripId}/bookings') || /\/trips\/[^/]+\/bookings$/.test(resource)) && method === 'GET') {
+    return getTripBookings(event, {} as any);
+  }
+  if ((resource.endsWith('/bookings') || resource === '/bookings') && method === 'GET') {
+    return getUserBookings(event, {} as any);
+  }
+  // Default: not found
+  return {
+    statusCode: 404,
+    body: JSON.stringify({ error: 'Not found', resource, method })
+  };
+};

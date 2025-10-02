@@ -14,56 +14,68 @@ export interface LambdaStackProps extends cdk.StackProps {
 }
 
 export class LambdaStack extends cdk.Stack {
-  public readonly api: apigateway.RestApi;
-  public readonly planTripFunction: lambda.Function;
-  public readonly getTripFunction: lambda.Function;
-  public readonly listTripsFunction: lambda.Function;
-  public readonly createBookingFunction: lambda.Function;
-  public readonly getTripBookingsFunction: lambda.Function;
-  public readonly getUserBookingsFunction: lambda.Function;
-  public readonly signupFunction: lambda.Function;
-  public readonly loginFunction: lambda.Function;
-  public readonly googleAuthFunction: lambda.Function;
-  public readonly meFunction: lambda.Function;
-  public readonly authFunction: lambda.Function;
-
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
     const { environment, usersTableName, tripsTableName, bookingsTableName, s3BucketName } = props;
 
-    // Create IAM role for Lambda functions
-    const lambdaRole = new iam.Role(this, 'LambdaExecutionRole', {
-      roleName: `TravelCompanion-Lambda-Role-${environment}`,
+    // Create IAM role with comprehensive permissions for AI functions
+    const lambdaRole = new iam.Role(this, 'TravelCompanionLambdaRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
       ],
     });
 
-    // Add DynamoDB permissions
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
+    // DynamoDB permissions
+    const dynamoPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
         'dynamodb:GetItem',
         'dynamodb:PutItem',
         'dynamodb:UpdateItem',
         'dynamodb:DeleteItem',
-        'dynamodb:Query',
         'dynamodb:Scan',
+        'dynamodb:Query',
       ],
       resources: [
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${usersTableName}`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/${usersTableName}/index/*`,
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${tripsTableName}`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/${tripsTableName}/index/*`,
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${bookingsTableName}`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/${bookingsTableName}/index/*`,
       ],
-    }));
+    });
 
-    // Add S3 permissions
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
+    // Bedrock permissions for AI
+    const bedrockPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'bedrock:InvokeModel',
+        'bedrock:InvokeModelWithResponseStream',
+        'bedrock:GetFoundationModel',
+        'bedrock:ListFoundationModels',
+      ],
+      resources: [
+        'arn:aws:bedrock:*::foundation-model/anthropic.claude-3-*',
+        'arn:aws:bedrock:*::foundation-model/anthropic.claude-*',
+      ],
+    });
+
+    // SageMaker permissions for custom models
+    const sagemakerPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'sagemaker:InvokeEndpoint',
+        'sagemaker:DescribeEndpoint',
+        'sagemaker:ListEndpoints',
+      ],
+      resources: [
+        `arn:aws:sagemaker:${this.region}:${this.account}:endpoint/travel-assistant-endpoint`,
+        `arn:aws:sagemaker:${this.region}:${this.account}:endpoint/*travel*`,
+      ],
+    });
+
+    // S3 permissions
+    const s3Policy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
         's3:GetObject',
@@ -75,325 +87,211 @@ export class LambdaStack extends cdk.Stack {
         `arn:aws:s3:::${s3BucketName}`,
         `arn:aws:s3:::${s3BucketName}/*`,
       ],
-    }));
+    });
 
-    // Add Bedrock permissions (for future use)
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        'bedrock:InvokeModel',
-        'bedrock:InvokeAgent',
-        'bedrock:GetAgent',
-        'bedrock:ListAgents',
-      ],
-      resources: ['*'],
-    }));
+    // Add policies to the role
+    lambdaRole.addToPolicy(dynamoPolicy);
+    lambdaRole.addToPolicy(bedrockPolicy);
+    lambdaRole.addToPolicy(sagemakerPolicy);
+    lambdaRole.addToPolicy(s3Policy);
 
-    // Common Lambda function configuration (no Docker, uses dist)
-    const commonLambdaProps = {
-      runtime: lambda.Runtime.NODEJS_18_X,
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 512,
-      role: lambdaRole,
-      environment: {
-        NODE_ENV: environment,
-        USERS_TABLE_NAME: usersTableName,
-        TRIPS_TABLE_NAME: tripsTableName,
-        BOOKINGS_TABLE_NAME: bookingsTableName,
-        S3_BUCKET_NAME: s3BucketName,
-        LOG_LEVEL: environment === 'prod' ? 'info' : 'debug',
-      },
+    // Common environment variables for all Lambda functions
+    const commonEnvironment = {
+      AWS_REGION: process.env.AWS_REGION || 'us-east-1',
+      USERS_TABLE_NAME: usersTableName,
+      TRIPS_TABLE_NAME: tripsTableName,
+      BOOKINGS_TABLE_NAME: bookingsTableName,
+      S3_BUCKET_NAME: s3BucketName,
+      SAGEMAKER_ENDPOINT_NAME: process.env.SAGEMAKER_ENDPOINT_NAME || 'travel-assistant-endpoint',
     };
 
-    // Plan Trip Lambda Function
-    this.planTripFunction = new lambda.Function(this, 'PlanTripFunction', {
-      ...commonLambdaProps,
-      functionName: `TravelCompanion-PlanTrip-${environment}`,
+    // AI Agent Lambda for Bedrock Claude-4 chat
+    const aiAgentLambda = new lambda.Function(this, 'AIAgentLambda', {
+      runtime: lambda.Runtime.NODEJS_18_X,
       code: lambda.Code.fromAsset('../backend/dist'),
-      handler: 'functions/plan-trip.planTrip',
-      description: 'Creates new trip plans based on user preferences',
-      logGroup: new logs.LogGroup(this, 'PlanTripLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
+      handler: 'functions/ai-agent.handler',
+      role: lambdaRole,
+      environment: commonEnvironment,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      logRetention: logs.RetentionDays.ONE_WEEK,
     });
 
-    // Get Trip Lambda Function
-    this.getTripFunction = new lambda.Function(this, 'GetTripFunction', {
-      ...commonLambdaProps,
-      functionName: `TravelCompanion-GetTrip-${environment}`,
+    // AI Agent Lambda for SageMaker integration
+    const aiAgentSageMakerLambda = new lambda.Function(this, 'AIAgentSageMakerLambda', {
+      runtime: lambda.Runtime.NODEJS_18_X,
       code: lambda.Code.fromAsset('../backend/dist'),
-      handler: 'functions/plan-trip.getTrip',
-      description: 'Retrieves trip details by ID',
-      logGroup: new logs.LogGroup(this, 'GetTripLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
+      handler: 'functions/ai-agent-sagemaker.handler',
+      role: lambdaRole,
+      environment: commonEnvironment,
+      timeout: cdk.Duration.seconds(60), // Longer timeout for SageMaker
+      memorySize: 512,
+      logRetention: logs.RetentionDays.ONE_WEEK,
     });
 
-    // List Trips Lambda Function
-    this.listTripsFunction = new lambda.Function(this, 'ListTripsFunction', {
-      ...commonLambdaProps,
-      functionName: `TravelCompanion-ListTrips-${environment}`,
+    // Authentication Lambda functions
+    const authLambda = new lambda.Function(this, 'AuthLambda', {
+      runtime: lambda.Runtime.NODEJS_18_X,
       code: lambda.Code.fromAsset('../backend/dist'),
-      handler: 'functions/plan-trip.listTrips',
-      description: 'Lists trips for a user with pagination',
-      logGroup: new logs.LogGroup(this, 'ListTripsLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
+      handler: 'functions/auth.handler',
+      role: lambdaRole,
+      environment: commonEnvironment,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      logRetention: logs.RetentionDays.ONE_WEEK,
     });
 
-    // Create Booking Lambda Function
-    this.createBookingFunction = new lambda.Function(this, 'CreateBookingFunction', {
-      ...commonLambdaProps,
-      functionName: `TravelCompanion-CreateBooking-${environment}`,
+    // Trip Planning Lambda
+    const planTripLambda = new lambda.Function(this, 'PlanTripLambda', {
+      runtime: lambda.Runtime.NODEJS_18_X,
       code: lambda.Code.fromAsset('../backend/dist'),
-      handler: 'functions/booking.createBooking',
-      description: 'Processes booking confirmations for trips',
-      logGroup: new logs.LogGroup(this, 'CreateBookingLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
+      handler: 'functions/plan-trip.handler',
+      role: lambdaRole,
+      environment: commonEnvironment,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      logRetention: logs.RetentionDays.ONE_WEEK,
     });
 
-    // Get Trip Bookings Lambda Function
-    this.getTripBookingsFunction = new lambda.Function(this, 'GetTripBookingsFunction', {
-      ...commonLambdaProps,
-      functionName: `TravelCompanion-GetTripBookings-${environment}`,
+    // Booking Lambda
+    const bookingLambda = new lambda.Function(this, 'BookingLambda', {
+      runtime: lambda.Runtime.NODEJS_18_X,
       code: lambda.Code.fromAsset('../backend/dist'),
-      handler: 'functions/booking.getTripBookings',
-      description: 'Retrieves bookings for a specific trip',
-      logGroup: new logs.LogGroup(this, 'GetTripBookingsLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
+      handler: 'functions/booking.handler',
+      role: lambdaRole,
+      environment: commonEnvironment,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      logRetention: logs.RetentionDays.ONE_WEEK,
     });
 
-    // Get User Bookings Lambda Function
-    this.getUserBookingsFunction = new lambda.Function(this, 'GetUserBookingsFunction', {
-      ...commonLambdaProps,
-      functionName: `TravelCompanion-GetUserBookings-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
-      handler: 'functions/booking.getUserBookings',
-      description: 'Retrieves booking history for a user',
-      logGroup: new logs.LogGroup(this, 'GetUserBookingsLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
-    });
-
-    // Authentication Lambda Functions
-    
-    // Signup Lambda Function
-    this.signupFunction = new lambda.Function(this, 'SignupFunction', {
-      ...commonLambdaProps,
-      functionName: `TravelCompanion-Signup-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
-      handler: 'functions/signup.signup',
-      description: 'User registration with email and password',
-      logGroup: new logs.LogGroup(this, 'SignupLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
-    });
-
-    // Login Lambda Function
-    this.loginFunction = new lambda.Function(this, 'LoginFunction', {
-      ...commonLambdaProps,
-      functionName: `TravelCompanion-Login-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
-      handler: 'functions/login.login',
-      description: 'User authentication with email and password',
-      logGroup: new logs.LogGroup(this, 'LoginLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
-    });
-
-    // Google OAuth Lambda Function
-    this.googleAuthFunction = new lambda.Function(this, 'GoogleAuthFunction', {
-      ...commonLambdaProps,
-      functionName: `TravelCompanion-GoogleAuth-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
-      handler: 'functions/google-auth.googleAuth',
-      description: 'Google OAuth authentication',
-      logGroup: new logs.LogGroup(this, 'GoogleAuthLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
-    });
-
-    // Me (Get Current User) Lambda Function
-    this.meFunction = new lambda.Function(this, 'MeFunction', {
-      ...commonLambdaProps,
-      functionName: `TravelCompanion-Me-${environment}`,
-      code: lambda.Code.fromAsset('../backend/dist'),
-      handler: 'functions/auth-middleware.me',
-      description: 'Get current authenticated user profile',
-      logGroup: new logs.LogGroup(this, 'MeLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
-    });
-
-    // Unified Auth Lambda Function (New)
-    this.authFunction = new lambda.Function(this, 'AuthFunction', {
-      ...commonLambdaProps,
-      functionName: `TravelCompanion-Auth-${environment}`,
-      code: lambda.Code.fromAsset('../backend/extracted-lambda', {
-        bundling: {
-          image: lambda.Runtime.NODEJS_18_X.bundlingImage,
-          command: [
-            'bash', '-c',
-            'cp -r /asset-input/* /asset-output/ && cp /asset-input/.npmrc /asset-output/.npmrc || true && cd /asset-output && npm install --production'
-          ],
-        },
-      }),
-      handler: 'dist/functions/auth.handler',
-      description: 'Unified authentication handler for all auth routes with bundled dependencies',
-      logGroup: new logs.LogGroup(this, 'AuthLogGroup', { retention: logs.RetentionDays.ONE_WEEK }),
-    });
-
-    // Create API Gateway
-    this.api = new apigateway.RestApi(this, 'TravelCompanionApi', {
-      restApiName: `TravelCompanion-API-${environment}`,
-      description: 'API for Travel Companion application',
+    // API Gateway with proper CORS and routes
+    const api = new apigateway.RestApi(this, 'TravelCompanionApi', {
+      restApiName: `TravelCompanion-${environment}`,
+      description: 'Travel Companion API with AI and SageMaker integration',
       defaultCorsPreflightOptions: {
-        allowOrigins: ['http://localhost:3000'], // Added localhost for development
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: apigateway.Cors.ALL_METHODS,
-        allowHeaders: [
-          'Content-Type',
-          'X-Amz-Date',
-          'Authorization',
-          'X-Api-Key',
-          'X-Amz-Security-Token',
-          'X-User-Id',
-        ],
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowCredentials: true,
       },
       deployOptions: {
         stageName: environment,
-        throttlingRateLimit: 1000,
-        throttlingBurstLimit: 2000,
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: true,
-        metricsEnabled: true,
       },
     });
 
-    // API Gateway Resources and Methods
-
-    // /plan-trip endpoint
-    const planTripResource = this.api.root.addResource('plan-trip');
-    planTripResource.addMethod('POST', new apigateway.LambdaIntegration(this.planTripFunction), {
-      apiKeyRequired: false,
-      requestValidator: new apigateway.RequestValidator(this, 'PlanTripValidator', {
-        restApi: this.api,
-        validateRequestBody: true,
-        validateRequestParameters: false,
-      }),
-    });
-
-    // /trips endpoint
-    const tripsResource = this.api.root.addResource('trips');
-    
-    // GET /trips (list user trips)
-    tripsResource.addMethod('GET', new apigateway.LambdaIntegration(this.listTripsFunction));
-
-    // /trips/{tripId} endpoint
-    const tripResource = tripsResource.addResource('{tripId}');
-    
-    // GET /trips/{tripId}
-    tripResource.addMethod('GET', new apigateway.LambdaIntegration(this.getTripFunction));
-
-    // /trips/{tripId}/bookings endpoint
-    const tripBookingsResource = tripResource.addResource('bookings');
-    tripBookingsResource.addMethod('GET', new apigateway.LambdaIntegration(this.getTripBookingsFunction));
-
-    // /bookings endpoint
-    const bookingsResource = this.api.root.addResource('bookings');
-    
-    // POST /bookings (create booking)
-    bookingsResource.addMethod('POST', new apigateway.LambdaIntegration(this.createBookingFunction), {
-      requestValidator: new apigateway.RequestValidator(this, 'BookingValidator', {
-        restApi: this.api,
-        validateRequestBody: true,
-        validateRequestParameters: false,
-      }),
-    });
-
-    // GET /bookings (get user bookings)
-    bookingsResource.addMethod('GET', new apigateway.LambdaIntegration(this.getUserBookingsFunction));
-
-    // Authentication endpoints
-    
-    // /auth resource
-    const authResource = this.api.root.addResource('auth');
-    
-    // POST /auth/signup (using new unified auth function)
-    const signupResource = authResource.addResource('signup');
-    signupResource.addMethod('POST', new apigateway.LambdaIntegration(this.authFunction), {
-      requestValidator: new apigateway.RequestValidator(this, 'SignupValidator', {
-        restApi: this.api,
-        validateRequestBody: true,
-        validateRequestParameters: false,
-      }),
-    });
-
-    // POST /auth/login (using new unified auth function)
-    const loginResource = authResource.addResource('login');
-    loginResource.addMethod('POST', new apigateway.LambdaIntegration(this.authFunction), {
-      requestValidator: new apigateway.RequestValidator(this, 'LoginValidator', {
-        restApi: this.api,
-        validateRequestBody: true,
-        validateRequestParameters: false,
-      }),
-    });
-
-    // POST /auth/google-user (new endpoint using unified auth function)
-    const googleUserResource = authResource.addResource('google-user');
-    googleUserResource.addMethod('POST', new apigateway.LambdaIntegration(this.authFunction), {
-      requestValidator: new apigateway.RequestValidator(this, 'GoogleUserValidator', {
-        restApi: this.api,
-        validateRequestBody: true,
-        validateRequestParameters: false,
-      }),
-    });
-
-    // POST /auth/google (legacy - keeping for compatibility)
-    const googleAuthResource = authResource.addResource('google');
-    googleAuthResource.addMethod('POST', new apigateway.LambdaIntegration(this.googleAuthFunction), {
-      requestValidator: new apigateway.RequestValidator(this, 'GoogleAuthValidator', {
-        restApi: this.api,
-        validateRequestBody: true,
-        validateRequestParameters: false,
-      }),
-    });
-
-    // GET /auth/me (using new unified auth function)
-    const meResource = authResource.addResource('me');
-    meResource.addMethod('GET', new apigateway.LambdaIntegration(this.authFunction));
-
-    // Health check endpoint
-    const healthResource = this.api.root.addResource('health');
-    healthResource.addMethod('GET', new apigateway.MockIntegration({
+    // AI Agent endpoints
+    const aiResource = api.root.addResource('ai-agent');
+    aiResource.addMethod('POST', new apigateway.LambdaIntegration(aiAgentLambda));
+    aiResource.addMethod('OPTIONS', new apigateway.MockIntegration({
       integrationResponses: [{
         statusCode: '200',
-        responseTemplates: {
-          'application/json': JSON.stringify({
-            status: 'healthy',
-            timestamp: '$context.requestTime',
-            version: '1.0.0',
-          }),
+        responseParameters: {
+          'method.response.header.Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+          'method.response.header.Access-Control-Allow-Origin': "'*'",
+          'method.response.header.Access-Control-Allow-Methods': "'GET,POST,OPTIONS'",
         },
       }],
+      passthroughBehavior: apigateway.PassthroughBehavior.WHEN_NO_MATCH,
       requestTemplates: {
         'application/json': '{"statusCode": 200}',
       },
     }), {
       methodResponses: [{
         statusCode: '200',
-        responseModels: {
-          'application/json': apigateway.Model.EMPTY_MODEL,
+        responseParameters: {
+          'method.response.header.Access-Control-Allow-Headers': true,
+          'method.response.header.Access-Control-Allow-Methods': true,
+          'method.response.header.Access-Control-Allow-Origin': true,
         },
       }],
     });
 
-    // Output API Gateway URL
+    // SageMaker AI Agent endpoint
+    const aiSageMakerResource = api.root.addResource('ai-agent-sagemaker');
+    aiSageMakerResource.addMethod('POST', new apigateway.LambdaIntegration(aiAgentSageMakerLambda));
+    aiSageMakerResource.addMethod('OPTIONS', new apigateway.MockIntegration({
+      integrationResponses: [{
+        statusCode: '200',
+        responseParameters: {
+          'method.response.header.Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+          'method.response.header.Access-Control-Allow-Origin': "'*'",
+          'method.response.header.Access-Control-Allow-Methods': "'GET,POST,OPTIONS'",
+        },
+      }],
+      passthroughBehavior: apigateway.PassthroughBehavior.WHEN_NO_MATCH,
+      requestTemplates: {
+        'application/json': '{"statusCode": 200}',
+      },
+    }), {
+      methodResponses: [{
+        statusCode: '200',
+        responseParameters: {
+          'method.response.header.Access-Control-Allow-Headers': true,
+          'method.response.header.Access-Control-Allow-Methods': true,
+          'method.response.header.Access-Control-Allow-Origin': true,
+        },
+      }],
+    });
+
+    // Auth endpoints
+    const authResource = api.root.addResource('auth');
+    const loginResource = authResource.addResource('login');
+    const signupResource = authResource.addResource('signup');
+    
+    loginResource.addMethod('POST', new apigateway.LambdaIntegration(authLambda));
+    signupResource.addMethod('POST', new apigateway.LambdaIntegration(authLambda));
+
+    // Trip planning endpoints
+    const tripsResource = api.root.addResource('trips');
+    const planResource = tripsResource.addResource('plan');
+    
+    planResource.addMethod('POST', new apigateway.LambdaIntegration(planTripLambda));
+    tripsResource.addMethod('GET', new apigateway.LambdaIntegration(planTripLambda));
+
+    // Booking endpoints
+    const bookingsResource = api.root.addResource('bookings');
+    bookingsResource.addMethod('POST', new apigateway.LambdaIntegration(bookingLambda));
+    bookingsResource.addMethod('GET', new apigateway.LambdaIntegration(bookingLambda));
+
+    // Output important information
     new cdk.CfnOutput(this, 'ApiGatewayUrl', {
-      value: this.api.url,
+      value: api.url,
+      description: 'API Gateway URL',
       exportName: `${environment}-ApiGatewayUrl`,
     });
 
-    new cdk.CfnOutput(this, 'ApiGatewayId', {
-      value: this.api.restApiId,
-      exportName: `${environment}-ApiGatewayId`,
+    new cdk.CfnOutput(this, 'UsersTableName', {
+      value: usersTableName,
+      exportName: `${environment}-UsersTableName`,
     });
 
-    // Output Lambda function ARNs
-    new cdk.CfnOutput(this, 'PlanTripFunctionArn', {
-      value: this.planTripFunction.functionArn,
-      exportName: `${environment}-PlanTripFunctionArn`,
+    new cdk.CfnOutput(this, 'TripsTableName', {
+      value: tripsTableName,
+      exportName: `${environment}-TripsTableName`,
     });
 
-    new cdk.CfnOutput(this, 'CreateBookingFunctionArn', {
-      value: this.createBookingFunction.functionArn,
-      exportName: `${environment}-CreateBookingFunctionArn`,
+    new cdk.CfnOutput(this, 'BookingsTableName', {
+      value: bookingsTableName,
+      exportName: `${environment}-BookingsTableName`,
     });
 
-    // Tags for cost tracking
+    new cdk.CfnOutput(this, 'S3BucketName', {
+      value: s3BucketName,
+      exportName: `${environment}-S3BucketName`,
+    });
+
+    new cdk.CfnOutput(this, 'SageMakerEndpointName', {
+      value: commonEnvironment.SAGEMAKER_ENDPOINT_NAME,
+      description: 'SageMaker endpoint name for AI model',
+      exportName: `${environment}-SageMakerEndpointName`,
+    });
+
+    // Add tags
     cdk.Tags.of(this).add('Project', 'TravelCompanion');
     cdk.Tags.of(this).add('Environment', environment);
-    cdk.Tags.of(this).add('Component', 'API');
+    cdk.Tags.of(this).add('AIIntegration', 'Bedrock-SageMaker');
   }
 }

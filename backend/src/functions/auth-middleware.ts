@@ -1,3 +1,4 @@
+
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 import { UserRepository } from '../repositories/user-repository';
 import { AuthService } from '../services/auth-service';
@@ -15,63 +16,54 @@ export interface AuthenticatedEvent extends APIGatewayProxyEvent {
   };
 }
 
-export interface UserPreferences {
-  numberOfKids?: number;
-  budget?: number;
-  favoriteDestinations?: string[];
-  interests?: string[];
-  travelStyle?: 'budget' | 'mid-range' | 'luxury';
-  dietaryRestrictions?: string[];
-  accessibility?: string[];
-  defaultBudget?: number; // Added for compatibility
-}
-
-export interface UserProfile {
-  id: string;
-  email: string;
-  name?: string;
-  preferences: UserPreferences;
-}
-
+/**
+ * Extract userId from JWT in cookie or Authorization header
+ */
 export async function authenticateUser(
   event: APIGatewayProxyEvent,
   context: Context
 ): Promise<{ user: any; error?: APIGatewayProxyResult }> {
   const requestId = context.awsRequestId;
-
   try {
-    // Extract token from Authorization header
-    const authHeader = event.headers.Authorization || event.headers.authorization;
-    const token = authService.extractBearerToken(authHeader);
-    
+    // Try to extract token from cookie (case-insensitive), else from Authorization header
+    let token: string | null = null;
+    const cookieHeader = event.headers.cookie || event.headers.Cookie;
+    if (cookieHeader) {
+      token = authService.extractTokenFromCookie(cookieHeader);
+    }
+    if (!token) {
+      const authHeader = event.headers.authorization || event.headers.Authorization;
+      token = authService.extractBearerToken(authHeader);
+    }
     if (!token) {
       return {
         user: null,
-        error: createErrorResponse(401, 'Authorization token is required', requestId),
+        error: createErrorResponse(401, 'Unauthorized: No auth token found in cookie or header', requestId),
       };
     }
-
-    // Verify JWT token
-    let tokenPayload;
+    let payload;
     try {
-      tokenPayload = authService.verifyToken(token);
+      payload = authService.verifyToken(token);
     } catch (error) {
-      console.warn('Token verification failed in middleware:', error instanceof Error ? error.message : 'Unknown error');
       return {
         user: null,
-        error: createErrorResponse(401, 'Invalid or expired token', requestId),
+        error: createErrorResponse(401, 'Unauthorized: Invalid or expired token', requestId),
       };
     }
-
-    // Verify user still exists
-    const user = await userRepository.getUserById(tokenPayload.userId);
+    const userId = payload.userId;
+    if (!userId) {
+      return {
+        user: null,
+        error: createErrorResponse(401, 'Unauthorized: userId missing in token', requestId),
+      };
+    }
+    const user = await userRepository.getUserById(userId);
     if (!user) {
       return {
         user: null,
-        error: createErrorResponse(401, 'User not found', requestId),
+        error: createErrorResponse(401, 'Unauthorized: User not found', requestId),
       };
     }
-
     return {
       user: {
         userId: user.id,
@@ -80,10 +72,7 @@ export async function authenticateUser(
         name: user.name,
       },
     };
-
   } catch (error) {
-    console.error('Authentication error:', error);
-    
     return {
       user: null,
       error: createErrorResponse(500, 'Authentication failed', requestId),
@@ -91,9 +80,6 @@ export async function authenticateUser(
   }
 }
 
-/**
- * Higher-order function to protect Lambda routes
- */
 export function withAuth(
   handler: (
     event: AuthenticatedEvent,
@@ -104,81 +90,47 @@ export function withAuth(
     event: APIGatewayProxyEvent,
     context: Context
   ): Promise<APIGatewayProxyResult> => {
-    
-    // Authenticate user
     const { user, error } = await authenticateUser(event, context);
-    
     if (error) {
       return error;
     }
-
-    // Add user info to event
     const authenticatedEvent: AuthenticatedEvent = {
       ...event,
       user,
     };
-
-    // Call the original handler
     return handler(authenticatedEvent, context);
   };
 }
 
-/**
- * Get current user profile
- */
 export async function me(
   event: APIGatewayProxyEvent,
   context: Context
 ): Promise<APIGatewayProxyResult> {
   const requestId = context.awsRequestId;
-
   const { user, error } = await authenticateUser(event, context);
-  
   if (error) {
     return error;
   }
-
   try {
-    // Get full user profile
     const fullUser = await userRepository.getUserById(user.userId);
     if (!fullUser) {
       return createErrorResponse(404, 'User not found', requestId);
     }
-
     const response = {
       success: true,
       user: authService.createUserResponse(fullUser),
     };
-
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': 'http://localhost:3000',
+        'Access-Control-Allow-Credentials': 'true',
       },
       body: JSON.stringify(response),
     };
-
   } catch (error) {
-    console.error('Get user profile error:', error);
-    
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     return createErrorResponse(500, errorMessage, requestId);
-  }
-}
-
-/**
- * Get user profile by user ID
- */
-export async function getUserProfile(userId: string) {
-  try {
-    const user = await userRepository.getUserById(userId);
-    if (!user) {
-      throw new Error('User not found');
-    }
-    return user;
-  } catch (error) {
-    console.error('Get user profile error:', error);
-    throw error;
   }
 }

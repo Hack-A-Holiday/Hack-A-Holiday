@@ -1,0 +1,14 @@
+node_modules
+*.test.ts
+__tests__/
+jest.config.js
+jest.setup.js
+*.md
+.git
+.gitignore
+.env
+.env.*
+README*
+*.log
+lambda-package/
+dist/

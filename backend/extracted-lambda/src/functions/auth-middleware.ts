@@ -131,18 +131,25 @@ export async function me(
   context: Context
 ): Promise<APIGatewayProxyResult> {
   const requestId = context.awsRequestId;
+  const ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+  const corsHeaders = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': ORIGIN,
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+  };
 
   const { user, error } = await authenticateUser(event, context);
-  
   if (error) {
-    return error;
+    return { ...error, headers: { ...error.headers, ...corsHeaders } };
   }
 
   try {
     // Get full user profile
     const fullUser = await userRepository.getUserById(user.userId);
     if (!fullUser) {
-      return createErrorResponse(404, 'User not found', requestId);
+      return { ...createErrorResponse(404, 'User not found', requestId), headers: corsHeaders };
     }
 
     const response = {
@@ -152,18 +159,14 @@ export async function me(
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: corsHeaders,
       body: JSON.stringify(response),
     };
 
   } catch (error) {
     console.error('Get user profile error:', error);
-    
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-    return createErrorResponse(500, errorMessage, requestId);
+    return { ...createErrorResponse(500, errorMessage, requestId), headers: corsHeaders };
   }
 }
 
