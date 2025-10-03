@@ -44,8 +44,8 @@ export default function FlightSearchPage() {
   return (
     <ProtectedRoute>
       <Head>
-        <title>Flight Search - Travel Companion</title>
-        <meta name="description" content="Search and compare flights with advanced filtering and intelligent recommendations" />
+        <title>Flight & Hotel Search - Hack-A-Holiday</title>
+        <meta name="description" content="Search and compare flights and hotels with advanced filtering and intelligent recommendations" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>

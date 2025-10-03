@@ -12,6 +12,7 @@
 import React, { useState, useEffect } from 'react';
 import { FlightOption, FlightSearchRequest, FlightSearchResponse, COMMON_AIRPORTS, FlightUtils } from '../types/flight';
 import { KiwiApiService } from '../services/kiwi-api';
+import { bookingApiService } from '../services/booking-api';
 
 // Add CSS animation for spinner
 const spinKeyframes = `
@@ -52,6 +53,8 @@ interface FlightFilters {
   minDuration?: number;
   cabinClass?: string;
   searchText?: string;
+  departureDateStart?: string; // Filter flights by departure date range
+  departureDateEnd?: string;   // Filter flights by departure date range
 }
 
 interface FlightPreferences {
@@ -89,6 +92,9 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   const [searchResults, setSearchResults] = useState<FlightSearchResponse | null>(null);
   const [returnFlights, setReturnFlights] = useState<FlightOption[] | null>(null);
   const [roundTripPackages, setRoundTripPackages] = useState<Array<{outbound: FlightOption, return: FlightOption, totalPrice: number, savings?: number}> | null>(null);
+  const [hotelResults, setHotelResults] = useState<any>(null);
+  const [hotelLoading, setHotelLoading] = useState(false);
+  const [vacationPackages, setVacationPackages] = useState<Array<any> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -286,7 +292,58 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
           if (kiwiResponse.itineraries && kiwiResponse.itineraries.length > 0) {
             const realFlights = kiwiResponse.itineraries
               .map((flight, index) => kiwiApiService.convertToFlightOption(flight, index))
-              .filter(flight => flight !== null) as FlightOption[];
+              .filter(flight => {
+                if (!flight) return false;
+                
+                // Ensure flight matches the requested origin and destination
+                const matchesOrigin = flight.departure.airport === request.origin;
+                const matchesDestination = flight.arrival.airport === request.destination;
+                if (!matchesOrigin || !matchesDestination) {
+                  console.warn(`⚠️ Filtered out flight: ${flight.departure.airport} → ${flight.arrival.airport} (expected ${request.origin} → ${request.destination})`);
+                  return false;
+                }
+                
+                // ✅ IMPROVED: Smart date filtering based on trip type
+                const flightDate = flight.departure.date;
+                const departureDate = request.departureDate;
+                const returnDate = request.returnDate;
+                
+                // For outbound flights (origin → destination), we want exact date match OR dates within trip window
+                if (returnDate) {
+                  // Round-trip: Accept flights between departure and return dates
+                  const isWithinTripWindow = flightDate >= departureDate && flightDate <= returnDate;
+                  
+                  if (!isWithinTripWindow) {
+                    // Only warn if flight is significantly outside the window (not just wrong by 1-2 days)
+                    const dateDiff = Math.abs(new Date(flightDate).getTime() - new Date(departureDate).getTime()) / (1000 * 60 * 60 * 24);
+                    if (dateDiff > 7) {
+                      console.warn(`⚠️ Filtered out flight outside trip window: ${flightDate} (trip: ${departureDate} to ${returnDate})`);
+                    }
+                    return false;
+                  }
+                  
+                  // Accept the flight if it's within the trip window
+                  if (flightDate !== departureDate) {
+                    console.log(`✈️ Accepting flight on ${flightDate} (within trip window ${departureDate} to ${returnDate})`);
+                  }
+                } else {
+                  // One-way: Allow flights within ±3 days of requested date (Kiwi API sometimes returns nearby dates)
+                  const requestedDate = new Date(departureDate);
+                  const actualDate = new Date(flightDate);
+                  const daysDifference = Math.abs((actualDate.getTime() - requestedDate.getTime()) / (1000 * 60 * 60 * 24));
+                  
+                  if (daysDifference > 3) {
+                    console.warn(`⚠️ Filtered out one-way flight with wrong date: ${flightDate} (expected ${departureDate}, ${Math.floor(daysDifference)} days difference)`);
+                    return false;
+                  }
+                  
+                  if (flightDate !== departureDate) {
+                    console.log(`✈️ Accepting one-way flight on ${flightDate} (requested ${departureDate}, within acceptable range)`);
+                  }
+                }
+                
+                return true;
+              }) as FlightOption[];
 
             // Check if bag configuration was adjusted
             let bagNote = '';
@@ -317,29 +374,39 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
               fallbackReason: bagNote || 'Using real Kiwi API data'
             };
 
-            setSearchResults(realResponse);
-            console.log('✅ Real flight data loaded:', realFlights.length, 'flights');
-            
-            // If return date is provided, search for return flights and create packages
-            if (searchRequest.returnDate) {
-              await searchReturnFlightsAndCreatePackages(realResponse.flights, request);
+            // Only use Kiwi results if we actually got flights with correct dates
+            if (realFlights.length > 0) {
+              setSearchResults(realResponse);
+              console.log('✅ Real flight data loaded:', realFlights.length, 'flights');
+              
+              // If return date is provided, search for return flights and create packages
+              if (searchRequest.returnDate) {
+                const packages = await searchReturnFlightsAndCreatePackages(realResponse.flights, request);
+                // After flights, search for hotels and pass the packages directly
+                await searchHotels(searchRequest.destination, searchRequest.departureDate, searchRequest.returnDate, request, packages);
+              } else {
+                setReturnFlights(null);
+                setRoundTripPackages(null);
+                setHotelResults(null);
+                setVacationPackages(null);
+              }
+              return;
             } else {
-              setReturnFlights(null);
-              setRoundTripPackages(null);
+              console.warn('⚠️ Kiwi API returned flights but all were filtered out (wrong dates). Will try Express backend next');
             }
-            return;
           } else {
-            throw new Error('No flights found from Kiwi API');
+            console.warn('⚠️ No flights found from Kiwi API, will try Express backend next');
           }
         } catch (apiError: any) {
-          console.error('Kiwi API Error:', apiError);
-          throw new Error(`Real data search failed: ${apiError?.message || 'Unknown error'}`);
+          console.warn('⚠️ Kiwi API Error:', apiError.message);
+          console.log('📝 Will try Express backend as fallback');
         }
       }
 
-      // Use Express backend for flight search
-      console.log('✈️ Searching flights with Express backend...');
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+      // Use Express backend for flight search (if real data not found or not requested)
+      if (!searchResults) {
+        console.log('✈️ Searching flights with Express backend...');
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
       
       try {
         const response = await fetch(`${backendUrl}/flights/search`, {
@@ -440,20 +507,26 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
           
           // If return date is provided, search for return flights and create packages
           if (searchRequest.returnDate) {
-            await searchReturnFlightsAndCreatePackages(convertedResponse.flights, request);
+            const packages = await searchReturnFlightsAndCreatePackages(convertedResponse.flights, request);
+            // After flights, search for hotels and pass the packages directly
+            await searchHotels(searchRequest.destination, searchRequest.departureDate, searchRequest.returnDate, request, packages);
           } else {
             setReturnFlights(null);
             setRoundTripPackages(null);
+            setHotelResults(null);
+            setVacationPackages(null);
           }
           return;
         }
-      } catch (expressError: any) {
-        console.error('Express backend error:', expressError);
-        // Continue to fallback mock data
+        } catch (expressError: any) {
+          console.error('Express backend error:', expressError);
+          // Continue to fallback mock data
+        }
       }
 
-      // Fallback to enhanced mock data
-      console.log('📝 Using enhanced mock flight data as fallback...');
+      // Fallback to enhanced mock data (if still no results)
+      if (!searchResults) {
+        console.log('📝 Using enhanced mock flight data as fallback...');
       const mockFlights = generateEnhancedMockFlights(20);
 
       const mockResponse: FlightSearchResponse = {
@@ -473,15 +546,20 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
         fallbackReason: 'Using enhanced mock flight data as fallback'
       };
 
-      setSearchResults(mockResponse);
-      
-      // If return date is provided, search for return flights and create packages
-      if (searchRequest.returnDate) {
-        await searchReturnFlightsAndCreatePackages(mockResponse.flights, request);
-      } else {
-        // Clear round-trip data for one-way flights
-        setReturnFlights(null);
-        setRoundTripPackages(null);
+        setSearchResults(mockResponse);
+        
+        // If return date is provided, search for return flights and create packages
+        if (searchRequest.returnDate) {
+          const packages = await searchReturnFlightsAndCreatePackages(mockResponse.flights, request);
+          // After flights, search for hotels and pass the packages directly
+          await searchHotels(searchRequest.destination, searchRequest.departureDate, searchRequest.returnDate, request, packages);
+        } else {
+          // Clear round-trip data for one-way flights
+          setReturnFlights(null);
+          setRoundTripPackages(null);
+          setHotelResults(null);
+          setVacationPackages(null);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Unknown error occurred during flight search');
@@ -489,6 +567,91 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
     } finally {
       setLoading(false);
     }
+  };
+
+  // Search for hotels at destination
+  const searchHotels = async (airportCode: string, checkIn: string, checkOut: string, flightRequest: FlightSearchRequest, packages?: Array<{outbound: FlightOption, return: FlightOption, totalPrice: number, savings?: number}>) => {
+    setHotelLoading(true);
+    try {
+      console.log(`🏨 Searching hotels near ${airportCode} from ${checkIn} to ${checkOut}...`);
+      
+      const hotelSearch = await bookingApiService.searchHotels({
+        airportCode,
+        checkInDate: checkIn,
+        checkOutDate: checkOut,
+        adults: flightRequest.passengers.adults,
+        children: flightRequest.passengers.children || 0,
+        rooms: 1,
+        currency: 'USD'
+      });
+
+      console.log(`✅ Found ${hotelSearch.hotels.length} hotels`);
+      setHotelResults(hotelSearch);
+
+      // Use provided packages parameter if available, otherwise fall back to state
+      const packagesToUse = packages || roundTripPackages;
+
+      // If we have both flights and hotels, create vacation packages
+      console.log('🔍 Checking vacation package conditions:', {
+        hasPackages: !!packagesToUse,
+        packagesCount: packagesToUse?.length || 0,
+        hotelsCount: hotelSearch.hotels.length
+      });
+      
+      if (packagesToUse && packagesToUse.length > 0 && hotelSearch.hotels.length > 0) {
+        console.log('🎁 Creating vacation packages...');
+        createVacationPackages(packagesToUse, hotelSearch.hotels);
+      } else {
+        console.warn('❌ Cannot create vacation packages - missing data:', {
+          packages: packagesToUse?.length || 0,
+          hotels: hotelSearch.hotels.length
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Hotel search error:', error);
+    } finally {
+      setHotelLoading(false);
+    }
+  };
+
+  // Create vacation packages (flight + hotel combos)
+  const createVacationPackages = (flightPackages: Array<{outbound: FlightOption, return: FlightOption, totalPrice: number, savings?: number}>, hotels: any[]) => {
+    console.log('🎁 Creating vacation packages...');
+    
+    const packages = [];
+    const maxPackages = Math.min(flightPackages.length, hotels.length, 10);
+
+    for (let i = 0; i < maxPackages; i++) {
+      const flightPackage = flightPackages[i];
+      const hotel = hotels[i];
+
+      const flightPrice = Math.round(flightPackage.totalPrice);
+      const hotelPrice = Math.round(hotel.totalPrice);
+      const totalPrice = Math.round(flightPrice + hotelPrice);
+
+      // Calculate savings (bundle discount)
+      const bundleDiscount = 50; // Fixed $50 bundle discount
+      const flightSavings = flightPackage.savings || 0;
+      const totalSavings = bundleDiscount + flightSavings;
+
+      packages.push({
+        id: `vacation-${i}`,
+        flight: flightPackage,
+        hotel: hotel,
+        flightPrice,
+        hotelPrice,
+        totalPrice,
+        savings: totalSavings,
+        priceWithDiscount: Math.round(totalPrice - totalSavings)
+      });
+    }
+
+    // Sort by best value (price with discount)
+    packages.sort((a, b) => a.priceWithDiscount - b.priceWithDiscount);
+
+    setVacationPackages(packages);
+    console.log(`✅ Created ${packages.length} vacation packages`);
   };
 
   // Search for return flights and create round-trip packages
@@ -501,44 +664,8 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
     try {
       let returnFlightsData: FlightOption[] = [];
 
-      // Check if using real data from Kiwi API
-      if (useRealData) {
-        console.log('🌐 Fetching REAL return flights from Kiwi API...');
-        try {
-          const kiwiResponse = await kiwiApiService.searchFlights(
-            originalRequest.destination,  // FROM destination
-            originalRequest.origin,       // TO origin
-            searchRequest.returnDate,     // On return date
-            originalRequest.passengers,
-            filters.checkedBags || 0
-          );
-          
-          if (kiwiResponse.itineraries && kiwiResponse.itineraries.length > 0) {
-            returnFlightsData = kiwiResponse.itineraries
-              .map((flight, index) => kiwiApiService.convertToFlightOption(flight, index))
-              .filter(flight => flight !== null) as FlightOption[];
-            console.log(`✅ Found ${returnFlightsData.length} real return flights from Kiwi API`);
-          } else {
-            console.log('⚠️ No real return flights found, falling back to mock data');
-            returnFlightsData = generateEnhancedMockFlights(
-              15, 
-              originalRequest.destination,
-              originalRequest.origin,
-              searchRequest.returnDate
-            ) as FlightOption[];
-          }
-        } catch (apiError) {
-          console.error('❌ Kiwi API error for return flights:', apiError);
-          console.log('📝 Using mock return flights as fallback');
-          returnFlightsData = generateEnhancedMockFlights(
-            15, 
-            originalRequest.destination,
-            originalRequest.origin,
-            searchRequest.returnDate
-          ) as FlightOption[];
-        }
-      } else {
-        // Try Express backend first
+      // Try Express backend first (skip Kiwi API to avoid CORS issues with return flights)
+      if (!returnFlightsData.length) {
         console.log('🖥️ Attempting to fetch return flights from Express backend...');
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
         
@@ -564,7 +691,8 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
 
           if (response.ok) {
             const expressResponse = await response.json();
-            if (expressResponse.success && expressResponse.flights) {
+            if (expressResponse.success && expressResponse.flights && expressResponse.flights.length > 0) {
+              console.log('✅ Found', expressResponse.flights.length, 'return flights from Express backend');
               returnFlightsData = expressResponse.flights.map((flight: any) => ({
                 id: flight.id || `return-flight-${Math.random()}`,
                 airline: flight.airline || 'Unknown Airline',
@@ -602,25 +730,25 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                 changeable: flight.changeable || false,
                 source: 'express' as const,
                 score: flight.personalizedScore || 0.7
-              }));
-              console.log(`✅ Found ${returnFlightsData.length} return flights from Express backend`);
-            } else {
-              throw new Error('Invalid backend response');
+              })) as FlightOption[];
             }
-          } else {
-            throw new Error('Backend request failed');
           }
-        } catch (backendError) {
-          console.log('⚠️ Express backend unavailable, using mock return flights');
-          returnFlightsData = generateEnhancedMockFlights(
-            15, 
-            originalRequest.destination,
-            originalRequest.origin,
-            searchRequest.returnDate
-          ) as FlightOption[];
+        } catch (expressError) {
+          console.error('Express backend error for return flights:', expressError);
         }
       }
-      
+
+      // Fallback to mock data if still no return flights
+      if (!returnFlightsData.length) {
+        console.log('📝 Using mock return flights as fallback');
+        returnFlightsData = generateEnhancedMockFlights(
+          15, 
+          originalRequest.destination,
+          originalRequest.origin,
+          searchRequest.returnDate
+        ) as FlightOption[];
+      }
+
       setReturnFlights(returnFlightsData);
 
       // Create round-trip packages by combining outbound and return flights
@@ -631,7 +759,18 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
         const outbound = outboundFlights[i];
         const returnFlight = returnFlightsData[i];
         
-        const totalPrice = outbound.price + returnFlight.price;
+        // Validate that outbound and return match the requested route
+        const outboundMatches = outbound.departure.airport === originalRequest.origin && 
+                                outbound.arrival.airport === originalRequest.destination;
+        const returnMatches = returnFlight.departure.airport === originalRequest.destination && 
+                             returnFlight.arrival.airport === originalRequest.origin;
+        
+        if (!outboundMatches || !returnMatches) {
+          console.warn(`⚠️ Skipping invalid package: Outbound ${outbound.departure.airport}→${outbound.arrival.airport}, Return ${returnFlight.departure.airport}→${returnFlight.arrival.airport}`);
+          continue;
+        }
+        
+        const totalPrice = Math.round(outbound.price + returnFlight.price);
         
         // Calculate potential savings (could be based on real booking engine data)
         const individualBookingFee = 30; // Typical booking fee per flight
@@ -651,10 +790,13 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
       setRoundTripPackages(packages);
       console.log(`✅ Created ${packages.length} round-trip packages`);
       console.log(`Sample package: ${packages[0]?.outbound.departure.airport} → ${packages[0]?.outbound.arrival.airport} (outbound), ${packages[0]?.return.departure.airport} → ${packages[0]?.return.arrival.airport} (return)`);
+      
+      return packages; // Return packages so they can be used immediately
     } catch (error) {
       console.error('Error creating round-trip packages:', error);
       setReturnFlights(null);
       setRoundTripPackages(null);
+      return []; // Return empty array on error
     }
   };
 
@@ -766,6 +908,15 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
     if (filters.directFlightsOnly) flights = flights.filter(f => f.stops === 0);
     if (filters.refundable) flights = flights.filter(f => f.refundable);
     if (filters.cabinClass) flights = flights.filter(f => f.cabinClass?.toLowerCase() === filters.cabinClass?.toLowerCase());
+    
+    // Apply date range filters
+    if (filters.departureDateStart) {
+      flights = flights.filter(f => f.departure.date >= filters.departureDateStart!);
+    }
+    if (filters.departureDateEnd) {
+      flights = flights.filter(f => f.departure.date <= filters.departureDateEnd!);
+    }
+    
     if (filters.searchText) {
       const searchTerm = filters.searchText.toLowerCase();
       flights = flights.filter(f => 
@@ -805,6 +956,94 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
 
     return flights;
   }, [searchResults?.flights, sortBy, columnFilters, filters]);
+
+  // Sort round-trip packages based on sortBy
+  const sortedRoundTripPackages = React.useMemo(() => {
+    if (!roundTripPackages) return null;
+    
+    const packages = [...roundTripPackages];
+    
+    switch (sortBy) {
+      case 'price-asc':
+        packages.sort((a, b) => a.totalPrice - b.totalPrice);
+        break;
+      case 'price-desc':
+        packages.sort((a, b) => b.totalPrice - a.totalPrice);
+        break;
+      case 'duration-asc':
+        packages.sort((a, b) => {
+          const durationA = a.outbound.durationMinutes + a.return.durationMinutes;
+          const durationB = b.outbound.durationMinutes + b.return.durationMinutes;
+          return durationA - durationB;
+        });
+        break;
+      case 'duration-desc':
+        packages.sort((a, b) => {
+          const durationA = a.outbound.durationMinutes + a.return.durationMinutes;
+          const durationB = b.outbound.durationMinutes + b.return.durationMinutes;
+          return durationB - durationA;
+        });
+        break;
+      case 'departure-asc':
+        packages.sort((a, b) => {
+          const timeA = new Date(`${a.outbound.departure.date}T${a.outbound.departure.time}`).getTime();
+          const timeB = new Date(`${b.outbound.departure.date}T${b.outbound.departure.time}`).getTime();
+          return timeA - timeB;
+        });
+        break;
+      case 'recommended':
+      default:
+        // Sort by price (ascending) for best deals
+        packages.sort((a, b) => a.totalPrice - b.totalPrice);
+        break;
+    }
+    
+    return packages;
+  }, [roundTripPackages, sortBy]);
+
+  // Sort vacation packages based on sortBy
+  const sortedVacationPackages = React.useMemo(() => {
+    if (!vacationPackages) return null;
+    
+    const packages = [...vacationPackages];
+    
+    switch (sortBy) {
+      case 'price-asc':
+        packages.sort((a, b) => a.totalPrice - b.totalPrice);
+        break;
+      case 'price-desc':
+        packages.sort((a, b) => b.totalPrice - a.totalPrice);
+        break;
+      case 'duration-asc':
+        packages.sort((a, b) => {
+          const durationA = a.flight.outbound.durationMinutes + a.flight.return.durationMinutes;
+          const durationB = b.flight.outbound.durationMinutes + b.flight.return.durationMinutes;
+          return durationA - durationB;
+        });
+        break;
+      case 'duration-desc':
+        packages.sort((a, b) => {
+          const durationA = a.flight.outbound.durationMinutes + a.flight.return.durationMinutes;
+          const durationB = b.flight.outbound.durationMinutes + b.flight.return.durationMinutes;
+          return durationB - durationA;
+        });
+        break;
+      case 'departure-asc':
+        packages.sort((a, b) => {
+          const timeA = new Date(`${a.flight.outbound.departure.date}T${a.flight.outbound.departure.time}`).getTime();
+          const timeB = new Date(`${b.flight.outbound.departure.date}T${b.flight.outbound.departure.time}`).getTime();
+          return timeA - timeB;
+        });
+        break;
+      case 'recommended':
+      default:
+        // Sort by total price (ascending) for best deals
+        packages.sort((a, b) => a.totalPrice - b.totalPrice);
+        break;
+    }
+    
+    return packages;
+  }, [vacationPackages, sortBy]);
 
   const handleColumnFilter = (column: string, value: string) => {
     setColumnFilters(prev => ({
@@ -1450,6 +1689,70 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                 <option value="first">First Class</option>
               </select>
             </div>
+
+            {/* Checked Bags Filter */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057', fontSize: '14px' }}>
+                🧳 Checked Bags
+              </label>
+              <select
+                value={filters.checkedBags ?? ''}
+                onChange={(e) => setFilters(prev => ({ ...prev, checkedBags: e.target.value ? parseInt(e.target.value) : undefined }))}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '2px solid #e1e5e9',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  background: 'white'
+                }}
+              >
+                <option value="">Any baggage</option>
+                <option value="0">No checked bags (carry-on only)</option>
+                <option value="1">1 checked bag</option>
+                <option value="2">2 checked bags</option>
+                <option value="3">3+ checked bags</option>
+              </select>
+            </div>
+
+            {/* Departure Date Range Filter */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057', fontSize: '14px' }}>
+                📅 Departure Date Range
+              </label>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input
+                  type="date"
+                  placeholder="From"
+                  value={filters.departureDateStart || ''}
+                  onChange={(e) => setFilters(prev => ({ ...prev, departureDateStart: e.target.value || undefined }))}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                />
+                <span style={{ color: '#6c757d' }}>to</span>
+                <input
+                  type="date"
+                  placeholder="To"
+                  value={filters.departureDateEnd || ''}
+                  onChange={(e) => setFilters(prev => ({ ...prev, departureDateEnd: e.target.value || undefined }))}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Checkbox Filters */}
@@ -1637,7 +1940,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
           </div>
 
           {/* Round-Trip Packages Section */}
-          {roundTripPackages && roundTripPackages.length > 0 && (
+          {sortedRoundTripPackages && sortedRoundTripPackages.length > 0 && (
             <div style={{ marginBottom: '30px' }}>
               <div style={{
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -1662,7 +1965,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                 border: '1px solid #e1e5e9',
                 borderTop: 'none'
               }}>
-                {roundTripPackages.slice(0, 5).map((pkg, index) => (
+                {sortedRoundTripPackages.slice(0, 5).map((pkg, index) => (
                   <div
                     key={`package-${index}`}
                     style={{
@@ -1742,7 +2045,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                             {pkg.outbound.arrival.airport}
                           </div>
                           <div style={{ fontSize: '12px', color: '#28a745', fontWeight: '600' }}>
-                            ${pkg.outbound.price}
+                            ${Math.round(pkg.outbound.price)}
                           </div>
                         </div>
                       </div>
@@ -1787,7 +2090,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                             {pkg.return.arrival.airport}
                           </div>
                           <div style={{ fontSize: '12px', color: '#28a745', fontWeight: '600' }}>
-                            ${pkg.return.price}
+                            ${Math.round(pkg.return.price)}
                           </div>
                         </div>
                       </div>
@@ -1808,11 +2111,11 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                           Total Package Price
                         </div>
                         <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#667eea' }}>
-                          ${pkg.totalPrice.toFixed(2)}
+                          ${Math.round(pkg.totalPrice)}
                         </div>
                         {pkg.savings && pkg.savings > 0 && (
                           <div style={{ fontSize: '12px', color: '#28a745', fontWeight: '600', marginTop: '4px' }}>
-                            💰 Save ${pkg.savings} vs separate booking
+                            💰 Save ${Math.round(pkg.savings)} vs separate booking
                           </div>
                         )}
                       </div>
@@ -1848,9 +2151,9 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                   </div>
                 ))}
                 
-                {roundTripPackages.length > 5 && (
+                {sortedRoundTripPackages.length > 5 && (
                   <div style={{ textAlign: 'center', marginTop: '15px', color: '#6c757d', fontSize: '14px' }}>
-                    Showing 5 of {roundTripPackages.length} packages
+                    Showing 5 of {sortedRoundTripPackages.length} packages
                   </div>
                 )}
               </div>
@@ -2070,7 +2373,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                         </td>
                         <td style={{ padding: '12px', borderBottom: '1px solid #e9ecef', textAlign: 'right' }}>
                           <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#667eea' }}>
-                            ${flight.price}
+                            ${Math.round(flight.price)}
                           </div>
                           <div style={{ fontSize: '12px', color: '#6c757d' }}>{flight.currency}</div>
                         </td>
@@ -2162,7 +2465,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#667eea' }}>
-                      ${flight.price}
+                      ${Math.round(flight.price)}
                     </div>
                     <div style={{ fontSize: '12px', color: '#6c757d' }}>
                       {flight.currency} per person
@@ -2271,6 +2574,542 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
               ℹ️ <strong>Note:</strong> {searchResults.fallbackReason}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Hotel Results Section */}
+      {hotelLoading && (
+        <div style={{
+          background: 'white',
+          borderRadius: '15px',
+          padding: '30px',
+          marginTop: '30px',
+          textAlign: 'center',
+          boxShadow: '0 5px 20px rgba(0,0,0,0.08)'
+        }}>
+          <div className="spinner" style={{ display: 'inline-block' }}></div>
+          <p style={{ marginTop: '15px', color: '#6c757d' }}>🏨 Searching hotels at your destination...</p>
+        </div>
+      )}
+
+      {hotelResults && hotelResults.hotels && hotelResults.hotels.length > 0 && (
+        <div style={{ marginTop: '30px' }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            color: 'white',
+            padding: '25px',
+            borderRadius: '15px 15px 0 0',
+            boxShadow: '0 5px 20px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: 'bold' }}>
+                  🏨 Hotels in {hotelResults.searchMetadata.location}
+                </h2>
+                <p style={{ margin: 0, opacity: 0.95, fontSize: '14px' }}>
+                  {hotelResults.hotels.length} hotels available • {hotelResults.searchMetadata.nights} night{hotelResults.searchMetadata.nights > 1 ? 's' : ''} • {hotelResults.searchMetadata.guests} guest{hotelResults.searchMetadata.guests > 1 ? 's' : ''}
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '12px', opacity: 0.9 }}>Check-in</div>
+                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{hotelResults.searchMetadata.checkIn}</div>
+                <div style={{ fontSize: '12px', opacity: 0.9, marginTop: '8px' }}>Check-out</div>
+                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{hotelResults.searchMetadata.checkOut}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            background: 'white',
+            padding: '25px',
+            borderRadius: '0 0 15px 15px',
+            boxShadow: '0 5px 20px rgba(0,0,0,0.08)'
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+              {hotelResults.hotels.slice(0, 12).map((hotel: any, index: number) => (
+                <div
+                  key={hotel.id}
+                  style={{
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer',
+                    background: 'white'
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)';
+                    (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+                    (e.currentTarget as HTMLElement).style.borderColor = '#f5576c';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                    (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+                    (e.currentTarget as HTMLElement).style.borderColor = '#e1e5e9';
+                  }}
+                >
+                  {/* Hotel Image */}
+                  <div style={{ 
+                    height: '180px', 
+                    background: hotel.imageUrl ? `url(${hotel.imageUrl}) center/cover` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    position: 'relative'
+                  }}>
+                    {index === 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '10px',
+                        left: '10px',
+                        background: '#ffd700',
+                        color: '#000',
+                        padding: '5px 12px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                      }}>
+                        ⭐ Best Deal
+                      </div>
+                    )}
+                    {hotel.freeCancellation && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '10px',
+                        background: '#28a745',
+                        color: 'white',
+                        padding: '5px 10px',
+                        borderRadius: '15px',
+                        fontSize: '11px',
+                        fontWeight: '600'
+                      }}>
+                        ✓ Free Cancellation
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Hotel Details */}
+                  <div style={{ padding: '15px' }}>
+                    <h3 style={{ 
+                      margin: '0 0 8px 0', 
+                      fontSize: '16px', 
+                      fontWeight: 'bold',
+                      color: '#2c3e50',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {hotel.name}
+                    </h3>
+
+                    {/* Rating */}
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{
+                        background: '#667eea',
+                        color: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: 'bold',
+                        marginRight: '8px'
+                      }}>
+                        {hotel.rating.toFixed(1)}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6c757d' }}>
+                        ({hotel.reviewCount} reviews)
+                      </div>
+                    </div>
+
+                    {/* Location */}
+                    <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '10px' }}>
+                      📍 {hotel.distanceFromCenter} from center
+                    </div>
+
+                    {/* Amenities */}
+                    <div style={{ 
+                      display: 'flex', 
+                      flexWrap: 'wrap', 
+                      gap: '5px', 
+                      marginBottom: '12px',
+                      minHeight: '50px'
+                    }}>
+                      {hotel.amenities.slice(0, 4).map((amenity: string, i: number) => (
+                        <span
+                          key={i}
+                          style={{
+                            background: '#f8f9fa',
+                            color: '#495057',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            border: '1px solid #e1e5e9'
+                          }}
+                        >
+                          {amenity}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Breakfast Badge */}
+                    {hotel.breakfastIncluded && (
+                      <div style={{
+                        background: '#fff3cd',
+                        color: '#856404',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        marginBottom: '12px',
+                        display: 'inline-block'
+                      }}>
+                        🍳 Breakfast Included
+                      </div>
+                    )}
+
+                    {/* Pricing */}
+                    <div style={{ 
+                      borderTop: '1px solid #e1e5e9', 
+                      paddingTop: '12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '11px', color: '#6c757d' }}>
+                          ${Math.round(hotel.pricePerNight)}/night
+                        </div>
+                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#f5576c' }}>
+                          ${Math.round(hotel.totalPrice)}
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#adb5bd' }}>
+                          total for {hotelResults.searchMetadata.nights} night{hotelResults.searchMetadata.nights > 1 ? 's' : ''}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => alert(`Booking ${hotel.name}...`)}
+                        style={{
+                          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px 20px',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.target as HTMLElement).style.transform = 'scale(1.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.target as HTMLElement).style.transform = 'scale(1)';
+                        }}
+                      >
+                        Select
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vacation Packages Section (Flight + Hotel Combos) */}
+      {sortedVacationPackages && sortedVacationPackages.length > 0 && (
+        <div style={{ marginTop: '30px' }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #ffd89b 0%, #19547b 100%)',
+            color: 'white',
+            padding: '25px',
+            borderRadius: '15px 15px 0 0',
+            boxShadow: '0 5px 20px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: 'bold' }}>
+                  🎁 Complete Vacation Packages
+                </h2>
+                <p style={{ margin: 0, opacity: 0.95, fontSize: '14px' }}>
+                  Save big by bundling flights + hotels • Best value combinations
+                </p>
+              </div>
+              <div style={{
+                background: 'rgba(255,255,255,0.2)',
+                padding: '10px 20px',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}>
+                💰 Up to ${sortedVacationPackages[0]?.savings || 0} savings
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            background: 'white',
+            padding: '25px',
+            borderRadius: '0 0 15px 15px',
+            boxShadow: '0 5px 20px rgba(0,0,0,0.08)'
+          }}>
+            {sortedVacationPackages.slice(0, 5).map((pkg: any, index: number) => (
+              <div
+                key={pkg.id}
+                style={{
+                  border: index === 0 ? '3px solid #ffd700' : '2px solid #e1e5e9',
+                  borderRadius: '15px',
+                  padding: '20px',
+                  marginBottom: '20px',
+                  background: index === 0 ? 'linear-gradient(135deg, #fff9e6 0%, #ffffff 100%)' : 'white',
+                  position: 'relative',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)';
+                  (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                  (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+                }}
+              >
+                {index === 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-12px',
+                    left: '20px',
+                    background: '#ffd700',
+                    color: '#000',
+                    padding: '6px 15px',
+                    borderRadius: '20px',
+                    fontSize: '13px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 3px 10px rgba(0,0,0,0.2)'
+                  }}>
+                    ⭐ BEST VALUE
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '25px' }}>
+                  {/* Left Side: Flight + Hotel Details */}
+                  <div>
+                    {/* Flight Section */}
+                    <div style={{ marginBottom: '20px' }}>
+                      <div style={{ 
+                        fontSize: '16px', 
+                        fontWeight: 'bold', 
+                        color: '#667eea',
+                        marginBottom: '12px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        ✈️ Round-Trip Flights
+                      </div>
+                      
+                      {/* Outbound */}
+                      <div style={{ 
+                        background: '#f8f9fa', 
+                        padding: '12px', 
+                        borderRadius: '8px',
+                        marginBottom: '10px'
+                      }}>
+                        <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '6px' }}>
+                          Outbound: {pkg.flight.outbound.departure.date}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                          <span style={{ fontWeight: 'bold' }}>{pkg.flight.outbound.departure.airport}</span>
+                          <span>→</span>
+                          <span style={{ fontWeight: 'bold' }}>{pkg.flight.outbound.arrival.airport}</span>
+                          <span style={{ color: '#6c757d', fontSize: '12px' }}>
+                            ({pkg.flight.outbound.duration})
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#adb5bd', marginTop: '4px' }}>
+                          {pkg.flight.outbound.airline} • {pkg.flight.outbound.stops === 0 ? 'Direct' : `${pkg.flight.outbound.stops} stop${pkg.flight.outbound.stops > 1 ? 's' : ''}`}
+                        </div>
+                      </div>
+
+                      {/* Return */}
+                      <div style={{ 
+                        background: '#f8f9fa', 
+                        padding: '12px', 
+                        borderRadius: '8px'
+                      }}>
+                        <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '6px' }}>
+                          Return: {pkg.flight.return.departure.date}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                          <span style={{ fontWeight: 'bold' }}>{pkg.flight.return.departure.airport}</span>
+                          <span>→</span>
+                          <span style={{ fontWeight: 'bold' }}>{pkg.flight.return.arrival.airport}</span>
+                          <span style={{ color: '#6c757d', fontSize: '12px' }}>
+                            ({pkg.flight.return.duration})
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#adb5bd', marginTop: '4px' }}>
+                          {pkg.flight.return.airline} • {pkg.flight.return.stops === 0 ? 'Direct' : `${pkg.flight.return.stops} stop${pkg.flight.return.stops > 1 ? 's' : ''}`}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Hotel Section */}
+                    <div>
+                      <div style={{ 
+                        fontSize: '16px', 
+                        fontWeight: 'bold', 
+                        color: '#f5576c',
+                        marginBottom: '12px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        🏨 Hotel Accommodation
+                      </div>
+                      <div style={{ 
+                        background: '#fff5f7', 
+                        padding: '12px', 
+                        borderRadius: '8px'
+                      }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '6px' }}>
+                          {pkg.hotel.name}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#6c757d', marginBottom: '4px' }}>
+                          📍 {pkg.hotel.cityName} • {pkg.hotel.distanceFromCenter} from center
+                        </div>
+                        <div style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{
+                            background: '#667eea',
+                            color: 'white',
+                            padding: '3px 8px',
+                            borderRadius: '5px',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}>
+                            {pkg.hotel.rating.toFixed(1)}
+                          </span>
+                          <span style={{ color: '#6c757d' }}>
+                            ({pkg.hotel.reviewCount} reviews)
+                          </span>
+                          {pkg.hotel.breakfastIncluded && (
+                            <span style={{
+                              background: '#fff3cd',
+                              color: '#856404',
+                              padding: '3px 8px',
+                              borderRadius: '5px',
+                              fontSize: '11px',
+                              fontWeight: '600'
+                            }}>
+                              🍳 Breakfast
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Side: Pricing */}
+                  <div style={{
+                    minWidth: '200px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                  }}>
+                    <div>
+                      <div style={{ 
+                        fontSize: '13px', 
+                        color: '#6c757d',
+                        marginBottom: '8px',
+                        textAlign: 'right'
+                      }}>
+                        Pricing Breakdown
+                      </div>
+                      
+                      <div style={{ 
+                        background: '#f8f9fa',
+                        padding: '15px',
+                        borderRadius: '10px',
+                        marginBottom: '15px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '13px', color: '#6c757d' }}>Flights:</span>
+                          <span style={{ fontSize: '14px', fontWeight: '600' }}>${Math.round(pkg.flightPrice)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '13px', color: '#6c757d' }}>Hotel:</span>
+                          <span style={{ fontSize: '14px', fontWeight: '600' }}>${Math.round(pkg.hotelPrice)}</span>
+                        </div>
+                        <div style={{ 
+                          borderTop: '1px solid #dee2e6',
+                          paddingTop: '8px',
+                          marginTop: '8px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '13px', color: '#6c757d' }}>Subtotal:</span>
+                            <span style={{ fontSize: '14px', fontWeight: '600' }}>${Math.round(pkg.totalPrice)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '13px', color: '#28a745', fontWeight: '600' }}>
+                              Bundle Savings:
+                            </span>
+                            <span style={{ fontSize: '14px', color: '#28a745', fontWeight: 'bold' }}>
+                              -${Math.round(pkg.savings)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ 
+                        textAlign: 'right',
+                        marginBottom: '15px'
+                      }}>
+                        <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>
+                          Total Package Price
+                        </div>
+                        <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#19547b', lineHeight: '1' }}>
+                          ${Math.round(pkg.priceWithDiscount)}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#28a745', fontWeight: '600', marginTop: '4px' }}>
+                          💰 Save ${Math.round(pkg.savings)} vs separate booking
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => alert(`Booking complete vacation package for $${Math.round(pkg.priceWithDiscount)}...`)}
+                      style={{
+                        background: 'linear-gradient(135deg, #ffd89b 0%, #19547b 100%)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '15px',
+                        borderRadius: '10px',
+                        fontSize: '15px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        width: '100%'
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.target as HTMLElement).style.transform = 'scale(1.03)';
+                        (e.target as HTMLElement).style.boxShadow = '0 6px 20px rgba(25, 84, 123, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.target as HTMLElement).style.transform = 'scale(1)';
+                        (e.target as HTMLElement).style.boxShadow = 'none';
+                      }}
+                    >
+                      🎫 Book Complete Package
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {sortedVacationPackages.length > 5 && (
+              <div style={{ textAlign: 'center', marginTop: '20px', color: '#6c757d', fontSize: '14px' }}>
+                Showing 5 of {sortedVacationPackages.length} vacation packages
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

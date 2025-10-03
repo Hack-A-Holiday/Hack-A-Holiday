@@ -69,7 +69,7 @@ export default function Navbar() {
           fontSize: isMobile ? '1.2rem' : '1.5rem'
         }}>
           <span style={{ marginRight: '8px' }}>🌍</span>
-          {isMobile ? 'HT' : 'HackTravel'}
+          {isMobile ? 'HAH' : 'Hack-A-Holiday'}
         </Link>
 
         {/* Mobile Menu Button */}
@@ -104,7 +104,7 @@ export default function Navbar() {
               Plan Trip
             </Link>
             <Link href="/flight-search" style={getLinkStyle('/flight-search')}>
-              Flight Search
+              Flight & Hotel Search
             </Link>
             <Link href="/profile" style={getLinkStyle('/profile')}>
               Profile
@@ -263,7 +263,7 @@ export default function Navbar() {
                 border: router.pathname === '/flight-search' ? '2px solid rgba(102, 126, 234, 0.2)' : '2px solid transparent',
                 display: 'block'
               }}>
-                🔍 Flight Search
+                🔍 Flight & Hotel Search
               </Link>
               <Link href="/profile" onClick={closeMobileMenu} style={{
                 textDecoration: 'none',

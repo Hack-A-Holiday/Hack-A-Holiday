@@ -482,7 +482,7 @@ export default function PlanTrip() {
 	return (
 		<>
 			<Head>
-				<title>Plan Trip - HackTravel</title>
+				<title>Plan Trip - Hack-A-Holiday</title>
 				<meta name="description" content="AI-powered travel planning with Claude 4" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<link rel="icon" href="/favicon.ico" />
@@ -493,7 +493,7 @@ export default function PlanTrip() {
 					<div style={{ maxWidth: '800px', margin: '0 auto' }}>
 						<div style={{ textAlign: 'center', marginBottom: isMobile ? '30px' : '40px', color: 'white' }}>
 							<h1 style={{ fontSize: getTitleFontSize(), marginBottom: '10px', lineHeight: '1.2' }}>
-								🌍 HackTravel
+								🌍 Hack-A-Holiday
 							</h1>
 							<p style={{ fontSize: getTitleFontSize(), opacity: 0.9, lineHeight: '1.4' }}>
 								AI-powered trip planning with Claude 4
