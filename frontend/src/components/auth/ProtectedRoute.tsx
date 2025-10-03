@@ -27,7 +27,8 @@ export default function ProtectedRoute({
       // User must NOT be authenticated but is - redirect to home page
       router.push(redirectTo || '/home');
     }
-  }, [state.user, state.loading, requireAuth, router, redirectTo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.user, state.loading, requireAuth, redirectTo]);
 
   // Show loading spinner while checking authentication
   if (state.loading) {

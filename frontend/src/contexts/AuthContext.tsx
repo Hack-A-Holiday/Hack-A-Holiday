@@ -319,7 +319,7 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
       });
 
       // Redirect to dashboard after successful signup
-  router.push('/plantrip');
+      router.push('/home');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Signup failed';
       

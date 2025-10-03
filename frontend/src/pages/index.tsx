@@ -20,7 +20,7 @@ export default function HomePage() {
   // Redirect to dashboard if user is already logged in
   useEffect(() => {
     if (state.user && !state.loading) {
-  router.push('/plantrip');
+      router.push('/home');
     }
   }, [state.user, state.loading, router]);
 

@@ -14,7 +14,7 @@ function MyApp({ Component, pageProps }: AppProps) {
     const handleRouteChange = (url: string) => {
       if (url === '/home') {
         setTimeout(() => {
-          router.push('/plantrip');
+          router.push('/home');
         }, 1000);
       }
     };
