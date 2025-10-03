@@ -11,6 +11,7 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useAuth } from '../contexts/AuthContext';
+import { useDarkMode } from '../contexts/DarkModeContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import Navbar from '../components/layout/Navbar';
 import FlightSearch from '../components/FlightSearch';
@@ -18,6 +19,7 @@ import { FlightOption } from '../types/flight';
 
 export default function FlightSearchPage() {
   const { state } = useAuth();
+  const { isDarkMode } = useDarkMode();
   const [isMobile, setIsMobile] = useState(false);
   const [selectedFlight, setSelectedFlight] = useState<FlightOption | null>(null);
 
@@ -52,7 +54,9 @@ export default function FlightSearchPage() {
 
       <div style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: isDarkMode 
+          ? 'linear-gradient(135deg, #1a1f2e 0%, #16213e 100%)' 
+          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         padding: isMobile ? '10px' : '20px'
       }}>
         <Navbar />
@@ -72,7 +76,8 @@ export default function FlightSearchPage() {
               fontSize: isMobile ? '2rem' : '3rem',
               fontWeight: '700',
               margin: '0 0 16px 0',
-              textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              color: isDarkMode ? '#e8eaed' : 'white'
             }}>
               ✈️ Flight Search
             </h1>
@@ -80,7 +85,8 @@ export default function FlightSearchPage() {
               fontSize: isMobile ? '1rem' : '1.2rem',
               margin: '0 auto',
               opacity: 0.9,
-              maxWidth: '600px'
+              maxWidth: '600px',
+              color: isDarkMode ? '#9ca3af' : 'white'
             }}>
               Find the perfect flight with our intelligent search engine. 
               Compare prices, durations, and get personalized recommendations.
@@ -240,16 +246,17 @@ export default function FlightSearchPage() {
           <div style={{
             marginTop: '40px',
             padding: isMobile ? '30px 20px' : '40px',
-            background: 'rgba(255, 255, 255, 0.95)',
+            background: isDarkMode ? '#252d3d' : 'rgba(255, 255, 255, 0.95)',
             borderRadius: '16px',
-            color: '#1f2937'
+            border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+            boxShadow: isDarkMode ? '0 5px 20px rgba(0,0,0,0.6)' : 'none'
           }}>
             <h2 style={{
               textAlign: 'center',
               fontSize: isMobile ? '1.8rem' : '2.2rem',
               fontWeight: '600',
               margin: '0 0 30px 0',
-              color: '#1f2937'
+              color: isDarkMode ? '#e8eaed' : '#1f2937'
             }}>
               💡 Flight Search Tips
             </h2>
@@ -260,37 +267,37 @@ export default function FlightSearchPage() {
               gap: '24px'
             }}>
               <div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', margin: '0 0 12px 0', color: '#3b82f6' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', margin: '0 0 12px 0', color: isDarkMode ? '#8b9cff' : '#3b82f6' }}>
                   🕐 Best Time to Book
                 </h3>
-                <p style={{ fontSize: '0.9rem', lineHeight: '1.6', margin: '0', color: '#6b7280' }}>
+                <p style={{ fontSize: '0.9rem', lineHeight: '1.6', margin: '0', color: isDarkMode ? '#9ca3af' : '#6b7280' }}>
                   Book domestic flights 1-3 months in advance and international flights 2-8 months ahead for the best prices.
                 </p>
               </div>
               
               <div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', margin: '0 0 12px 0', color: '#3b82f6' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', margin: '0 0 12px 0', color: isDarkMode ? '#8b9cff' : '#3b82f6' }}>
                   📅 Flexible Dates
                 </h3>
-                <p style={{ fontSize: '0.9rem', lineHeight: '1.6', margin: '0', color: '#6b7280' }}>
+                <p style={{ fontSize: '0.9rem', lineHeight: '1.6', margin: '0', color: isDarkMode ? '#9ca3af' : '#6b7280' }}>
                   Use our flexible date search to find cheaper flights by adjusting your travel dates by a few days.
                 </p>
               </div>
               
               <div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', margin: '0 0 12px 0', color: '#3b82f6' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', margin: '0 0 12px 0', color: isDarkMode ? '#8b9cff' : '#3b82f6' }}>
                   🎯 Set Price Alerts
                 </h3>
-                <p style={{ fontSize: '0.9rem', lineHeight: '1.6', margin: '0', color: '#6b7280' }}>
+                <p style={{ fontSize: '0.9rem', lineHeight: '1.6', margin: '0', color: isDarkMode ? '#9ca3af' : '#6b7280' }}>
                   Set up price alerts for your desired routes to get notified when prices drop.
                 </p>
               </div>
               
               <div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', margin: '0 0 12px 0', color: '#3b82f6' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', margin: '0 0 12px 0', color: isDarkMode ? '#8b9cff' : '#3b82f6' }}>
                   🏷️ Consider Nearby Airports
                 </h3>
-                <p style={{ fontSize: '0.9rem', lineHeight: '1.6', margin: '0', color: '#6b7280' }}>
+                <p style={{ fontSize: '0.9rem', lineHeight: '1.6', margin: '0', color: isDarkMode ? '#9ca3af' : '#6b7280' }}>
                   Check flights to nearby airports as they might offer better prices or more convenient times.
                 </p>
               </div>

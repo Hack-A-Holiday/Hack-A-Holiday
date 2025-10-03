@@ -75,7 +75,8 @@ export class KiwiApiService {
     destination: string,
     departureDate: string,
     passengers: { adults: number; children?: number; infants?: number },
-    checkedBags: number = 0
+    checkedBags: number = 0,
+    returnDate?: string
   ): Promise<KiwiApiResponse> {
     // Try different bag configurations if the initial search fails
     // Start with requested bags, then try progressively fewer bags
@@ -87,9 +88,10 @@ export class KiwiApiService {
       const currentBags = bagConfigs[i];
       
       try {
-        const params = new URLSearchParams({
+        const params: Record<string, string> = {
           source: `City:${origin}`,
           destination: `City:${destination}`,
+          departureDate: departureDate,
           currency: 'usd',
           locale: 'en',
           adults: passengers.adults.toString(),
@@ -101,9 +103,15 @@ export class KiwiApiService {
           sortBy: 'QUALITY',
           sortOrder: 'ASCENDING',
           limit: '20'
-        });
-
-        const url = `${this.baseUrl}/round-trip?${params.toString()}`;
+        };
+        
+        // Add return date if provided (for round-trip searches)
+        if (returnDate) {
+          params.returnDate = returnDate;
+        }
+        
+        const urlParams = new URLSearchParams(params);
+        const url = `${this.baseUrl}/round-trip?${urlParams.toString()}`;
 
         console.log(`🛫 Trying Kiwi API search with ${currentBags} checked bags...`);
 
