@@ -1,6 +1,0 @@
-.env.local
-.env
-node_modules/
-*.log
-dist/
-build/

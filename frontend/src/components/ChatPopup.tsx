@@ -34,7 +34,7 @@ export default function ChatPopup() {
       };
       setMessages([welcomeMessage]);
     }
-  }, [isOpen, messages.length, state.user?.name]);
+  }, [isOpen]); // Removed messages.length and state.user?.name to prevent infinite loop
 
   useEffect(() => {
     scrollToBottom();

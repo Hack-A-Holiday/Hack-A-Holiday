@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useMemo, useCallback, useRef, useState } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Swal from 'sweetalert2';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -94,8 +94,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { readonly children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, { ...initialState, loading: true });
   const router = useRouter();
-  const [processedGoogleUser, setProcessedGoogleUser] = React.useState<string | null>(null);
-  const initialAuthCheckCompleted = useRef(false);
 
   // Utility functions for consistent cookie and token storage
   const setCookie = (name: string, value: string, days: number = 7) => {
@@ -140,11 +138,6 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
   useEffect(() => {
     const checkAuthState = async () => {
       try {
-        // Skip if initial check is already completed
-        if (initialAuthCheckCompleted.current) return;
-        
-        initialAuthCheckCompleted.current = true;
-        
         const token = getToken();
         
         if (token) {
@@ -168,7 +161,7 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
     };
 
     checkAuthState();
-  }, []); // Keep empty dependency array to prevent re-runs
+  }, []);
 
   // Firebase auth state listener for Google OAuth only
   useEffect(() => {
@@ -182,11 +175,6 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
       if (firebaseUser) {
         // Skip if user is already authenticated in our app to prevent duplicate messages
         if (state.user && state.token) {
-          return;
-        }
-        
-        // Skip if we've already processed this Google user
-        if (processedGoogleUser === firebaseUser.uid) {
           return;
         }
 
@@ -210,9 +198,6 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
             type: 'LOGIN_SUCCESS',
             payload: { user: response.user, token: response.token },
           });
-          
-          // Mark this user as processed
-          setProcessedGoogleUser(firebaseUser.uid);
 
           // Show success alert for Google auth
           const displayName = (response.user.name && response.user.name.trim()) ? response.user.name : response.user.email;
@@ -227,8 +212,8 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
           });
 
           // Only redirect if we're on the auth page
-          if (router.pathname === '/') {
-            router.replace('/home');
+            if (router.pathname === '/') {
+              router.replace('/home');
           }
         } catch (error) {
           console.error('Error storing Google user:', error);
@@ -256,7 +241,7 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
         unsubscribe();
       }
     };
-  }, []); // Keep empty dependency array to run only once
+  }, []);
 
   // Email/Password login - goes directly to DynamoDB
   const login = useCallback(async (email: string, password: string) => {
@@ -286,8 +271,8 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
         position: 'top-end'
       });
 
-      // Redirect to home page after successful login
-      router.replace('/home');
+  // Redirect to home after successful login
+  router.replace('/home');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       
@@ -333,8 +318,8 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
         position: 'top-end'
       });
 
-      // Redirect to login page after successful signup
-      router.push('/');
+      // Redirect to dashboard after successful signup
+  router.push('/plantrip');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Signup failed';
       
