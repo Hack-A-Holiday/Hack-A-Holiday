@@ -10,6 +10,7 @@ export interface LambdaStackProps extends cdk.StackProps {
   usersTableName: string;
   tripsTableName: string;
   bookingsTableName: string;
+  chatHistoryTableName: string;
   s3BucketName: string;
 }
 
@@ -17,7 +18,7 @@ export class LambdaStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
-    const { environment, usersTableName, tripsTableName, bookingsTableName, s3BucketName } = props;
+    const { environment, usersTableName, tripsTableName, bookingsTableName, chatHistoryTableName, s3BucketName } = props;
 
     // Create IAM role with comprehensive permissions for AI functions
     const lambdaRole = new iam.Role(this, 'TravelCompanionLambdaRole', {
@@ -42,6 +43,8 @@ export class LambdaStack extends cdk.Stack {
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${usersTableName}`,
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${tripsTableName}`,
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${bookingsTableName}`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/${chatHistoryTableName}`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/${chatHistoryTableName}/index/*`,
       ],
     });
 
@@ -97,10 +100,10 @@ export class LambdaStack extends cdk.Stack {
 
     // Common environment variables for all Lambda functions
     const commonEnvironment = {
-      AWS_REGION: process.env.AWS_REGION || 'us-east-1',
       USERS_TABLE_NAME: usersTableName,
       TRIPS_TABLE_NAME: tripsTableName,
       BOOKINGS_TABLE_NAME: bookingsTableName,
+      CHAT_HISTORY_TABLE_NAME: chatHistoryTableName,
       S3_BUCKET_NAME: s3BucketName,
       SAGEMAKER_ENDPOINT_NAME: process.env.SAGEMAKER_ENDPOINT_NAME || 'travel-assistant-endpoint',
     };
@@ -126,6 +129,18 @@ export class LambdaStack extends cdk.Stack {
       environment: commonEnvironment,
       timeout: cdk.Duration.seconds(60), // Longer timeout for SageMaker
       memorySize: 512,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    // AI Chat API Lambda for managing chat history and preferences
+    const aiChatApiLambda = new lambda.Function(this, 'AiChatApiLambda', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      code: lambda.Code.fromAsset('../backend/dist'),
+      handler: 'functions/ai-chat-api.handler',
+      role: lambdaRole,
+      environment: commonEnvironment,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
 
@@ -185,56 +200,10 @@ export class LambdaStack extends cdk.Stack {
     // AI Agent endpoints
     const aiResource = api.root.addResource('ai-agent');
     aiResource.addMethod('POST', new apigateway.LambdaIntegration(aiAgentLambda));
-    aiResource.addMethod('OPTIONS', new apigateway.MockIntegration({
-      integrationResponses: [{
-        statusCode: '200',
-        responseParameters: {
-          'method.response.header.Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
-          'method.response.header.Access-Control-Allow-Origin': "'*'",
-          'method.response.header.Access-Control-Allow-Methods': "'GET,POST,OPTIONS'",
-        },
-      }],
-      passthroughBehavior: apigateway.PassthroughBehavior.WHEN_NO_MATCH,
-      requestTemplates: {
-        'application/json': '{"statusCode": 200}',
-      },
-    }), {
-      methodResponses: [{
-        statusCode: '200',
-        responseParameters: {
-          'method.response.header.Access-Control-Allow-Headers': true,
-          'method.response.header.Access-Control-Allow-Methods': true,
-          'method.response.header.Access-Control-Allow-Origin': true,
-        },
-      }],
-    });
 
     // SageMaker AI Agent endpoint
     const aiSageMakerResource = api.root.addResource('ai-agent-sagemaker');
     aiSageMakerResource.addMethod('POST', new apigateway.LambdaIntegration(aiAgentSageMakerLambda));
-    aiSageMakerResource.addMethod('OPTIONS', new apigateway.MockIntegration({
-      integrationResponses: [{
-        statusCode: '200',
-        responseParameters: {
-          'method.response.header.Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
-          'method.response.header.Access-Control-Allow-Origin': "'*'",
-          'method.response.header.Access-Control-Allow-Methods': "'GET,POST,OPTIONS'",
-        },
-      }],
-      passthroughBehavior: apigateway.PassthroughBehavior.WHEN_NO_MATCH,
-      requestTemplates: {
-        'application/json': '{"statusCode": 200}',
-      },
-    }), {
-      methodResponses: [{
-        statusCode: '200',
-        responseParameters: {
-          'method.response.header.Access-Control-Allow-Headers': true,
-          'method.response.header.Access-Control-Allow-Methods': true,
-          'method.response.header.Access-Control-Allow-Origin': true,
-        },
-      }],
-    });
 
     // Auth endpoints
     const authResource = api.root.addResource('auth');
@@ -256,7 +225,21 @@ export class LambdaStack extends cdk.Stack {
     bookingsResource.addMethod('POST', new apigateway.LambdaIntegration(bookingLambda));
     bookingsResource.addMethod('GET', new apigateway.LambdaIntegration(bookingLambda));
 
-    // Output important information
+        // AI Chat API endpoints
+    const aiChatResource = api.root.addResource('ai-chat');
+    const historyResource = aiChatResource.addResource('history');
+    const saveResource = aiChatResource.addResource('save');
+    
+    historyResource.addMethod('GET', new apigateway.LambdaIntegration(aiChatApiLambda));
+    saveResource.addMethod('POST', new apigateway.LambdaIntegration(aiChatApiLambda));
+
+    // User preferences endpoint
+    const userResource = api.root.addResource('user');
+    const preferencesResource = userResource.addResource('preferences');
+    preferencesResource.addMethod('GET', new apigateway.LambdaIntegration(aiChatApiLambda));
+    preferencesResource.addMethod('PUT', new apigateway.LambdaIntegration(aiChatApiLambda));
+
+    // Output important values
     new cdk.CfnOutput(this, 'ApiGatewayUrl', {
       value: api.url,
       description: 'API Gateway URL',

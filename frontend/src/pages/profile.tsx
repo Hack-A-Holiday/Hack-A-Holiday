@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Head from 'next/head';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/layout/Navbar';
@@ -63,11 +63,11 @@ function TravelPreferencesForm({
   preferences, 
   onPreferenceChange, 
   isEditing 
-}: { 
+}: Readonly<{ 
   preferences: TravelPreferences; 
   onPreferenceChange: (updates: Partial<TravelPreferences>) => void; 
   isEditing: boolean; 
-}) {
+}>) {
   const handleInputChange = (field: keyof TravelPreferences, value: any) => {
     onPreferenceChange({ [field]: value });
   };
@@ -190,10 +190,11 @@ function TravelPreferencesForm({
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+            <label htmlFor="budget" style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
               Budget ($)
             </label>
             <input
+              id="budget"
               type="number"
               value={preferences.budget}
               onChange={(e) => handleInputChange('budget', parseInt(e.target.value))}
@@ -204,10 +205,11 @@ function TravelPreferencesForm({
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+            <label htmlFor="travelers" style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
               Number of Travelers
             </label>
             <input
+              id="travelers"
               type="number"
               value={preferences.travelers}
               onChange={(e) => handleInputChange('travelers', parseInt(e.target.value))}
@@ -218,10 +220,11 @@ function TravelPreferencesForm({
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+            <label htmlFor="numberOfKids" style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
               Number of Kids
             </label>
             <input
+              id="numberOfKids"
               type="number"
               value={preferences.numberOfKids}
               onChange={(e) => handleInputChange('numberOfKids', parseInt(e.target.value))}
@@ -232,10 +235,11 @@ function TravelPreferencesForm({
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+            <label htmlFor="travelStyle" style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
               Travel Style
             </label>
             <select
+              id="travelStyle"
               value={preferences.travelStyle}
               onChange={(e) => handleInputChange('travelStyle', e.target.value)}
               style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '5px' }}
@@ -256,10 +260,11 @@ function TravelPreferencesForm({
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+            <label htmlFor="cabinClass" style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
               Cabin Class
             </label>
             <select
+              id="cabinClass"
               value={preferences.flightPreferences.cabinClass}
               onChange={(e) => handleFlightPreferenceChange('cabinClass', e.target.value)}
               style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '5px' }}
@@ -273,10 +278,11 @@ function TravelPreferencesForm({
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+            <label htmlFor="timePreference" style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
               Preferred Time
             </label>
             <select
+              id="timePreference"
               value={preferences.flightPreferences.timePreference}
               onChange={(e) => handleFlightPreferenceChange('timePreference', e.target.value)}
               style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '5px' }}
@@ -290,10 +296,11 @@ function TravelPreferencesForm({
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+            <label htmlFor="seatPreference" style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
               Seat Preference
             </label>
             <select
+              id="seatPreference"
               value={preferences.flightPreferences.seatPreference}
               onChange={(e) => handleFlightPreferenceChange('seatPreference', e.target.value)}
               style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '5px' }}
@@ -326,10 +333,11 @@ function TravelPreferencesForm({
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+            <label htmlFor="accommodationType" style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
               Accommodation Type
             </label>
             <select
+              id="accommodationType"
               value={preferences.accommodationType}
               onChange={(e) => handleInputChange('accommodationType', e.target.value)}
               style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '5px' }}
@@ -343,10 +351,11 @@ function TravelPreferencesForm({
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+            <label htmlFor="roomPreference" style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
               Room Preference
             </label>
             <select
+              id="roomPreference"
               value={preferences.roomPreference}
               onChange={(e) => handleInputChange('roomPreference', e.target.value)}
               style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '5px' }}
@@ -360,10 +369,11 @@ function TravelPreferencesForm({
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+            <label htmlFor="activityLevel" style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
               Activity Level
             </label>
             <select
+              id="activityLevel"
               value={preferences.activityLevel}
               onChange={(e) => handleInputChange('activityLevel', e.target.value)}
               style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '5px' }}
@@ -399,7 +409,7 @@ function TravelPreferencesForm({
       <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '10px' }}>
         <h4 style={{ margin: '0 0 15px 0', color: '#495057' }}>Favorite Destinations</h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-          {Array.from(new Set(popularDestinations.map(dest => dest.country))).sort().map((country) => (
+          {Array.from(new Set(popularDestinations.map(dest => dest.country))).sort((a, b) => a.localeCompare(b)).map((country) => (
             <label key={country} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <input
                 type="checkbox"
@@ -490,6 +500,7 @@ export default function ProfilePage() {
 
       setIsEditingPreferences(false);
     } catch (error) {
+      console.error('Failed to save preferences:', error);
       await Swal.fire({
         icon: 'error',
         title: 'Save Failed',

@@ -252,6 +252,19 @@ export default function Navbar() {
               }}>
                 ✈️ Plan Trip
               </Link>
+              <Link href="/ai-chat" onClick={closeMobileMenu} style={{
+                textDecoration: 'none',
+                color: router.pathname === '/ai-chat' ? '#667eea' : '#333',
+                fontSize: '1.2rem',
+                fontWeight: router.pathname === '/ai-chat' ? '600' : '400',
+                padding: '15px 20px',
+                borderRadius: '10px',
+                background: router.pathname === '/ai-chat' ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
+                border: router.pathname === '/ai-chat' ? '2px solid rgba(102, 126, 234, 0.2)' : '2px solid transparent',
+                display: 'block'
+              }}>
+                🤖 AI Assistant
+              </Link>
               <Link href="/flight-search" onClick={closeMobileMenu} style={{
                 textDecoration: 'none',
                 color: router.pathname === '/flight-search' ? '#667eea' : '#333',

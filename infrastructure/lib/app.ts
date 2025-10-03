@@ -38,6 +38,7 @@ const lambdaStack = new LambdaStack(app, `TravelCompanion-Lambda-${environment}`
   usersTableName: dynamoStack.usersTable.tableName,
   tripsTableName: dynamoStack.tripsTable.tableName,
   bookingsTableName: dynamoStack.bookingsTable.tableName,
+  chatHistoryTableName: dynamoStack.chatHistoryTable.tableName,
   s3BucketName: s3Stack.itineraryBucket.bucketName,
   description: `Lambda functions and API Gateway for Travel Companion - ${environment}`,
 });

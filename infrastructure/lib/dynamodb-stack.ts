@@ -10,6 +10,7 @@ export class DynamoDBStack extends cdk.Stack {
   public readonly usersTable: dynamodb.Table;
   public readonly tripsTable: dynamodb.Table;
   public readonly bookingsTable: dynamodb.Table;
+  public readonly chatHistoryTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: DynamoDBStackProps) {
     super(scope, id, props);
@@ -112,6 +113,40 @@ export class DynamoDBStack extends cdk.Stack {
       },
     });
 
+    // Chat History Table for AI conversations
+    this.chatHistoryTable = new dynamodb.Table(this, 'ChatHistoryTable', {
+      tableName: `TravelCompanion-ChatHistory-${environment}`,
+      partitionKey: {
+        name: 'PK',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'SK',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      removalPolicy: environment === 'prod' 
+        ? cdk.RemovalPolicy.RETAIN 
+        : cdk.RemovalPolicy.DESTROY,
+      // Auto-delete old chat messages after 90 days
+      timeToLiveAttribute: 'ttl'
+    });
+
+    // GSI for user chat history lookup
+    this.chatHistoryTable.addGlobalSecondaryIndex({
+      indexName: 'UserIdIndex',
+      partitionKey: {
+        name: 'userId',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'timestamp',
+        type: dynamodb.AttributeType.NUMBER,
+      },
+    });
+
     // Output table names for use in other stacks
     new cdk.CfnOutput(this, 'UsersTableName', {
       value: this.usersTable.tableName,
@@ -128,6 +163,11 @@ export class DynamoDBStack extends cdk.Stack {
       exportName: `${environment}-BookingsTableName`,
     });
 
+    new cdk.CfnOutput(this, 'ChatHistoryTableName', {
+      value: this.chatHistoryTable.tableName,
+      exportName: `${environment}-ChatHistoryTableName`,
+    });
+
     // Output table ARNs for IAM policies
     new cdk.CfnOutput(this, 'UsersTableArn', {
       value: this.usersTable.tableArn,
@@ -142,6 +182,11 @@ export class DynamoDBStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'BookingsTableArn', {
       value: this.bookingsTable.tableArn,
       exportName: `${environment}-BookingsTableArn`,
+    });
+
+    new cdk.CfnOutput(this, 'ChatHistoryTableArn', {
+      value: this.chatHistoryTable.tableArn,
+      exportName: `${environment}-ChatHistoryTableArn`,
     });
 
     // Tags for cost tracking

@@ -8,5 +8,6 @@ export declare class DynamoDBStack extends cdk.Stack {
     readonly usersTable: dynamodb.Table;
     readonly tripsTable: dynamodb.Table;
     readonly bookingsTable: dynamodb.Table;
+    readonly chatHistoryTable: dynamodb.Table;
     constructor(scope: Construct, id: string, props: DynamoDBStackProps);
 }

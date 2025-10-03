@@ -1,32 +1,17 @@
-import { useEffect } from 'react';
 // pages/_app.tsx
 import { AuthProvider } from '../contexts/AuthContext';
 import { TripProvider } from '@/contexts/TripContext'; // Updated to use the alias defined in tsconfig.json
+import ChatPopup from '../components/ChatPopup';
 import type { AppProps } from 'next/app';
 import '../styles/globals.css';
-import { useRouter } from 'next/router';
 
 // If you want to redirect with itinerary data, handle it in the page/component that receives the API response.
 function MyApp({ Component, pageProps }: AppProps) {
-  const router = useRouter();
-  useEffect(() => {
-    // Redirect to home after login/signup, then to plantrip
-    const handleRouteChange = (url: string) => {
-      if (url === '/home') {
-        setTimeout(() => {
-          router.push('/plantrip');
-        }, 1000);
-      }
-    };
-    router.events.on('routeChangeComplete', handleRouteChange);
-    return () => {
-      router.events.off('routeChangeComplete', handleRouteChange);
-    };
-  }, [router]);
   return (
     <AuthProvider>
       <TripProvider>
         <Component {...pageProps} />
+        <ChatPopup />
       </TripProvider>
     </AuthProvider>
   );

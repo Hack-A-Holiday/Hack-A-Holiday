@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import Navbar from '../components/layout/Navbar';
 
-export default function HomePage() {
+export default function Dashboard() {
   const { state } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);

@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import AuthForm from '../components/auth/AuthForm';
 import ForgotPasswordForm from '../components/ForgotPasswordForm';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function HomePage() {
+export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const { state, login, signup, googleAuth, clearError } = useAuth();
   const router = useRouter();
+  const redirectAttempted = useRef(false);
 
   // Clear error when switching modes
   useEffect(() => {
@@ -19,12 +20,11 @@ export default function HomePage() {
 
   // Redirect to dashboard if user is already logged in
   useEffect(() => {
-    if (state.user && !state.loading) {
-  router.push('/plantrip');
+    if (state.user && !state.loading && !redirectAttempted.current) {
+      redirectAttempted.current = true;
+      router.replace('/home');
     }
-  }, [state.user, state.loading, router]);
-
-  const handleSubmit = async (data: { email: string; password: string; name?: string }) => {
+  }, [state.user, state.loading, router]);  const handleSubmit = async (data: { email: string; password: string; name?: string }) => {
     if (mode === 'login') {
       await login(data.email, data.password);
     } else {
