@@ -14,8 +14,11 @@ const aiAgentRoutes = require('./routes/ai-agent');
 
 const app = express();
 
+// Remove trailing slash from origin to fix CORS issues
+const frontendOrigin = (process.env.FRONTEND_ORIGIN || 'http://localhost:3000').replace(/\/$/, '');
+
 app.use(cors({
-  origin: process.env.FRONTEND_ORIGIN || 'http://localhost:3000',
+  origin: frontendOrigin,
   credentials: true
 }));
 app.use(express.json());

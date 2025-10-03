@@ -118,6 +118,15 @@ export class KiwiApiService {
 
         const data = await response.json();
         
+        // DEBUG: Log the actual API response structure
+        console.log('🔍 Kiwi API Response Structure:', {
+          hasData: !!data,
+          hasItineraries: !!data.itineraries,
+          itinerariesCount: data.itineraries?.length || 0,
+          firstItinerary: data.itineraries?.[0],
+          fullResponse: data
+        });
+        
         // Check if we got results
         if (data.itineraries && data.itineraries.length > 0) {
           console.log(`✅ Found ${data.itineraries.length} flights with ${currentBags} checked bags`);
@@ -132,6 +141,7 @@ export class KiwiApiService {
           return data;
         } else {
           console.log(`❌ No flights found with ${currentBags} checked bags`);
+          console.log('Data structure:', data);
           if (i < bagConfigs.length - 1) {
             console.log(`🔄 Trying with fewer bags...`);
             continue;

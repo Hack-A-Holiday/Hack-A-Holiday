@@ -87,6 +87,8 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   });
 
   const [searchResults, setSearchResults] = useState<FlightSearchResponse | null>(null);
+  const [returnFlights, setReturnFlights] = useState<FlightOption[] | null>(null);
+  const [roundTripPackages, setRoundTripPackages] = useState<Array<{outbound: FlightOption, return: FlightOption, totalPrice: number, savings?: number}> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -96,6 +98,12 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [autoSearch, setAutoSearch] = useState(true);
+  
+  // Autocomplete state for airport/country suggestions
+  const [originSuggestions, setOriginSuggestions] = useState<typeof COMMON_AIRPORTS>([]);
+  const [destinationSuggestions, setDestinationSuggestions] = useState<typeof COMMON_AIRPORTS>([]);
+  const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
+  const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
 
   // Group airports by region for better organization
   const airportsByRegion = COMMON_AIRPORTS.reduce((acc, airport) => {
@@ -105,6 +113,30 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
     acc[airport.region].push(airport);
     return acc;
   }, {} as Record<string, typeof COMMON_AIRPORTS>);
+
+  // Filter airports by country name or airport code
+  const filterAirports = (input: string): typeof COMMON_AIRPORTS => {
+    if (!input || input.length < 2) return [];
+    
+    const searchTerm = input.toLowerCase().trim();
+    
+    // Check if input matches a country name
+    const countryMatch = COMMON_AIRPORTS.filter(airport => 
+      airport.country.toLowerCase().includes(searchTerm)
+    );
+    
+    // If country matches found, return all airports from those countries
+    if (countryMatch.length > 0) {
+      return countryMatch;
+    }
+    
+    // Otherwise, search by airport code, city, or airport name
+    return COMMON_AIRPORTS.filter(airport => 
+      airport.code.toLowerCase().includes(searchTerm) ||
+      airport.city.toLowerCase().includes(searchTerm) ||
+      airport.name.toLowerCase().includes(searchTerm)
+    );
+  };
 
   // Auto-search effect
   useEffect(() => {
@@ -117,9 +149,14 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   }, [searchRequest.origin, searchRequest.destination, searchRequest.departureDate, searchRequest.passengers, autoSearch]);
 
   // Generate more comprehensive mock data
-  const generateEnhancedMockFlights = (count = 15) => {
+  const generateEnhancedMockFlights = (count = 15, origin?: string, destination?: string, departureDate?: string) => {
     const airlines = ['American Airlines', 'Delta Air Lines', 'United Airlines', 'British Airways', 'Lufthansa', 'Emirates', 'Air France', 'KLM', 'Swiss International', 'Turkish Airlines', 'Qatar Airways', 'Singapore Airlines', 'Cathay Pacific', 'Japan Airlines', 'Korean Air'];
     const aircraftTypes = ['Boeing 737', 'Airbus A320', 'Boeing 777', 'Airbus A350', 'Boeing 787', 'Airbus A380'];
+    
+    // Use provided values or fall back to searchRequest
+    const flightOrigin = origin || searchRequest.origin;
+    const flightDestination = destination || searchRequest.destination;
+    const flightDate = departureDate || searchRequest.departureDate;
     
     return Array.from({ length: count }, (_, index) => {
       const airline = airlines[index % airlines.length];
@@ -138,17 +175,17 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
         flightNumber: `${airline.split(' ')[0].substring(0, 2).toUpperCase()}${1000 + index}`,
         aircraft: aircraftTypes[index % aircraftTypes.length],
         departure: {
-          airport: searchRequest.origin,
+          airport: flightOrigin,
           city: 'Origin City',
           time: `${departureHour.toString().padStart(2, '0')}:${departureMinute.toString().padStart(2, '0')}`,
-          date: searchRequest.departureDate,
+          date: flightDate,
           terminal: `Terminal ${Math.floor(Math.random() * 5) + 1}`
         },
         arrival: {
-          airport: searchRequest.destination,
+          airport: flightDestination,
           city: 'Destination City',
           time: `${arrivalTime.getHours().toString().padStart(2, '0')}:${arrivalTime.getMinutes().toString().padStart(2, '0')}`,
-          date: searchRequest.departureDate,
+          date: flightDate,
           terminal: `Terminal ${Math.floor(Math.random() * 5) + 1}`
         },
         duration: `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`,
@@ -282,6 +319,14 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
 
             setSearchResults(realResponse);
             console.log('✅ Real flight data loaded:', realFlights.length, 'flights');
+            
+            // If return date is provided, search for return flights and create packages
+            if (searchRequest.returnDate) {
+              await searchReturnFlightsAndCreatePackages(realResponse.flights, request);
+            } else {
+              setReturnFlights(null);
+              setRoundTripPackages(null);
+            }
             return;
           } else {
             throw new Error('No flights found from Kiwi API');
@@ -392,6 +437,14 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
 
           setSearchResults(convertedResponse);
           console.log('✅ Express backend search completed:', convertedResponse.flights.length, 'flights');
+          
+          // If return date is provided, search for return flights and create packages
+          if (searchRequest.returnDate) {
+            await searchReturnFlightsAndCreatePackages(convertedResponse.flights, request);
+          } else {
+            setReturnFlights(null);
+            setRoundTripPackages(null);
+          }
           return;
         }
       } catch (expressError: any) {
@@ -421,6 +474,15 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
       };
 
       setSearchResults(mockResponse);
+      
+      // If return date is provided, search for return flights and create packages
+      if (searchRequest.returnDate) {
+        await searchReturnFlightsAndCreatePackages(mockResponse.flights, request);
+      } else {
+        // Clear round-trip data for one-way flights
+        setReturnFlights(null);
+        setRoundTripPackages(null);
+      }
     } catch (err: any) {
       setError(err.message || 'Unknown error occurred during flight search');
       console.error('Flight search error:', err);
@@ -429,14 +491,207 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
     }
   };
 
+  // Search for return flights and create round-trip packages
+  const searchReturnFlightsAndCreatePackages = async (outboundFlights: FlightOption[], originalRequest: FlightSearchRequest) => {
+    if (!searchRequest.returnDate) return;
+
+    console.log('🔄 Searching return flights for round-trip packages...');
+    console.log('Return flight: FROM', originalRequest.destination, 'TO', originalRequest.origin, 'on', searchRequest.returnDate);
+    
+    try {
+      let returnFlightsData: FlightOption[] = [];
+
+      // Check if using real data from Kiwi API
+      if (useRealData) {
+        console.log('🌐 Fetching REAL return flights from Kiwi API...');
+        try {
+          const kiwiResponse = await kiwiApiService.searchFlights(
+            originalRequest.destination,  // FROM destination
+            originalRequest.origin,       // TO origin
+            searchRequest.returnDate,     // On return date
+            originalRequest.passengers,
+            filters.checkedBags || 0
+          );
+          
+          if (kiwiResponse.itineraries && kiwiResponse.itineraries.length > 0) {
+            returnFlightsData = kiwiResponse.itineraries
+              .map((flight, index) => kiwiApiService.convertToFlightOption(flight, index))
+              .filter(flight => flight !== null) as FlightOption[];
+            console.log(`✅ Found ${returnFlightsData.length} real return flights from Kiwi API`);
+          } else {
+            console.log('⚠️ No real return flights found, falling back to mock data');
+            returnFlightsData = generateEnhancedMockFlights(
+              15, 
+              originalRequest.destination,
+              originalRequest.origin,
+              searchRequest.returnDate
+            ) as FlightOption[];
+          }
+        } catch (apiError) {
+          console.error('❌ Kiwi API error for return flights:', apiError);
+          console.log('📝 Using mock return flights as fallback');
+          returnFlightsData = generateEnhancedMockFlights(
+            15, 
+            originalRequest.destination,
+            originalRequest.origin,
+            searchRequest.returnDate
+          ) as FlightOption[];
+        }
+      } else {
+        // Try Express backend first
+        console.log('🖥️ Attempting to fetch return flights from Express backend...');
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+        
+        try {
+          const response = await fetch(`${backendUrl}/flights/search`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': localStorage.getItem('authToken') || ''
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              origin: originalRequest.destination,
+              destination: originalRequest.origin,
+              departureDate: searchRequest.returnDate,
+              passengers: originalRequest.passengers,
+              cabinClass: originalRequest.cabinClass,
+              currency: originalRequest.currency || 'USD',
+              filters: filters,
+              preferences: preferences
+            })
+          });
+
+          if (response.ok) {
+            const expressResponse = await response.json();
+            if (expressResponse.success && expressResponse.flights) {
+              returnFlightsData = expressResponse.flights.map((flight: any) => ({
+                id: flight.id || `return-flight-${Math.random()}`,
+                airline: flight.airline || 'Unknown Airline',
+                flightNumber: flight.flightNumber || 'N/A',
+                departure: {
+                  airport: flight.origin || originalRequest.destination,
+                  city: flight.originCity || 'Origin City',
+                  time: flight.departureTime ? new Date(flight.departureTime).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  }) : '00:00',
+                  date: flight.departureDate || searchRequest.returnDate
+                },
+                arrival: {
+                  airport: flight.destination || originalRequest.origin,
+                  city: flight.destinationCity || 'Destination City',
+                  time: flight.arrivalTime ? new Date(flight.arrivalTime).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  }) : '00:00',
+                  date: flight.arrivalDate || searchRequest.returnDate
+                },
+                duration: flight.duration || '4h 00m',
+                durationMinutes: flight.durationMinutes || 240,
+                price: flight.price || 500,
+                currency: flight.currency || 'USD',
+                stops: flight.stops || 0,
+                baggage: {
+                  carry: true,
+                  checked: flight.baggage?.checked !== 'Not included' ? 1 : 0,
+                  checkedBagCost: flight.baggage?.checkedBagCost || 50,
+                  maxCheckedBags: 3
+                },
+                refundable: flight.refundable || false,
+                changeable: flight.changeable || false,
+                source: 'express' as const,
+                score: flight.personalizedScore || 0.7
+              }));
+              console.log(`✅ Found ${returnFlightsData.length} return flights from Express backend`);
+            } else {
+              throw new Error('Invalid backend response');
+            }
+          } else {
+            throw new Error('Backend request failed');
+          }
+        } catch (backendError) {
+          console.log('⚠️ Express backend unavailable, using mock return flights');
+          returnFlightsData = generateEnhancedMockFlights(
+            15, 
+            originalRequest.destination,
+            originalRequest.origin,
+            searchRequest.returnDate
+          ) as FlightOption[];
+        }
+      }
+      
+      setReturnFlights(returnFlightsData);
+
+      // Create round-trip packages by combining outbound and return flights
+      const packages = [];
+      const maxPackages = Math.min(outboundFlights.length, returnFlightsData.length, 10);
+      
+      for (let i = 0; i < maxPackages; i++) {
+        const outbound = outboundFlights[i];
+        const returnFlight = returnFlightsData[i];
+        
+        const totalPrice = outbound.price + returnFlight.price;
+        
+        // Calculate potential savings (could be based on real booking engine data)
+        const individualBookingFee = 30; // Typical booking fee per flight
+        const savings = individualBookingFee; // Save one booking fee by bundling
+        
+        packages.push({
+          outbound: outbound,
+          return: returnFlight,
+          totalPrice: totalPrice,
+          savings: savings
+        });
+      }
+
+      // Sort packages by total price
+      packages.sort((a, b) => a.totalPrice - b.totalPrice);
+      
+      setRoundTripPackages(packages);
+      console.log(`✅ Created ${packages.length} round-trip packages`);
+      console.log(`Sample package: ${packages[0]?.outbound.departure.airport} → ${packages[0]?.outbound.arrival.airport} (outbound), ${packages[0]?.return.departure.airport} → ${packages[0]?.return.arrival.airport} (return)`);
+    } catch (error) {
+      console.error('Error creating round-trip packages:', error);
+      setReturnFlights(null);
+      setRoundTripPackages(null);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const target = e.target as HTMLInputElement;
     const { name, value, type } = target;
     const checked = target.checked;
+    
+    // Handle airport autocomplete for origin and destination
+    if (name === 'origin') {
+      const suggestions = filterAirports(value);
+      setOriginSuggestions(suggestions);
+      setShowOriginSuggestions(suggestions.length > 0);
+    } else if (name === 'destination') {
+      const suggestions = filterAirports(value);
+      setDestinationSuggestions(suggestions);
+      setShowDestinationSuggestions(suggestions.length > 0);
+    }
+    
     setSearchRequest(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+  
+  // Handle selecting an airport from suggestions
+  const handleAirportSelect = (airportCode: string, field: 'origin' | 'destination') => {
+    setSearchRequest(prev => ({
+      ...prev,
+      [field]: airportCode
+    }));
+    
+    if (field === 'origin') {
+      setShowOriginSuggestions(false);
+    } else {
+      setShowDestinationSuggestions(false);
+    }
   };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -662,7 +917,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
           </div>
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
+        <div style={{ marginBottom: '20px', position: 'relative' }}>
           <label htmlFor="origin" style={{
             display: 'block',
             marginBottom: '8px',
@@ -670,7 +925,10 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
             color: '#495057',
             fontSize: '14px'
           }}>
-            ✈️ Origin Airport Code *
+            ✈️ Origin Airport Code * 
+            <span style={{ fontSize: '12px', fontWeight: 'normal', color: '#6c757d', marginLeft: '8px' }}>
+              (Type country name to see all airports)
+            </span>
           </label>
           <input 
             type="text" 
@@ -678,7 +936,18 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
             name="origin" 
             value={searchRequest.origin} 
             onChange={handleInputChange}
-            placeholder="e.g., JFK, LAX, LHR"
+            onFocus={() => {
+              if (searchRequest.origin) {
+                const suggestions = filterAirports(searchRequest.origin);
+                setOriginSuggestions(suggestions);
+                setShowOriginSuggestions(suggestions.length > 0);
+              }
+            }}
+            onBlur={() => {
+              // Delay to allow click on suggestion
+              setTimeout(() => setShowOriginSuggestions(false), 200);
+            }}
+            placeholder="e.g., JFK, India, United States"
             required
             style={{
               width: '100%',
@@ -690,12 +959,49 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
               transition: 'all 0.3s ease',
               background: '#fafbfc'
             }}
-            onFocus={(e) => e.target.style.borderColor = '#007bff'}
-            onBlur={(e) => e.target.style.borderColor = !searchRequest.origin ? '#ff6b6b' : '#e1e5e9'}
           />
+          {showOriginSuggestions && originSuggestions.length > 0 && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              maxHeight: '300px',
+              overflowY: 'auto',
+              background: 'white',
+              border: '2px solid #007bff',
+              borderTop: 'none',
+              borderRadius: '0 0 10px 10px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 1000,
+              marginTop: '-10px'
+            }}>
+              {originSuggestions.map((airport) => (
+                <div
+                  key={airport.code}
+                  onClick={() => handleAirportSelect(airport.code, 'origin')}
+                  style={{
+                    padding: '12px 16px',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid #f0f0f0',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f8f9fa')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
+                >
+                  <div style={{ fontWeight: '600', color: '#007bff', marginBottom: '4px' }}>
+                    {airport.code} - {airport.city}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6c757d' }}>
+                    {airport.name} • {airport.country}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
+        <div style={{ marginBottom: '20px', position: 'relative' }}>
           <label htmlFor="destination" style={{
             display: 'block',
             marginBottom: '8px',
@@ -704,6 +1010,9 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
             fontSize: '14px'
           }}>
             🛬 Destination Airport Code *
+            <span style={{ fontSize: '12px', fontWeight: 'normal', color: '#6c757d', marginLeft: '8px' }}>
+              (Type country name to see all airports)
+            </span>
           </label>
           <input 
             type="text" 
@@ -711,7 +1020,18 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
             name="destination" 
             value={searchRequest.destination} 
             onChange={handleInputChange}
-            placeholder="e.g., CDG, NRT, SYD"
+            onFocus={() => {
+              if (searchRequest.destination) {
+                const suggestions = filterAirports(searchRequest.destination);
+                setDestinationSuggestions(suggestions);
+                setShowDestinationSuggestions(suggestions.length > 0);
+              }
+            }}
+            onBlur={() => {
+              // Delay to allow click on suggestion
+              setTimeout(() => setShowDestinationSuggestions(false), 200);
+            }}
+            placeholder="e.g., CDG, Japan, France"
             required
             style={{
               width: '100%',
@@ -723,9 +1043,46 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
               transition: 'all 0.3s ease',
               background: '#fafbfc'
             }}
-            onFocus={(e) => e.target.style.borderColor = '#007bff'}
-            onBlur={(e) => e.target.style.borderColor = !searchRequest.destination ? '#ff6b6b' : '#e1e5e9'}
           />
+          {showDestinationSuggestions && destinationSuggestions.length > 0 && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              maxHeight: '300px',
+              overflowY: 'auto',
+              background: 'white',
+              border: '2px solid #007bff',
+              borderTop: 'none',
+              borderRadius: '0 0 10px 10px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 1000,
+              marginTop: '-10px'
+            }}>
+              {destinationSuggestions.map((airport) => (
+                <div
+                  key={airport.code}
+                  onClick={() => handleAirportSelect(airport.code, 'destination')}
+                  style={{
+                    padding: '12px 16px',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid #f0f0f0',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f8f9fa')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
+                >
+                  <div style={{ fontWeight: '600', color: '#007bff', marginBottom: '4px' }}>
+                    {airport.code} - {airport.city}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6c757d' }}>
+                    {airport.name} • {airport.country}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={{ marginBottom: '20px' }}>
@@ -913,6 +1270,78 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
             </>
           )}
         </button>
+
+        {/* Real-Time Data Toggle */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '16px',
+          background: useRealData ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : '#f8f9fa',
+          borderRadius: '12px',
+          marginTop: '20px',
+          border: useRealData ? '2px solid #28a745' : '2px solid #e1e5e9',
+          transition: 'all 0.3s ease'
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{
+              fontWeight: '600',
+              color: useRealData ? 'white' : '#495057',
+              marginBottom: '4px',
+              fontSize: '16px'
+            }}>
+              {useRealData ? '🌐 Real-Time Flight Data' : '📝 Mock Flight Data'}
+            </div>
+            <div style={{
+              fontSize: '13px',
+              color: useRealData ? 'rgba(255,255,255,0.9)' : '#6c757d',
+              lineHeight: '1.4'
+            }}>
+              {useRealData 
+                ? 'Searching live flights from Kiwi.com API with real pricing and availability'
+                : 'Using simulated flight data for testing purposes'}
+            </div>
+          </div>
+          <button
+            onClick={handleRealDataToggle}
+            style={{
+              padding: '10px 20px',
+              background: useRealData ? 'white' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: useRealData ? '#28a745' : 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              whiteSpace: 'nowrap'
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLElement).style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLElement).style.transform = 'scale(1)';
+            }}
+          >
+            {useRealData ? '📝 Use Mock Data' : '🌐 Use Real Data'}
+          </button>
+        </div>
+
+        {useRealData && (
+          <div style={{
+            padding: '12px 16px',
+            background: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: '8px',
+            marginTop: '15px',
+            fontSize: '13px',
+            color: '#856404'
+          }}>
+            ⚠️ <strong>Note:</strong> Real-time data requires a valid RapidAPI key for Kiwi.com API. 
+            {!process.env.NEXT_PUBLIC_RAPIDAPI_KEY && ' (API key not configured)'}
+          </div>
+        )}
       </div>
 
       {showFilters && (
@@ -1206,6 +1635,227 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
               )}
             </div>
           </div>
+
+          {/* Round-Trip Packages Section */}
+          {roundTripPackages && roundTripPackages.length > 0 && (
+            <div style={{ marginBottom: '30px' }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                padding: '20px',
+                borderRadius: '15px 15px 0 0',
+                color: 'white',
+                boxShadow: '0 5px 20px rgba(0,0,0,0.08)'
+              }}>
+                <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>
+                  🔄 Round-Trip Packages
+                </h3>
+                <p style={{ margin: '8px 0 0 0', fontSize: '14px', opacity: 0.9 }}>
+                  Save time and money with combined departure and return flights
+                </p>
+              </div>
+              
+              <div style={{
+                background: 'white',
+                padding: '20px',
+                borderRadius: '0 0 15px 15px',
+                boxShadow: '0 5px 20px rgba(0,0,0,0.08)',
+                border: '1px solid #e1e5e9',
+                borderTop: 'none'
+              }}>
+                {roundTripPackages.slice(0, 5).map((pkg, index) => (
+                  <div
+                    key={`package-${index}`}
+                    style={{
+                      background: '#f8f9fa',
+                      borderRadius: '12px',
+                      padding: '20px',
+                      marginBottom: index < 4 ? '15px' : '0',
+                      border: '2px solid #e1e5e9',
+                      transition: 'all 0.3s ease',
+                      cursor: 'pointer',
+                      position: 'relative'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.1)';
+                      e.currentTarget.style.borderColor = '#667eea';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                      e.currentTarget.style.borderColor = '#e1e5e9';
+                    }}
+                  >
+                    {index === 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-12px',
+                        left: '20px',
+                        background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+                        color: 'white',
+                        padding: '6px 16px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 4px 12px rgba(40, 167, 69, 0.3)'
+                      }}>
+                        ⭐ Best Deal
+                      </div>
+                    )}
+                    
+                    {/* Outbound Flight */}
+                    <div style={{ marginBottom: '15px', paddingBottom: '15px', borderBottom: '2px dashed #dee2e6' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#667eea', marginRight: '10px' }}>
+                          ✈️ OUTBOUND
+                        </span>
+                        <span style={{ fontSize: '12px', color: '#6c757d' }}>
+                          {pkg.outbound.departure.date}
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '15px', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#495057' }}>
+                            {pkg.outbound.departure.time}
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#6c757d', marginTop: '4px' }}>
+                            {pkg.outbound.departure.airport}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#adb5bd' }}>
+                            {pkg.outbound.airline}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>
+                            {pkg.outbound.duration}
+                          </div>
+                          <div style={{ fontSize: '20px', color: '#667eea' }}>→</div>
+                          <div style={{ fontSize: '11px', color: '#adb5bd', marginTop: '4px' }}>
+                            {pkg.outbound.stops === 0 ? 'Direct' : `${pkg.outbound.stops} stop${pkg.outbound.stops > 1 ? 's' : ''}`}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#495057' }}>
+                            {pkg.outbound.arrival.time}
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#6c757d', marginTop: '4px' }}>
+                            {pkg.outbound.arrival.airport}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#28a745', fontWeight: '600' }}>
+                            ${pkg.outbound.price}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Return Flight */}
+                    <div style={{ marginBottom: '15px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#764ba2', marginRight: '10px' }}>
+                          🔙 RETURN
+                        </span>
+                        <span style={{ fontSize: '12px', color: '#6c757d' }}>
+                          {pkg.return.departure.date}
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '15px', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#495057' }}>
+                            {pkg.return.departure.time}
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#6c757d', marginTop: '4px' }}>
+                            {pkg.return.departure.airport}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#adb5bd' }}>
+                            {pkg.return.airline}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>
+                            {pkg.return.duration}
+                          </div>
+                          <div style={{ fontSize: '20px', color: '#764ba2' }}>→</div>
+                          <div style={{ fontSize: '11px', color: '#adb5bd', marginTop: '4px' }}>
+                            {pkg.return.stops === 0 ? 'Direct' : `${pkg.return.stops} stop${pkg.return.stops > 1 ? 's' : ''}`}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#495057' }}>
+                            {pkg.return.arrival.time}
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#6c757d', marginTop: '4px' }}>
+                            {pkg.return.arrival.airport}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#28a745', fontWeight: '600' }}>
+                            ${pkg.return.price}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Package Total */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '15px',
+                      background: 'white',
+                      borderRadius: '8px',
+                      border: '1px solid #dee2e6'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '14px', color: '#6c757d', marginBottom: '4px' }}>
+                          Total Package Price
+                        </div>
+                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#667eea' }}>
+                          ${pkg.totalPrice.toFixed(2)}
+                        </div>
+                        {pkg.savings && pkg.savings > 0 && (
+                          <div style={{ fontSize: '12px', color: '#28a745', fontWeight: '600', marginTop: '4px' }}>
+                            💰 Save ${pkg.savings} vs separate booking
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          console.log('Selected package:', pkg);
+                          // Handle package selection
+                        }}
+                        style={{
+                          padding: '12px 24px',
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.target as HTMLElement).style.transform = 'translateY(-2px)';
+                          (e.target as HTMLElement).style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.target as HTMLElement).style.transform = 'translateY(0)';
+                          (e.target as HTMLElement).style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+                        }}
+                      >
+                        🎫 Book Package
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                
+                {roundTripPackages.length > 5 && (
+                  <div style={{ textAlign: 'center', marginTop: '15px', color: '#6c757d', fontSize: '14px' }}>
+                    Showing 5 of {roundTripPackages.length} packages
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {viewMode === 'table' ? (
             /* Table View */
