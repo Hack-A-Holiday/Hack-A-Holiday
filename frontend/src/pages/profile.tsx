@@ -543,22 +543,42 @@ export default function ProfilePage() {
                 marginBottom: '25px',
               }}>
                 <h2 style={{ margin: 0, color: '#333', fontSize: '1.5rem' }}>Profile Information</h2>
-                <button
-                  onClick={() => setIsEditingProfile(!isEditingProfile)}
-                  style={{
-                    background: isEditingProfile ? '#6c757d' : '#667eea',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: '500',
-                  }}
-                >
-                  {isEditingProfile ? 'Cancel' : 'Edit Profile Info'}
-                </button>
+                {!isGoogleUser && (
+                  <button
+                    onClick={() => setIsEditingProfile(!isEditingProfile)}
+                    style={{
+                      background: isEditingProfile ? '#6c757d' : '#667eea',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      fontWeight: '500',
+                    }}
+                  >
+                    {isEditingProfile ? 'Cancel' : 'Edit Profile Info'}
+                  </button>
+                )}
               </div>
+
+              {isGoogleUser && (
+                <div style={{
+                  background: '#e3f2fd',
+                  border: '1px solid #2196f3',
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <span style={{ fontSize: '1.2rem' }}>ℹ️</span>
+                  <span style={{ color: '#1976d2', fontSize: '0.9rem' }}>
+                    Google account details cannot be edited. Your name and email are managed by Google.
+                  </span>
+                </div>
+              )}
 
               {!isEditingProfile ? (
                 <div>
@@ -603,12 +623,33 @@ export default function ProfilePage() {
                   </div>
                 </div>
               ) : (
-                <ProfileForm
-                  editForm={editForm}
-                  handleInputChange={handleInputChange}
-                  disabled={isGoogleUser}
-                  fields={['name', 'email']}
-                />
+                <>
+                  <ProfileForm
+                    editForm={editForm}
+                    handleInputChange={handleInputChange}
+                    disabled={isGoogleUser}
+                    fields={['name', 'email']}
+                  />
+                  {!isGoogleUser && (
+                    <div style={{ marginTop: '20px' }}>
+                      <button
+                        style={{
+                          background: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          padding: '12px 25px',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          fontWeight: '500',
+                          marginRight: '10px'
+                        }}
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

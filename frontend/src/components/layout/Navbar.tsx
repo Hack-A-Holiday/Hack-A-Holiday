@@ -103,6 +103,9 @@ export default function Navbar() {
             <Link href="/plantrip" style={getLinkStyle('/plantrip')}>
               Plan Trip
             </Link>
+            <Link href="/ai-assistant" style={getLinkStyle('/ai-assistant')}>
+              AI Assistant
+            </Link>
             <Link href="/flight-search" style={getLinkStyle('/flight-search')}>
               Flight Search
             </Link>
@@ -251,6 +254,19 @@ export default function Navbar() {
                 display: 'block'
               }}>
                 ✈️ Plan Trip
+              </Link>
+              <Link href="/ai-assistant" onClick={closeMobileMenu} style={{
+                textDecoration: 'none',
+                color: router.pathname === '/ai-assistant' ? '#667eea' : '#333',
+                fontSize: '1.2rem',
+                fontWeight: router.pathname === '/ai-assistant' ? '600' : '400',
+                padding: '15px 20px',
+                borderRadius: '10px',
+                background: router.pathname === '/ai-assistant' ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
+                border: router.pathname === '/ai-assistant' ? '2px solid rgba(102, 126, 234, 0.2)' : '2px solid transparent',
+                display: 'block'
+              }}>
+                🤖 AI Assistant
               </Link>
               <Link href="/flight-search" onClick={closeMobileMenu} style={{
                 textDecoration: 'none',

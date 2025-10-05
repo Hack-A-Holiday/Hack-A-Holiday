@@ -3,6 +3,7 @@ import * as cdk from 'aws-cdk-lib';
 import { DynamoDBStack } from './dynamodb-stack';
 import { S3Stack } from './s3-stack';
 import { LambdaStack } from './lambda-stack';
+import { SageMakerStack } from './sagemaker-stack';
 
 const app = new cdk.App();
 
@@ -46,6 +47,13 @@ const lambdaStack = new LambdaStack(app, `TravelCompanion-Lambda-${environment}`
 // Add dependencies
 lambdaStack.addDependency(dynamoStack);
 lambdaStack.addDependency(s3Stack);
+
+// Deploy SageMaker stack (optional - for AI agent)
+const sagemakerStack = new SageMakerStack(app, `TravelCompanion-SageMaker-${environment}`, {
+  env,
+  environment,
+  description: `SageMaker endpoint for AI Travel Assistant - ${environment}`,
+});
 
 // Add tags to all stacks
 const tags = {
