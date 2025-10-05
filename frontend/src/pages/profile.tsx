@@ -518,7 +518,7 @@ export default function ProfilePage() {
   return (
     <>
       <Head>
-        <title>Profile - HackTravel</title>
+        <title>Profile - Hack-A-Holiday</title>
         <meta name="description" content="Manage your profile and travel preferences" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />

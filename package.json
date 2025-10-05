@@ -1,7 +1,7 @@
 {
   "name": "travel-companion",
   "version": "1.0.0",
-  "description": "Travel Companion Application - HackTravel Platform",
+  "description": "Travel Companion Application - Hack-A-Holiday Platform",
   "private": true,
   "workspaces": [
     "frontend",

@@ -67,7 +67,7 @@ export interface KiwiApiResponse {
 }
 
 export class KiwiApiService {
-  private readonly apiKey = 'dc260b79a1mshf60901d122bb384p183ba0jsn9093522cbb9b';
+  private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '4bb41c35e2mshabe7faff89c8273p1fe197jsnccfa27353502';
   private readonly baseUrl = 'https://kiwi-com-cheap-flights.p.rapidapi.com';
 
   async searchFlights(
@@ -75,18 +75,23 @@ export class KiwiApiService {
     destination: string,
     departureDate: string,
     passengers: { adults: number; children?: number; infants?: number },
-    checkedBags: number = 0
+    checkedBags: number = 0,
+    returnDate?: string
   ): Promise<KiwiApiResponse> {
     // Try different bag configurations if the initial search fails
-    const bagConfigs = [checkedBags, Math.min(checkedBags, 2), Math.min(checkedBags, 1), 0];
+    // Start with requested bags, then try progressively fewer bags
+    const allConfigs = [checkedBags, 2, 1, 0];
+    const uniqueConfigs = allConfigs.filter((value, index, self) => self.indexOf(value) === index);
+    const bagConfigs = uniqueConfigs.filter(b => b <= checkedBags || checkedBags === 0).sort((a, b) => b - a);
     
     for (let i = 0; i < bagConfigs.length; i++) {
       const currentBags = bagConfigs[i];
       
       try {
-        const params = new URLSearchParams({
+        const params: Record<string, string> = {
           source: `City:${origin}`,
           destination: `City:${destination}`,
+          departureDate: departureDate,
           currency: 'usd',
           locale: 'en',
           adults: passengers.adults.toString(),
@@ -98,9 +103,15 @@ export class KiwiApiService {
           sortBy: 'QUALITY',
           sortOrder: 'ASCENDING',
           limit: '20'
-        });
-
-        const url = `${this.baseUrl}/round-trip?${params.toString()}`;
+        };
+        
+        // Add return date if provided (for round-trip searches)
+        if (returnDate) {
+          params.returnDate = returnDate;
+        }
+        
+        const urlParams = new URLSearchParams(params);
+        const url = `${this.baseUrl}/round-trip?${urlParams.toString()}`;
 
         console.log(`🛫 Trying Kiwi API search with ${currentBags} checked bags...`);
 
@@ -162,22 +173,29 @@ export class KiwiApiService {
   }
 
   convertToFlightOption(kiwiFlight: KiwiFlight, index: number) {
-    const segment = kiwiFlight.outbound?.sectorSegments?.[0]?.segment;
-    if (!segment) {
+    const segments = kiwiFlight.outbound?.sectorSegments;
+    if (!segments || segments.length === 0) {
       console.warn('No segment data found in Kiwi flight:', kiwiFlight);
       return null;
     }
     
-    const departureTime = new Date(segment.source?.localTime || new Date());
-    const arrivalTime = new Date(segment.destination?.localTime || new Date());
+    // Get first segment for departure info and last segment for arrival info
+    const firstSegment = segments[0].segment;
+    const lastSegment = segments[segments.length - 1].segment;
+    
+    // Calculate total duration across all segments
+    const totalDuration = segments.reduce((sum, seg) => sum + (seg.segment?.duration || 0), 0);
+    
+    const departureTime = new Date(firstSegment.source?.localTime || new Date());
+    const arrivalTime = new Date(lastSegment.destination?.localTime || new Date());
     
     return {
       id: `kiwi-${index}`,
-      airline: segment.carrier?.name || 'Unknown Airline',
-      flightNumber: `${segment.carrier?.code || 'XX'}${segment.code || '0000'}`,
+      airline: firstSegment.carrier?.name || 'Unknown Airline',
+      flightNumber: `${firstSegment.carrier?.code || 'XX'}${firstSegment.code || '0000'}`,
       departure: {
-        airport: segment.source?.station?.code || 'XXX',
-        city: segment.source?.station?.city?.name || 'Unknown',
+        airport: firstSegment.source?.station?.code || 'XXX',
+        city: firstSegment.source?.station?.city?.name || 'Unknown',
         time: departureTime.toLocaleTimeString('en-US', { 
           hour: '2-digit', 
           minute: '2-digit',
@@ -186,8 +204,8 @@ export class KiwiApiService {
         date: departureTime.toISOString().split('T')[0]
       },
       arrival: {
-        airport: segment.destination?.station?.code || 'XXX',
-        city: segment.destination?.station?.city?.name || 'Unknown',
+        airport: lastSegment.destination?.station?.code || 'XXX',
+        city: lastSegment.destination?.station?.city?.name || 'Unknown',
         time: arrivalTime.toLocaleTimeString('en-US', { 
           hour: '2-digit', 
           minute: '2-digit',
@@ -195,16 +213,16 @@ export class KiwiApiService {
         }),
         date: arrivalTime.toISOString().split('T')[0]
       },
-      duration: this.formatDuration(segment.duration),
-      durationMinutes: Math.floor(segment.duration / 60),
-      price: parseFloat(kiwiFlight.price.amount),
+      duration: this.formatDuration(totalDuration),
+      durationMinutes: Math.floor(totalDuration / 60),
+      price: Math.round(parseFloat(kiwiFlight.price.amount)),
       currency: (kiwiFlight.price.currency || 'USD').toUpperCase(),
-      stops: kiwiFlight.outbound.sectorSegments.length - 1,
+      stops: segments.length - 1,
       baggage: {
         carry: true,
         checked: kiwiFlight.bagsInfo?.includedCheckedBags || 0,
         checkedBagCost: kiwiFlight.bagsInfo?.checkedBagTiers?.[0]?.tierPrice ? 
-          parseFloat(kiwiFlight.bagsInfo.checkedBagTiers[0].tierPrice.amount) : 50,
+          Math.round(parseFloat(kiwiFlight.bagsInfo.checkedBagTiers[0].tierPrice.amount)) : 50,
         maxCheckedBags: 3
       },
       refundable: false,

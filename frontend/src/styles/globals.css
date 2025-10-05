@@ -406,3 +406,289 @@ body {
   25% { transform: translateX(-5px); }
   75% { transform: translateX(5px); }
 }
+
+/* Dark Mode Styles */
+.dark-mode {
+  /* Base colors */
+  --bg-primary: #0f1419;
+  --bg-secondary: #1a1f2e;
+  --bg-tertiary: #252d3d;
+  --bg-elevated: #2d3548;
+  
+  /* Text colors */
+  --text-primary: #e8eaed;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #6b7280;
+  --text-accent: #8b9cff;
+  
+  /* Border colors */
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.15);
+  
+  /* Shadow colors */
+  --shadow-color: rgba(0, 0, 0, 0.6);
+  --shadow-light: rgba(0, 0, 0, 0.3);
+  
+  /* Accent colors */
+  --accent-primary: #667eea;
+  --accent-secondary: #764ba2;
+  --accent-hover: #7c8aff;
+  
+  /* Status colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+}
+
+/* Body and root elements */
+.dark-mode body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.dark-mode {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Auth pages */
+.dark-mode .auth-container {
+  background: linear-gradient(135deg, #1a1f2e 0%, #16213e 100%);
+}
+
+.dark-mode .auth-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 25px 50px -12px var(--shadow-color);
+}
+
+.dark-mode .auth-card-title {
+  color: var(--text-primary);
+}
+
+.dark-mode .auth-card-description {
+  color: var(--text-secondary);
+}
+
+.dark-mode .auth-form-input,
+.dark-mode .auth-form-select,
+.dark-mode .auth-form-textarea,
+.dark-mode .form-input {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark-mode .auth-form-input:focus,
+.dark-mode .auth-form-select:focus,
+.dark-mode .auth-form-textarea:focus,
+.dark-mode .form-input:focus {
+  background-color: var(--bg-elevated);
+  border-color: var(--accent-primary);
+}
+
+.dark-mode .auth-form-input::placeholder,
+.dark-mode .form-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.dark-mode .auth-form-label,
+.dark-mode .form-label {
+  color: var(--text-primary);
+}
+
+.dark-mode .auth-divider {
+  background-color: var(--border-color);
+}
+
+.dark-mode .auth-divider-text {
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.dark-mode .auth-switch-text {
+  color: var(--text-secondary);
+}
+
+.dark-mode .auth-switch-link {
+  color: var(--accent-primary);
+}
+
+.dark-mode .auth-switch-link:hover {
+  color: var(--accent-hover);
+}
+
+.dark-mode .auth-feature {
+  color: var(--text-primary);
+}
+
+.dark-mode .auth-feature-icon {
+  background: var(--bg-tertiary);
+}
+
+/* Buttons */
+.dark-mode .btn-google {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark-mode .btn-google:hover {
+  background-color: var(--bg-elevated);
+  border-color: var(--border-hover);
+}
+
+/* Cards and containers */
+.dark-mode [style*="background: white"],
+.dark-mode [style*="background: #fff"],
+.dark-mode [style*="background-color: white"],
+.dark-mode [style*="background-color: #fff"] {
+  background: var(--bg-secondary) !important;
+}
+
+.dark-mode [style*="background: rgba(255, 255, 255"] {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Text colors */
+.dark-mode h1,
+.dark-mode h2,
+.dark-mode h3,
+.dark-mode h4,
+.dark-mode h5,
+.dark-mode h6 {
+  color: var(--text-primary);
+}
+
+.dark-mode p {
+  color: var(--text-secondary);
+}
+
+.dark-mode [style*="color: #333"],
+.dark-mode [style*="color: #666"],
+.dark-mode [style*="color: #999"] {
+  color: var(--text-primary) !important;
+}
+
+.dark-mode [style*="color: #6b7280"] {
+  color: var(--text-secondary) !important;
+}
+
+/* Inputs and form elements */
+.dark-mode input,
+.dark-mode textarea,
+.dark-mode select {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode input:focus,
+.dark-mode textarea:focus,
+.dark-mode select:focus {
+  background-color: var(--bg-elevated);
+  border-color: var(--accent-primary);
+}
+
+.dark-mode input::placeholder,
+.dark-mode textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Borders and dividers */
+.dark-mode [style*="border: "],
+.dark-mode [style*="border-bottom: "],
+.dark-mode [style*="border-top: "] {
+  border-color: var(--border-color) !important;
+}
+
+/* Shadows */
+.dark-mode [style*="box-shadow"] {
+  box-shadow: 0 10px 25px var(--shadow-color) !important;
+}
+
+/* Links */
+.dark-mode a {
+  color: var(--accent-primary);
+}
+
+.dark-mode a:hover {
+  color: var(--accent-hover);
+}
+
+/* Modals and overlays */
+.dark-mode [style*="backdrop-filter"] {
+  background-color: rgba(15, 20, 25, 0.95) !important;
+}
+
+/* Tables */
+.dark-mode table {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.dark-mode thead {
+  background-color: var(--bg-tertiary);
+}
+
+.dark-mode tbody tr:hover {
+  background-color: var(--bg-elevated);
+}
+
+.dark-mode td,
+.dark-mode th {
+  border-color: var(--border-color);
+}
+
+/* Scrollbars */
+.dark-mode ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.dark-mode ::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.dark-mode ::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+}
+
+.dark-mode ::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-elevated);
+}
+
+/* Code blocks */
+.dark-mode code,
+.dark-mode pre {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+/* Tooltips and popovers */
+.dark-mode [role="tooltip"],
+.dark-mode [role="dialog"] {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+/* Status badges */
+.dark-mode .badge {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+/* Images and icons - reduce brightness slightly */
+.dark-mode img:not([src*=".svg"]) {
+  opacity: 0.9;
+}
+
+/* Dark mode transitions */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}

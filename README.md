@@ -1,4 +1,4 @@
-# 🧳 HackTravel - AI-Powered Travel Companion
+# 🧳 Hack-A-Holiday - AI-Powered Travel Companion
 
 [![AWS](https://img.shields.io/badge/AWS-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)](https://aws.amazon.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
@@ -21,7 +21,7 @@ An intelligent travel planning platform that creates personalized itineraries us
 ## 📁 Project Structure
 
 ```
-HackTravel/
+Hack-A-Holiday/
 ├── 📂 frontend/              # Next.js React application
 │   ├── src/
 │   │   ├── components/       # Reusable React components
@@ -120,7 +120,7 @@ API_GATEWAY_URL=https://your-api-id.execute-api.us-east-1.amazonaws.com/dev
 NEXT_PUBLIC_API_URL=https://your-api-id.execute-api.us-east-1.amazonaws.com/dev
 
 # Frontend Configuration
-NEXT_PUBLIC_APP_NAME=HackTravel
+NEXT_PUBLIC_APP_NAME=Hack-A-Holiday
 NEXT_PUBLIC_CLOUDFRONT_URL=https://your-cloudfront-domain.cloudfront.net
 
 # Environment

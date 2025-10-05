@@ -351,7 +351,7 @@ const AiAgentPage = () => {
   return (
     <ProtectedRoute requireAuth={true}>
       <Head>
-        <title>AI Travel Agent - HackTravel</title>
+        <title>AI Travel Agent - Hack-A-Holiday</title>
         <meta name="description" content="AI-powered travel assistant with Claude 4 and SageMaker" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 // pages/_app.tsx
 import { AuthProvider } from '../contexts/AuthContext';
 import { TripProvider } from '@/contexts/TripContext'; // Updated to use the alias defined in tsconfig.json
+import { DarkModeProvider } from '../contexts/DarkModeContext';
 import type { AppProps } from 'next/app';
 import '../styles/globals.css';
 import { useRouter } from 'next/router';
@@ -24,11 +25,13 @@ function MyApp({ Component, pageProps }: AppProps) {
     };
   }, [router]);
   return (
-    <AuthProvider>
-      <TripProvider>
-        <Component {...pageProps} />
-      </TripProvider>
-    </AuthProvider>
+    <DarkModeProvider>
+      <AuthProvider>
+        <TripProvider>
+          <Component {...pageProps} />
+        </TripProvider>
+      </AuthProvider>
+    </DarkModeProvider>
   );
 }
 

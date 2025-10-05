@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
 import { useAuth } from '../contexts/AuthContext';
+import { useDarkMode } from '../contexts/DarkModeContext';
 import Navbar from '../components/layout/Navbar';
 import { Destination } from '../data/destinations';
 import Swal from 'sweetalert2';
@@ -37,6 +38,7 @@ interface ApiResponse {
 
 export default function PlanTrip() {
 	const { state } = useAuth();
+	const { isDarkMode } = useDarkMode();
 	const router = useRouter();
 	const [isMobile, setIsMobile] = useState(false);
 	const [isTablet, setIsTablet] = useState(false);
@@ -482,31 +484,42 @@ export default function PlanTrip() {
 	return (
 		<>
 			<Head>
-				<title>Plan Trip - HackTravel</title>
+				<title>Plan Trip - Hack-A-Holiday</title>
 				<meta name="description" content="AI-powered travel planning with Claude 4" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<link rel="icon" href="/favicon.ico" />
 			</Head>
-			<div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+			<div style={{ 
+				minHeight: '100vh', 
+				background: isDarkMode 
+					? 'linear-gradient(135deg, #1a1f2e 0%, #16213e 100%)' 
+					: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+			}}>
 				<Navbar />
 				<main style={{ padding: getContainerPadding(), fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
 					<div style={{ maxWidth: '800px', margin: '0 auto' }}>
 						<div style={{ textAlign: 'center', marginBottom: isMobile ? '30px' : '40px', color: 'white' }}>
 							<h1 style={{ fontSize: getTitleFontSize(), marginBottom: '10px', lineHeight: '1.2' }}>
-								🌍 HackTravel
+								🌍 Hack-A-Holiday
 							</h1>
 							<p style={{ fontSize: getTitleFontSize(), opacity: 0.9, lineHeight: '1.4' }}>
 								AI-powered trip planning with Claude 4
 							</p>
 						</div>
-						<div style={{ background: 'white', borderRadius: '15px', padding: getContainerPadding(), boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+						<div style={{ 
+							background: isDarkMode ? '#252d3d' : 'white', 
+							borderRadius: '15px', 
+							padding: getContainerPadding(), 
+							boxShadow: isDarkMode ? '0 20px 40px rgba(0,0,0,0.6)' : '0 20px 40px rgba(0,0,0,0.1)',
+							border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
+						}}>
 							{/* Interactive Globe for Destination Selection - Always visible */}
 							<div style={{ marginBottom: '30px' }}>
 								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '10px' : '0' }}>
 									<h3 style={{ margin: '0 0 10px 0', fontSize: isMobile ? '1.3rem' : '1.6rem', fontWeight: 'bold', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
 										🌍 Choose Your Destination
 									</h3>
-									<p style={{ margin: '0 0 15px 0', color: '#666', fontSize: '14px', fontStyle: 'italic' }}>
+									<p style={{ margin: '0 0 15px 0', color: isDarkMode ? '#9ca3af' : '#666', fontSize: '14px', fontStyle: 'italic' }}>
 										Explore the world and select your perfect travel destination
 									</p>
 									<input
@@ -514,7 +527,19 @@ export default function PlanTrip() {
 										value={globeSearchQuery}
 										onChange={(e) => setGlobeSearchQuery(e.target.value)}
 										placeholder="🔍 Search destinations..."
-										style={{ padding: '12px 20px', border: '2px solid #e1e5e9', borderRadius: '25px', fontSize: '14px', width: '100%', outline: 'none', marginBottom: '20px', transition: 'border-color 0.3s ease, box-shadow 0.3s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+										style={{ 
+											padding: '12px 20px', 
+											border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9', 
+											borderRadius: '25px', 
+											fontSize: '14px', 
+											width: '100%', 
+											outline: 'none', 
+											marginBottom: '20px', 
+											transition: 'border-color 0.3s ease, box-shadow 0.3s ease', 
+											boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.6)' : '0 2px 8px rgba(0,0,0,0.1)',
+											backgroundColor: isDarkMode ? '#1a1f2e' : 'white',
+											color: isDarkMode ? '#e8eaed' : '#000'
+										}}
 									/>
 								</div>
 								{preferences.destinationData && (
@@ -584,17 +609,29 @@ export default function PlanTrip() {
 
 								{/* Current Preferences Summary */}
 								{!showPreferencesForm && (
-									<div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
-										<h4 style={{ margin: '0 0 15px 0', color: '#495057' }}>Current Preferences</h4>
-										<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', fontSize: '0.9rem' }}>
-											<div><strong>Style:</strong> {userTravelPreferences.travelStyle}</div>
-											<div><strong>Budget:</strong> ${userTravelPreferences.budget}</div>
-											<div><strong>Travelers:</strong> {userTravelPreferences.travelers}</div>
-											<div><strong>Flight Class:</strong> {userTravelPreferences.flightPreferences.cabinClass}</div>
+									<div style={{ 
+										background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa', 
+										padding: '20px', 
+										borderRadius: '10px', 
+										marginBottom: '20px',
+										border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
+									}}>
+										<h4 style={{ margin: '0 0 15px 0', color: isDarkMode ? '#8b9cff' : '#495057' }}>Current Preferences</h4>
+										<div style={{ 
+											display: 'grid', 
+											gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+											gap: '10px', 
+											fontSize: '0.9rem',
+											color: isDarkMode ? '#9ca3af' : '#333'
+										}}>
+											<div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Style:</strong> {userTravelPreferences.travelStyle}</div>
+											<div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Budget:</strong> ${userTravelPreferences.budget}</div>
+											<div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Travelers:</strong> {userTravelPreferences.travelers}</div>
+											<div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Flight Class:</strong> {userTravelPreferences.flightPreferences.cabinClass}</div>
 										</div>
 										{userTravelPreferences.interests.length > 0 && (
-											<div style={{ marginTop: '10px' }}>
-												<strong>Interests:</strong> {userTravelPreferences.interests.slice(0, 3).join(', ')}
+											<div style={{ marginTop: '10px', color: isDarkMode ? '#9ca3af' : '#333' }}>
+												<strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Interests:</strong> {userTravelPreferences.interests.slice(0, 3).join(', ')}
 												{userTravelPreferences.interests.length > 3 && ` +${userTravelPreferences.interests.length - 3} more`}
 											</div>
 										)}

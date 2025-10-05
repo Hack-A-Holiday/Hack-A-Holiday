@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
+import { useDarkMode } from '../contexts/DarkModeContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import Navbar from '../components/layout/Navbar';
 
 export default function HomePage() {
   const { state } = useAuth();
+  const { isDarkMode } = useDarkMode();
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
 
@@ -31,7 +33,12 @@ export default function HomePage() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <div style={{ 
+        minHeight: '100vh', 
+        background: isDarkMode 
+          ? 'linear-gradient(135deg, #1a1f2e 0%, #16213e 100%)' 
+          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      }}>
         <Navbar />
         
         <main style={{ 
@@ -127,14 +134,14 @@ export default function HomePage() {
 
           {/* Features Section */}
           <section style={{
-            background: 'rgba(255, 255, 255, 0.95)',
+            background: isDarkMode ? '#1a1f2e' : 'rgba(255, 255, 255, 0.95)',
             padding: isMobile ? '40px 20px' : isTablet ? '60px 20px' : '80px 20px'
           }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
               <h2 style={{
                 textAlign: 'center',
                 fontSize: isMobile ? '2rem' : isTablet ? '2.2rem' : '2.5rem',
-                color: '#333',
+                color: isDarkMode ? '#e8eaed' : '#333',
                 marginBottom: '20px'
               }}>
                 Why Choose Travel Companion?
@@ -142,7 +149,7 @@ export default function HomePage() {
               <p style={{
                 textAlign: 'center',
                 fontSize: isMobile ? '1rem' : isTablet ? '1.1rem' : '1.2rem',
-                color: '#666',
+                color: isDarkMode ? '#9ca3af' : '#666',
                 marginBottom: isMobile ? '40px' : '60px',
                 maxWidth: isMobile ? '100%' : '600px',
                 margin: `0 auto ${isMobile ? '40px' : '60px'}`,
@@ -161,8 +168,9 @@ export default function HomePage() {
                   textAlign: 'center',
                   padding: '40px 20px',
                   borderRadius: '20px',
-                  background: 'white',
-                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)'
+                  background: isDarkMode ? '#252d3d' : 'white',
+                  boxShadow: isDarkMode ? '0 10px 30px rgba(0, 0, 0, 0.6)' : '0 10px 30px rgba(0, 0, 0, 0.1)',
+                  border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
                 }}>
                   <div style={{
                     fontSize: '3rem',
@@ -170,11 +178,11 @@ export default function HomePage() {
                   }}>🤖</div>
                   <h3 style={{
                     fontSize: '1.5rem',
-                    color: '#333',
+                    color: isDarkMode ? '#e8eaed' : '#333',
                     marginBottom: '15px'
                   }}>AI-Powered Planning</h3>
                   <p style={{
-                    color: '#666',
+                    color: isDarkMode ? '#9ca3af' : '#666',
                     lineHeight: '1.6'
                   }}>
                     Our advanced AI analyzes your preferences to create personalized itineraries 
@@ -187,8 +195,9 @@ export default function HomePage() {
                   textAlign: 'center',
                   padding: '40px 20px',
                   borderRadius: '20px',
-                  background: 'white',
-                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)'
+                  background: isDarkMode ? '#252d3d' : 'white',
+                  boxShadow: isDarkMode ? '0 10px 30px rgba(0, 0, 0, 0.6)' : '0 10px 30px rgba(0, 0, 0, 0.1)',
+                  border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
                 }}>
                   <div style={{
                     fontSize: '3rem',
@@ -196,11 +205,11 @@ export default function HomePage() {
                   }}>🎯</div>
                   <h3 style={{
                     fontSize: '1.5rem',
-                    color: '#333',
+                    color: isDarkMode ? '#e8eaed' : '#333',
                     marginBottom: '15px'
                   }}>Personalized Experiences</h3>
                   <p style={{
-                    color: '#666',
+                    color: isDarkMode ? '#9ca3af' : '#666',
                     lineHeight: '1.6'
                   }}>
                     Tell us your interests, budget, and travel dates. We&apos;ll craft 
@@ -213,8 +222,9 @@ export default function HomePage() {
                   textAlign: 'center',
                   padding: '40px 20px',
                   borderRadius: '20px',
-                  background: 'white',
-                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)'
+                  background: isDarkMode ? '#252d3d' : 'white',
+                  boxShadow: isDarkMode ? '0 10px 30px rgba(0, 0, 0, 0.6)' : '0 10px 30px rgba(0, 0, 0, 0.1)',
+                  border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
                 }}>
                   <div style={{
                     fontSize: '3rem',
@@ -222,11 +232,11 @@ export default function HomePage() {
                   }}>⚡</div>
                   <h3 style={{
                     fontSize: '1.5rem',
-                    color: '#333',
+                    color: isDarkMode ? '#e8eaed' : '#333',
                     marginBottom: '15px'
                   }}>Instant Results</h3>
                   <p style={{
-                    color: '#666',
+                    color: isDarkMode ? '#9ca3af' : '#666',
                     lineHeight: '1.6'
                   }}>
                     Get comprehensive travel plans in seconds, not hours. 
@@ -239,7 +249,7 @@ export default function HomePage() {
 
           {/* Quick Stats */}
           <section style={{
-            background: 'rgba(255, 255, 255, 0.1)',
+            background: isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.1)',
             padding: '60px 20px',
             color: 'white'
           }}>
@@ -247,7 +257,8 @@ export default function HomePage() {
               <h2 style={{
                 textAlign: 'center',
                 fontSize: '2rem',
-                marginBottom: '40px'
+                marginBottom: '40px',
+                color: isDarkMode ? '#e8eaed' : 'white'
               }}>
                 Your Travel Journey
               </h2>
@@ -279,21 +290,21 @@ export default function HomePage() {
 
           {/* Call to Action */}
           <section style={{
-            background: 'rgba(255, 255, 255, 0.95)',
+            background: isDarkMode ? '#1a1f2e' : 'rgba(255, 255, 255, 0.95)',
             padding: '80px 20px',
             textAlign: 'center'
           }}>
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
               <h2 style={{
                 fontSize: '2.5rem',
-                color: '#333',
+                color: isDarkMode ? '#e8eaed' : '#333',
                 marginBottom: '20px'
               }}>
                 Ready for Your Next Adventure?
               </h2>
               <p style={{
                 fontSize: '1.2rem',
-                color: '#666',
+                color: isDarkMode ? '#9ca3af' : '#666',
                 marginBottom: '40px'
               }}>
                 Let our AI create the perfect itinerary for your dream destination. 
