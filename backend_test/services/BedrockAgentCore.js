@@ -21,6 +21,7 @@ const { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } = require('@
 const { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
 const axios = require('axios');
 const FlightService = require('./FlightService');
+const HotelService = require('./HotelService');
 
 class BedrockAgentCore {
   constructor() {
@@ -40,9 +41,21 @@ class BedrockAgentCore {
     // Initialize FlightService with real API credentials
     this.flightService = new FlightService({
       rapidApiKey: process.env.RAPIDAPI_KEY,
+      rapidApiHost: process.env.RAPIDAPI_HOST,
       amadeuApiKey: process.env.AMADEUS_API_KEY,
       amadeuApiSecret: process.env.AMADEUS_API_SECRET
     });
+
+    // Initialize HotelService with real API credentials
+    this.hotelService = new HotelService({
+      bookingApiKey: process.env.BOOKING_API_KEY,
+      bookingApiHost: process.env.BOOKING_API_HOST,
+      rapidApiKey: process.env.RAPIDAPI_KEY
+    });
+
+    // Rate limiting
+    this.lastApiCall = 0;
+    this.minApiDelay = 2000; // Minimum 2 seconds between API calls (AWS Bedrock has strict limits)
 
     // Agent configuration
     this.agentId = process.env.BEDROCK_AGENT_ID || null;
@@ -618,14 +631,77 @@ Respond in JSON format with:
   }
 
   async searchHotels(params) {
-    console.log('🏨 Searching hotels:', params);
+    console.log('🏨 Searching hotels with real API:', params);
     
-    return {
-      success: true,
-      hotels: this.generateMockHotels(params),
-      totalResults: 15,
-      source: 'enhanced_mock'
-    };
+    try {
+      // Use the comprehensive HotelService with API integration
+      const searchRequest = {
+        destination: params.destination,
+        checkIn: params.checkIn,
+        checkOut: params.checkOut,
+        adults: params.guests || 2,
+        children: params.children || 0,
+        rooms: params.rooms || 1,
+        currency: params.currency || 'USD'
+      };
+
+      const results = await this.hotelService.searchHotelsEnhanced(searchRequest);
+      
+      if (results.success && results.hotels && results.hotels.length > 0) {
+        // Format hotels for agent response
+        const formattedHotels = results.hotels.slice(0, 5).map(hotel => ({
+          id: hotel.id,
+          name: hotel.name,
+          address: hotel.address,
+          cityName: hotel.cityName,
+          rating: hotel.rating,
+          reviewScore: hotel.reviewScore,
+          reviewCount: hotel.reviewCount,
+          price: hotel.pricePerNight,
+          pricePerNight: hotel.pricePerNight,
+          totalPrice: hotel.totalPrice,
+          currency: hotel.currency,
+          amenities: hotel.amenities,
+          distanceFromCenter: hotel.distanceFromCenter,
+          freeCancellation: hotel.freeCancellation,
+          breakfastIncluded: hotel.breakfastIncluded,
+          roomType: hotel.roomType,
+          propertyType: hotel.propertyType,
+          imageUrl: hotel.imageUrl
+        }));
+
+        return {
+          success: true,
+          hotels: formattedHotels,
+          totalResults: results.totalResults,
+          provider: results.provider,
+          searchId: results.searchId,
+          currency: results.currency,
+          destination: results.destination
+        };
+      }
+
+      // If API fails, return empty with error message
+      console.warn('Hotel API returned no results');
+      return {
+        success: false,
+        hotels: [],
+        error: 'No hotels found for this destination',
+        message: 'Try adjusting your dates or location'
+      };
+
+    } catch (error) {
+      console.error('Hotel search error:', error.message);
+      
+      // Return error response instead of failing silently
+      return {
+        success: false,
+        hotels: [],
+        error: 'Hotel search temporarily unavailable',
+        message: error.message,
+        fallback: 'Please try again or adjust your search criteria'
+      };
+    }
   }
 
   async calculateBudget(params) {
@@ -986,10 +1062,143 @@ Be conversational, informative, and helpful. Format response as JSON:
   }
 
   /**
+   * Simple Chat - Direct Bedrock without tools (for simple queries)
+   * Uses less API quota, faster response
+   */
+  async simpleChat(message, sessionId = null, conversationHistory = [], userId = 'anonymous') {
+    console.log('💬 SIMPLE CHAT MODE:', message);
+
+    try {
+      const session = this.getOrCreateSession(sessionId || `session_${Date.now()}`, userId);
+
+      // Build conversation
+      const messages = [];
+      
+      // Add conversation history (last 5 messages)
+      const recentHistory = conversationHistory.slice(-5);
+      for (const msg of recentHistory) {
+        messages.push({
+          role: msg.role === 'assistant' ? 'assistant' : 'user',
+          content: [{ text: msg.content }]
+        });
+      }
+
+      // Add current message
+      messages.push({
+        role: 'user',
+        content: [{ text: message }]
+      });
+
+      // Simple travel assistant prompt (no tools)
+      const systemPrompt = [{
+        text: `You are a helpful AI travel assistant. Provide friendly, informative responses about travel topics.
+
+Be conversational, helpful, and knowledgeable about:
+- Travel destinations and recommendations
+- General travel advice and tips
+- Budget planning concepts
+- Travel culture and etiquette
+- Packing and preparation advice
+
+Keep responses concise and engaging. If users need specific flight/hotel data, let them know you can search for that information if they ask more specifically.`
+      }];
+
+      // Rate limiting
+      const now = Date.now();
+      const timeSinceLastCall = now - this.lastApiCall;
+      if (timeSinceLastCall < this.minApiDelay) {
+        const waitTime = this.minApiDelay - timeSinceLastCall;
+        console.log(`⏳ Rate limiting: waiting ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      
+      this.lastApiCall = Date.now();
+
+      // Single API call - no tool calling
+      const response = await this.bedrockRuntime.send(new ConverseCommand({
+        modelId: this.reasoningModel,
+        messages: messages,
+        system: systemPrompt,
+        inferenceConfig: {
+          maxTokens: 2000,
+          temperature: 0.7,
+          topP: 0.9
+        }
+      }));
+
+      let responseText = '';
+      if (response.output.message.content) {
+        for (const content of response.output.message.content) {
+          if (content.text) {
+            responseText += content.text;
+          }
+        }
+      }
+
+      console.log('✅ Simple chat response generated');
+      console.log(`📏 Response length: ${responseText.length} characters`);
+
+      return {
+        success: true,
+        response: responseText,
+        toolsUsed: [],
+        toolResults: [],
+        model: this.reasoningModel,
+        sessionId: session.sessionId,
+        agentMode: false,
+        simpleMode: true
+      };
+
+    } catch (error) {
+      console.error('❌ Simple chat error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Intelligent Router - Decides whether to use simple chat or agent mode
+   */
+  analyzeComplexity(message) {
+    const msg = message.toLowerCase();
+    
+    // Keywords that indicate need for tool calling (complex queries)
+    const complexKeywords = [
+      'find flights', 'search flights', 'flight to', 'fly to',
+      'find hotels', 'search hotels', 'hotel in', 'book hotel',
+      'cheap flights', 'best price', 'compare prices',
+      'check availability', 'show me options',
+      'plan a trip', 'create itinerary', 'calculate budget',
+      'thanksgiving', 'specific dates', 'next week', 'next month'
+    ];
+
+    // Check if message contains complex keywords
+    const isComplex = complexKeywords.some(keyword => msg.includes(keyword));
+    
+    // Also check for date patterns (MM/DD, "in X days", etc.)
+    const hasDatePattern = /\d{1,2}\/\d{1,2}|in \d+ days?|next (week|month|year)|this (week|month)|tomorrow/i.test(message);
+    
+    // Check for specific destinations with action words
+    const hasActionableRequest = /\b(to|in|around|near)\s+[A-Z][a-z]+/i.test(message) && 
+                                  /(find|search|show|get|book|plan|recommend|suggest)/i.test(message);
+
+    const complexity = {
+      isComplex: isComplex || hasDatePattern || hasActionableRequest,
+      reason: isComplex ? 'Contains search keywords' : 
+              hasDatePattern ? 'Contains specific dates' :
+              hasActionableRequest ? 'Has actionable destination request' :
+              'General travel question'
+    };
+
+    console.log(`🔍 Query complexity: ${complexity.isComplex ? 'COMPLEX (Agent Mode)' : 'SIMPLE (Direct Chat)'} - ${complexity.reason}`);
+    
+    return complexity;
+  }
+
+  /**
    * AI Agent Chat - Proactive travel agent with tool calling
    * This is a TRUE AI AGENT that uses tools to help users
    */
-  async agentChat(message, sessionId = null, conversationHistory = [], userId = 'anonymous') {
+  async agentChat(message, sessionId = null, conversationHistory = [], userId = 'anonymous', retryCount = 0) {
     console.log('🤖 AI AGENT MODE:', message);
 
     try {
@@ -1064,6 +1273,17 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
       // First call - Claude decides which tools to use
       console.log('🧠 Agent analyzing request and planning actions...');
       
+      // Rate limiting - wait if needed
+      const now = Date.now();
+      const timeSinceLastCall = now - this.lastApiCall;
+      if (timeSinceLastCall < this.minApiDelay) {
+        const waitTime = this.minApiDelay - timeSinceLastCall;
+        console.log(`⏳ Rate limiting: waiting ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      
+      this.lastApiCall = Date.now();
+      
       const initialResponse = await this.bedrockRuntime.send(new ConverseCommand({
         modelId: this.reasoningModel,
         messages: messages,
@@ -1133,6 +1353,17 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
       if (toolResults.length > 0) {
         console.log('🎯 Agent generating final response with tool results...');
         
+        // Rate limiting before second call
+        const now = Date.now();
+        const timeSinceLastCall = now - this.lastApiCall;
+        if (timeSinceLastCall < this.minApiDelay) {
+          const waitTime = this.minApiDelay - timeSinceLastCall;
+          console.log(`⏳ Rate limiting: waiting ${waitTime}ms before final response...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+        
+        this.lastApiCall = Date.now();
+        
         const finalResponse = await this.bedrockRuntime.send(new ConverseCommand({
           modelId: this.reasoningModel,
           messages: messages,
@@ -1185,6 +1416,63 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
 
     } catch (error) {
       console.error('❌ AI Agent error:', error);
+      
+      // Handle throttling errors with retry
+      if (error.name === 'ThrottlingException' && retryCount < 2) {
+        const waitTime = Math.pow(2, retryCount) * 2000; // Exponential backoff: 2s, 4s
+        console.log(`⏳ Rate limited. Waiting ${waitTime}ms before retry ${retryCount + 1}/2...`);
+        
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        
+        // Retry the request
+        return this.agentChat(message, sessionId, conversationHistory, userId, retryCount + 1);
+      }
+      
+      // Handle throttling errors - provide helpful response
+      if (error.name === 'ThrottlingException') {
+        console.log('⚠️ Rate limit exceeded after retries...');
+        
+        // If we have tool results, synthesize a response from them
+        if (toolResults && toolResults.length > 0) {
+          console.log('✅ Using tool results to generate response despite throttling');
+          const synthesizedResponse = this.synthesizeResponseFromTools(toolResults, message);
+          return {
+            success: true,
+            response: synthesizedResponse + '\n\n_Note: Due to high demand, this response was generated from cached data. For more detailed analysis, please wait a moment and ask again._',
+            toolsUsed: toolResults.map(t => t.toolName),
+            toolResults: toolResults,
+            model: this.reasoningModel,
+            sessionId: sessionId || `session_${Date.now()}`,
+            agentMode: true,
+            throttled: true
+          };
+        }
+        
+        // No tool results, provide graceful error
+        return {
+          success: true,
+          response: `I'm currently experiencing high demand (AWS Bedrock rate limits). 
+
+💡 **Quick Tips:**
+• Wait 3-5 seconds before your next request
+• Ask about one thing at a time (flights OR hotels, not both)
+• Your previous request: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"
+
+🔄 **What I can help with:**
+${message.toLowerCase().includes('flight') ? '✈️ Flight searches and recommendations' : ''}
+${message.toLowerCase().includes('hotel') ? '🏨 Hotel suggestions' : ''}
+${message.toLowerCase().includes('destination') ? '🌍 Destination information' : ''}
+
+Please try again in a few seconds! I apologize for the inconvenience.`,
+          toolsUsed: [],
+          toolResults: [],
+          model: this.reasoningModel,
+          sessionId: sessionId || `session_${Date.now()}`,
+          agentMode: true,
+          throttled: true
+        };
+      }
+      
       throw error;
     }
   }
@@ -1233,12 +1521,35 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
       if (toolName === 'search_hotels' && result.hotels) {
         response += '\n🏨 **Hotel Options:**\n\n';
         result.hotels.slice(0, 3).forEach((hotel, idx) => {
-          const price = hotel.price || `$${Math.round(hotel.pricePerNight)}`;
-          const rating = hotel.ratingFormatted || `${hotel.rating.toFixed(1)}⭐`;
+          const pricePerNight = typeof hotel.pricePerNight === 'number' ? Math.round(hotel.pricePerNight) : hotel.pricePerNight;
+          const totalPrice = hotel.totalPrice ? (typeof hotel.totalPrice === 'number' ? Math.round(hotel.totalPrice) : hotel.totalPrice) : null;
+          const rating = hotel.rating ? parseFloat(hotel.rating).toFixed(1) : '7.5';
+          const reviewCount = hotel.reviewCount || '';
           
           response += `${idx + 1}. **${hotel.name}**\n`;
-          response += `   • Price: ${price}/night\n`;
-          response += `   • Rating: ${rating}\n`;
+          response += `   • Price: $${pricePerNight}/night`;
+          if (totalPrice) response += ` (Total: $${totalPrice})`;
+          response += '\n';
+          response += `   • Rating: ${rating}⭐`;
+          if (reviewCount) response += ` (${reviewCount} reviews)`;
+          response += '\n';
+          
+          if (hotel.distanceFromCenter) {
+            response += `   • Distance: ${hotel.distanceFromCenter}\n`;
+          }
+          
+          if (hotel.amenities && hotel.amenities.length > 0) {
+            response += `   • Amenities: ${hotel.amenities.slice(0, 3).join(', ')}\n`;
+          }
+          
+          if (hotel.freeCancellation) {
+            response += `   • ✅ Free cancellation\n`;
+          }
+          
+          if (hotel.breakfastIncluded) {
+            response += `   • 🍳 Breakfast included\n`;
+          }
+          
           response += '\n';
         });
       }

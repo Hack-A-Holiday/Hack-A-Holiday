@@ -7,12 +7,14 @@ const axios = require('axios');
 class FlightService {
   constructor(config) {
     this.rapidApiKey = config.rapidApiKey;
+    this.rapidApiHost = config.rapidApiHost || 'kiwi-com-cheap-flights.p.rapidapi.com';
     this.amadeuApiKey = config.amadeuApiKey;
     this.amadeuApiSecret = config.amadeuApiSecret;
     this.mockDataEnabled = !this.rapidApiKey && !this.amadeuApiKey;
     
     console.log('FlightService initialized:', {
       rapidApiAvailable: !!this.rapidApiKey,
+      rapidApiHost: this.rapidApiHost,
       amadeusAvailable: !!this.amadeuApiKey,
       mockDataEnabled: this.mockDataEnabled
     });
@@ -114,11 +116,23 @@ class FlightService {
       params.max_stopovers = filters.maxStops;
     }
 
-    const response = await axios.get('https://tequila-api.kiwi.com/v2/search', {
+    // Use RapidAPI proxy if host is configured, otherwise direct Kiwi API
+    const apiUrl = this.rapidApiHost && this.rapidApiHost.includes('rapidapi') 
+      ? `https://${this.rapidApiHost}/v2/search`
+      : 'https://tequila-api.kiwi.com/v2/search';
+    
+    const headers = this.rapidApiHost && this.rapidApiHost.includes('rapidapi')
+      ? {
+          'X-RapidAPI-Key': this.rapidApiKey,
+          'X-RapidAPI-Host': this.rapidApiHost
+        }
+      : {
+          'apikey': this.rapidApiKey
+        };
+
+    const response = await axios.get(apiUrl, {
       params,
-      headers: {
-        'apikey': this.rapidApiKey
-      },
+      headers,
       timeout: 30000
     });
 

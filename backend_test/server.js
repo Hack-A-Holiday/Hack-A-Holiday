@@ -11,7 +11,6 @@ const planTripRoutes = require('./routes/planTripRoutes');
 const googleAuthRoutes = require('./routes/googleAuth');
 const flightRoutes = require('./routes/flights');
 const aiAgentRoutes = require('./routes/ai-agent');
-const aiRoutes = require('./routes/ai');
 const analyticsRoutes = require('./routes/analytics');
 const bedrockAgentRoutes = require('./routes/bedrock-agent');
 
@@ -35,7 +34,6 @@ app.use('/booking', bookingRoutes);
 app.use('/user', userRoutes);
 app.use('/flights', flightRoutes);
 app.use('/ai-agent', aiAgentRoutes);
-app.use('/ai', aiRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/bedrock-agent', bedrockAgentRoutes);
 app.use('/', planTripRoutes);

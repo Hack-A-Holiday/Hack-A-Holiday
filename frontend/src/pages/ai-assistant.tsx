@@ -126,11 +126,13 @@ Just tell me what you're looking for, and I'll use advanced AI reasoning to plan
 
       const data = await response.json();
 
+      console.log('Backend response:', data); // Debug log
+
       // Add AI response from Bedrock Agent Core (Claude 4 Opus)
       const aiMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: data.success ? (data.message || data.response) : 'I apologize, but I encountered an error.',
+        content: data.success ? (data.message || data.response) : (data.message || 'I apologize, but I encountered an error.'),
         timestamp: Date.now(),
         type: 'text',
         data: data.toolsUsed ? { 
@@ -145,9 +147,15 @@ Just tell me what you're looking for, and I'll use advanced AI reasoning to plan
     } catch (error) {
       console.error('Error sending message:', error);
       
-      // Fallback response with mock data
-      const fallbackResponse = generateFallbackResponse(inputMessage);
-      setMessages(prev => [...prev, fallbackResponse]);
+      // Show actual error instead of fallback for debugging
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `❌ Connection Error: Unable to reach the AI service. Please check:\n\n• Backend server is running (port 4000)\n• Network connection\n• API endpoint: ${process.env.NEXT_PUBLIC_API_URL}\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: Date.now(),
+        type: 'text'
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }

@@ -147,8 +147,12 @@ router.get('/session/:sessionId', (req, res) => {
 });
 
 /**
- * Multi-turn conversation endpoint
+ * Multi-turn conversation endpoint with HYBRID routing
  * POST /bedrock-agent/chat
+ * 
+ * Uses intelligent routing:
+ * - Simple queries → Direct Bedrock (1 API call, faster)
+ * - Complex queries → Agent with tools (2 API calls, powerful)
  */
 router.post('/chat', async (req, res) => {
   try {
@@ -156,10 +160,11 @@ router.post('/chat', async (req, res) => {
       message,
       userId = 'anonymous',
       sessionId,
-      conversationHistory = []
+      conversationHistory = [],
+      forceAgentMode = false // Optional: force agent mode even for simple queries
     } = req.body;
 
-    console.log('🤖 AI Agent Chat Request:', { message, sessionId, userId });
+    console.log('💬 Chat Request:', { message, sessionId, userId });
 
     if (!message) {
       return res.status(400).json({
@@ -168,13 +173,39 @@ router.post('/chat', async (req, res) => {
       });
     }
 
-    // Use AI Agent mode with tool calling
-    const result = await agent.agentChat(
-      message,
-      sessionId || `session_${Date.now()}`,
-      conversationHistory,
-      userId
-    );
+    let result;
+
+    // Intelligent routing based on query complexity
+    if (forceAgentMode) {
+      console.log('🔧 Forced Agent Mode');
+      result = await agent.agentChat(
+        message,
+        sessionId || `session_${Date.now()}`,
+        conversationHistory,
+        userId
+      );
+    } else {
+      // Analyze query complexity
+      const complexity = agent.analyzeComplexity(message);
+      
+      if (complexity.isComplex) {
+        // Use Agent Core with tools (complex queries)
+        result = await agent.agentChat(
+          message,
+          sessionId || `session_${Date.now()}`,
+          conversationHistory,
+          userId
+        );
+      } else {
+        // Use Simple Chat without tools (simple queries)
+        result = await agent.simpleChat(
+          message,
+          sessionId || `session_${Date.now()}`,
+          conversationHistory,
+          userId
+        );
+      }
+    }
 
     res.json({
       success: true,
@@ -183,11 +214,12 @@ router.post('/chat', async (req, res) => {
       toolResults: result.toolResults || [],
       model: result.model,
       sessionId: result.sessionId,
-      agentMode: result.agentMode
+      agentMode: result.agentMode || false,
+      simpleMode: result.simpleMode || false
     });
 
   } catch (error) {
-    console.error('❌ AI Agent Chat error:', error);
+    console.error('❌ Chat error:', error);
     res.status(500).json({
       success: false,
       error: 'Chat processing failed',

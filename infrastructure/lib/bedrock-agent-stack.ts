@@ -181,8 +181,8 @@ export class BedrockAgentStack extends cdk.Stack {
         title: 'API Gateway Requests',
         left: [
           api.metricCount(),
-          api.metric4xxError(),
-          api.metric5xxError()
+          api.metricClientError(),
+          api.metricServerError()
         ]
       })
     );
@@ -296,7 +296,7 @@ export class BedrockAgentHandler {
       else if (path.includes('/tools') && !path.includes('{toolName}')) {
         response = {
           success: true,
-          tools: agent.tools.map(tool => ({
+          tools: agent.tools.map((tool: any) => ({
             name: tool.name,
             description: tool.description,
             inputSchema: tool.inputSchema
