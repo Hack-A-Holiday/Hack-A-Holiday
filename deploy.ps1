@@ -152,9 +152,8 @@ Write-Host "AWS Region: $awsRegion"
 Write-Host "API Gateway URL: $apiUrl"
 Write-Host "CloudFront URL: https://$cloudFrontUrl"
 Write-Host ""
-Write-Host "🧪 Next steps:" -ForegroundColor Yellow
+Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "1. Run tests: npm test"
-Write-Host "2. Start frontend: cd frontend && npm run dev"
+Write-Host "2. Start frontend: cd frontend; npm run dev"
 Write-Host "3. Test API endpoints using the API Gateway URL above"
 Write-Host ""
-Write-Host "🎉 Happy coding!" -ForegroundColor Green

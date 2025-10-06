@@ -174,6 +174,12 @@ This should return your AWS account ID and user information.
 
 ⚠️ **SECURITY WARNING**: Never commit `.env` files to Git! They contain sensitive credentials.
 
+🔐 **CRITICAL SECURITY NOTE**: 
+- `JWT_SECRET` must be a minimum of 32 characters and cryptographically secure
+- `GOOGLE_CLIENT_ID` must be obtained from Google Cloud Console
+- These values are required for authentication to work properly
+- Never use default or example values in production
+
 ```bash
 # Copy the example environment file
 cp .env.example .env
@@ -201,6 +207,10 @@ FOURSQUARE_API_KEY=
 # Database Configuration
 DYNAMODB_TABLE_PREFIX=TravelCompanion
 S3_BUCKET_NAME=travel-companion-bucket-${AWS_ACCOUNT_ID}
+
+# Authentication Configuration (Required)
+JWT_SECRET=your-secure-jwt-secret-minimum-32-characters-long-random-string
+GOOGLE_CLIENT_ID=your-google-oauth-client-id-from-google-console
 
 # Frontend Configuration (will be populated after deployment)
 NEXT_PUBLIC_API_URL=
