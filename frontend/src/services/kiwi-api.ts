@@ -67,8 +67,9 @@ export interface KiwiApiResponse {
 }
 
 export class KiwiApiService {
-  private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '4bb41c35e2mshabe7faff89c8273p1fe197jsnccfa27353502';
-  private readonly baseUrl = 'https://kiwi-com-cheap-flights.p.rapidapi.com';
+  private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '';
+  private readonly host = process.env.NEXT_PUBLIC_RAPIDAPI_HOST || '';
+  private readonly baseUrl = this.host ? `https://${this.host}` : '';
 
   async searchFlights(
     origin: string,
@@ -78,6 +79,9 @@ export class KiwiApiService {
     checkedBags: number = 0,
     returnDate?: string
   ): Promise<KiwiApiResponse> {
+    if (!this.apiKey || !this.host || !this.baseUrl) {
+      throw new Error('RapidAPI environment variables are not configured. Please set NEXT_PUBLIC_RAPIDAPI_KEY and NEXT_PUBLIC_RAPIDAPI_HOST.');
+    }
     // Try different bag configurations if the initial search fails
     // Start with requested bags, then try progressively fewer bags
     const allConfigs = [checkedBags, 2, 1, 0];
@@ -118,7 +122,7 @@ export class KiwiApiService {
         const response = await fetch(url, {
           method: 'GET',
           headers: {
-            'x-rapidapi-host': 'kiwi-com-cheap-flights.p.rapidapi.com',
+            'x-rapidapi-host': this.host,
             'x-rapidapi-key': this.apiKey
           }
         });

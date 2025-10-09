@@ -1,5 +1,7 @@
 const axios = require('axios');
 const RecommendationEngine = require('./RecommendationEngine');
+const TripAdvisorService = require('./TripAdvisorService');
+const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 
 /**
  * Comprehensive AI Agent Service
@@ -8,10 +10,13 @@ const RecommendationEngine = require('./RecommendationEngine');
 class ComprehensiveAIAgent {
   constructor() {
     this.recommendationEngine = new RecommendationEngine();
+    this.tripAdvisorService = new TripAdvisorService();
     this.conversationHistory = new Map(); // Store conversation contexts
     this.userProfiles = new Map(); // Store user profiles
     this.sagemakerEndpoint = process.env.SAGEMAKER_ENDPOINT_NAME || 'travel-assistant-endpoint';
     this.bedrockRegion = process.env.AWS_REGION || 'us-east-1';
+    this.bedrockModelId = process.env.BEDROCK_MODEL_ID || 'amazon.titan-text-express-v1';
+    this.bedrockClient = new BedrockRuntimeClient({ region: this.bedrockRegion });
   }
 
   /**
@@ -148,26 +153,39 @@ class ComprehensiveAIAgent {
   }
 
   /**
-   * Process request through Bedrock with enhanced context
+   * Process request through Bedrock with enhanced context and TripAdvisor data
    */
   async processBedrockRequest(messages, userContext, analysis, userProfile) {
     try {
-      // Enhanced prompt for Bedrock
-      const enhancedPrompt = this.createEnhancedPrompt(messages, userContext, analysis, userProfile);
+      // Extract location and travel intent from messages
+      const location = this.extractLocationFromMessages(messages);
+      const travelIntent = this.extractTravelIntentFromMessages(messages);
+      
+      // Get TripAdvisor data if location is mentioned
+      let tripAdvisorData = null;
+      if (location) {
+        try {
+          tripAdvisorData = await this.tripAdvisorService.getTravelDataForAI(location, userProfile);
+          console.log('TripAdvisor data retrieved for:', location);
+        } catch (error) {
+          console.error('TripAdvisor data retrieval failed:', error.message);
+          // Continue without TripAdvisor data
+        }
+      }
+
+      // Enhanced prompt for Bedrock with TripAdvisor data
+      const enhancedPrompt = this.createEnhancedPrompt(messages, userContext, analysis, userProfile, tripAdvisorData);
 
       const bedrockPayload = {
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 1000,
-        temperature: 0.7,
-        messages: [
-          {
-            role: "user",
-            content: enhancedPrompt
-          }
-        ]
+        inputText: enhancedPrompt,
+        textGenerationConfig: {
+          maxTokenCount: 1000,
+          temperature: 0.7,
+          topP: 0.9
+        }
       };
 
-      // Call Bedrock API (simplified - you'd use AWS SDK in practice)
+      // Call Bedrock API
       const response = await this.callBedrockEndpoint(bedrockPayload);
 
       return {
@@ -540,11 +558,178 @@ Respond in a friendly, knowledgeable tone with specific details and practical ad
   }
 
   async callBedrockEndpoint(payload) {
-    // This would be replaced with actual Bedrock API call
+    try {
+      const input = {
+        modelId: this.bedrockModelId,
+        contentType: 'application/json',
+        accept: 'application/json',
+        body: JSON.stringify(payload)
+      };
+
+      const command = new InvokeModelCommand(input);
+      const response = await this.bedrockClient.send(command);
+      
+      let responseBody = response?.body?.toString('utf-8') || '{}';
+      
+      // If response is a comma-separated list of numbers, decode as ASCII
+      if (/^[0-9]+(,[0-9]+)*$/.test(responseBody.trim())) {
+        const asciiArr = responseBody.split(',').map(Number);
+        responseBody = String.fromCharCode(...asciiArr);
+      }
+      
+      const parsedResponse = JSON.parse(responseBody);
+      
+      // Extract content from Nova response
+      let content = '';
+      if (parsedResponse.output && parsedResponse.output.message && parsedResponse.output.message.content) {
+        content = parsedResponse.output.message.content;
+      } else {
+        content = parsedResponse.content || 'I apologize, but I had trouble processing your request.';
+      }
+      
+      return {
+        content: content,
+        usage: parsedResponse.usage || { input_tokens: 100, output_tokens: 150 }
+      };
+      
+    } catch (error) {
+      console.error('Bedrock API call error:', error);
+      throw error;
+    }
+  }
+
+  getDefaultAnalysis() {
     return {
-      content: "I'd be happy to help you plan your trip...",
-      usage: { input_tokens: 100, output_tokens: 150 }
+      preferences: {
+        interests: [],
+        budget: null,
+        travelStyle: 'mid-range',
+        duration: null
+      },
+      travelIntent: {
+        isPlanning: false,
+        destination: null,
+        budget: null,
+        timeframe: null,
+        travelStyle: 'mid-range',
+        urgency: 'low'
+      },
+      flightNeeds: {
+        needsFlights: false,
+        preferences: {},
+        flexibility: 'medium'
+      },
+      personalizationLevel: 0
     };
+  }
+
+  /**
+   * Extract location from user messages
+   */
+  extractLocationFromMessages(messages) {
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || !lastMessage.content) return null;
+
+    const content = lastMessage.content.toLowerCase();
+    
+    // Common location patterns
+    const locationPatterns = [
+      /(?:in|to|at|visit|going to|travel to|trip to)\s+([a-zA-Z\s,]+?)(?:\s|$|,|\.|!|\?)/,
+      /([a-zA-Z\s]+?)\s+(?:restaurants|hotels|attractions|activities|things to do)/,
+      /(?:what's|what are|tell me about)\s+([a-zA-Z\s]+?)(?:\s|$|,|\.|!|\?)/
+    ];
+
+    for (const pattern of locationPatterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        const location = match[1].trim();
+        // Filter out common words that aren't locations
+        if (location.length > 2 && !['the', 'a', 'an', 'some', 'any', 'good', 'best'].includes(location)) {
+          return location;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract travel intent from user messages
+   */
+  extractTravelIntentFromMessages(messages) {
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || !lastMessage.content) return {};
+
+    const content = lastMessage.content.toLowerCase();
+    
+    return {
+      wantsRestaurants: /restaurant|food|eat|dining|cuisine|meal/.test(content),
+      wantsAttractions: /attraction|sightseeing|visit|see|tourist|landmark|museum/.test(content),
+      wantsHotels: /hotel|accommodation|stay|sleep|room|booking/.test(content),
+      wantsActivities: /activity|things to do|fun|entertainment|adventure/.test(content),
+      wantsRecommendations: /recommend|suggest|best|good|popular|top/.test(content)
+    };
+  }
+
+  /**
+   * Create enhanced prompt with TripAdvisor data
+   */
+  createEnhancedPrompt(messages, userContext, analysis, userProfile, tripAdvisorData) {
+    const lastMessage = messages[messages.length - 1];
+    let prompt = `You are a helpful travel assistant. Respond to the user's message: "${lastMessage.content}"\n\n`;
+
+    // Add user context
+    if (userProfile && Object.keys(userProfile).length > 0) {
+      prompt += `User Profile: ${JSON.stringify(userProfile, null, 2)}\n\n`;
+    }
+
+    // Add TripAdvisor data if available
+    if (tripAdvisorData) {
+      prompt += `Real-time travel data from TripAdvisor:\n`;
+      
+      if (tripAdvisorData.location) {
+        prompt += `Location: ${tripAdvisorData.location.name} - ${tripAdvisorData.location.description}\n`;
+        prompt += `Rating: ${tripAdvisorData.location.rating}/5 (${tripAdvisorData.location.review_count} reviews)\n\n`;
+      }
+
+      if (tripAdvisorData.attractions && tripAdvisorData.attractions.length > 0) {
+        prompt += `Top Attractions:\n`;
+        tripAdvisorData.attractions.forEach((attraction, index) => {
+          prompt += `${index + 1}. ${attraction.name} - ${attraction.rating}/5 (${attraction.review_count} reviews)\n`;
+          if (attraction.description) prompt += `   ${attraction.description}\n`;
+        });
+        prompt += `\n`;
+      }
+
+      if (tripAdvisorData.restaurants && tripAdvisorData.restaurants.length > 0) {
+        prompt += `Top Restaurants:\n`;
+        tripAdvisorData.restaurants.forEach((restaurant, index) => {
+          prompt += `${index + 1}. ${restaurant.name} - ${restaurant.rating}/5 (${restaurant.review_count} reviews)\n`;
+          if (restaurant.cuisine) prompt += `   Cuisine: ${restaurant.cuisine.join(', ')}\n`;
+          if (restaurant.description) prompt += `   ${restaurant.description}\n`;
+        });
+        prompt += `\n`;
+      }
+
+      if (tripAdvisorData.hotels && tripAdvisorData.hotels.length > 0) {
+        prompt += `Top Hotels:\n`;
+        tripAdvisorData.hotels.forEach((hotel, index) => {
+          prompt += `${index + 1}. ${hotel.name} - ${hotel.rating}/5 (${hotel.review_count} reviews)\n`;
+          if (hotel.amenities) prompt += `   Amenities: ${hotel.amenities.join(', ')}\n`;
+          if (hotel.description) prompt += `   ${hotel.description}\n`;
+        });
+        prompt += `\n`;
+      }
+    }
+
+    // Add conversation analysis
+    if (analysis) {
+      prompt += `Conversation Analysis: ${JSON.stringify(analysis, null, 2)}\n\n`;
+    }
+
+    prompt += `Provide a helpful, personalized response based on the real-time data above. Be specific and mention actual places, ratings, and reviews when relevant.`;
+
+    return prompt;
   }
 
   getFallbackResponse(analysis) {
