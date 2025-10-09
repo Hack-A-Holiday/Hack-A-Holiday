@@ -1,13 +1,15 @@
 // Chat Analytics Service - Student-Friendly, FREE, Production-Ready
 // Analyzes user chat data for personalized recommendations
 
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient } = require('@aws-sdk/lib-dynamodb');
 
 class ChatAnalyticsService {
   constructor() {
-    this.dynamodb = new AWS.DynamoDB.DocumentClient({
+    const client = new DynamoDBClient({
       region: process.env.AWS_REGION || 'us-east-1'
     });
+    this.dynamodb = DynamoDBDocumentClient.from(client);
     
     this.chatHistoryTable = process.env.CHAT_HISTORY_TABLE || 'TravelCompanion-ChatHistory-dev';
     this.analyticsCache = new Map(); // In-memory cache for fast access
