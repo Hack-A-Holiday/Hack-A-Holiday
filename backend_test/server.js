@@ -13,6 +13,7 @@ const flightRoutes = require('./routes/flights');
 const aiAgentRoutes = require('./routes/ai-agent');
 const analyticsRoutes = require('./routes/analytics');
 const bedrockAgentRoutes = require('./routes/bedrock-agent');
+const tripAdvisorRoutes = require('./routes/tripadvisor');
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use('/flights', flightRoutes);
 app.use('/ai-agent', aiAgentRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/bedrock-agent', bedrockAgentRoutes);
+app.use('/tripadvisor', tripAdvisorRoutes);
 app.use('/', planTripRoutes);
 
 app.get('/', (req, res) => {

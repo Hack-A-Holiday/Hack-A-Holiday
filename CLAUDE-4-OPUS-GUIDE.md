@@ -1,27 +1,27 @@
-# 🧠 Claude 4 (Opus) Integration Guide
+# 🧠 Amazon Nova Integration Guide
 
 ## Overview
 
-Your Bedrock Agent now uses **Claude 4 Opus** as the primary reasoning model, giving you access to Anthropic's most advanced AI capabilities for your hackathon project.
+Your Bedrock Agent now uses **Amazon Nova Pro** as the primary reasoning model and **Amazon Nova Lite** for fast responses, giving you access to Amazon's latest AI capabilities for your hackathon project.
 
 ---
 
-## 🎯 Why Claude 4 Opus?
+## 🎯 Why Amazon Nova?
 
 ### Superior Capabilities
 
-| Feature | Claude 4 Opus | Claude 3.5 Sonnet | Claude 3.5 Haiku |
-|---------|---------------|-------------------|------------------|
-| **Reasoning Depth** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| **Complex Planning** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| **Multi-step Logic** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| **Context Understanding** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| **Response Speed** | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Cost Efficiency** | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| Feature | Amazon Nova Pro | Amazon Nova Lite | Claude 3.5 Sonnet |
+|---------|-----------------|------------------|-------------------|
+| **Reasoning Depth** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Complex Planning** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Multi-step Logic** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Context Understanding** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Response Speed** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Cost Efficiency** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
 
 ### Best Use Cases
 
-**Claude 4 Opus (Primary - Reasoning Model)**
+**Amazon Nova Pro (Primary - Reasoning Model)**
 - ✅ Complex trip planning with multiple destinations
 - ✅ Creating detailed execution plans
 - ✅ Analyzing complex user preferences
@@ -29,17 +29,18 @@ Your Bedrock Agent now uses **Claude 4 Opus** as the primary reasoning model, gi
 - ✅ Multi-step reasoning and problem-solving
 - ✅ Comparing and evaluating multiple options
 
-**Claude 3.5 Sonnet (Backup - Fast Reasoning)**
+**Amazon Nova Lite (Fast - Simple Tasks)**
 - ✅ Quick trip recommendations
 - ✅ Simple conversational responses
 - ✅ Standard itinerary creation
-- ✅ Fallback when Claude 4 unavailable
-
-**Claude 3.5 Haiku (Fast - Simple Tasks)**
 - ✅ Greeting messages
 - ✅ Simple confirmations
 - ✅ Quick data formatting
 - ✅ Basic queries
+
+**Claude 3.5 Sonnet (Backup - Compatibility)**
+- ✅ Fallback when Nova models unavailable
+- ✅ Legacy compatibility
 
 ---
 
@@ -50,10 +51,13 @@ Your Bedrock Agent now uses **Claude 4 Opus** as the primary reasoning model, gi
 Add to `backend_test/.env`:
 
 ```env
-# Primary reasoning model (Claude 4 Opus)
-REASONING_MODEL=us.anthropic.claude-opus-4-20250514-v1:0
+# Primary reasoning model (Amazon Nova Pro)
+REASONING_MODEL=us.amazon.nova-pro-v1:0
 
-# Alternative: Use Claude 3.5 Sonnet if you prefer faster responses
+# Fast model for simple tasks (Amazon Nova Lite)
+FAST_MODEL=us.amazon.nova-lite-v1:0
+
+# Alternative: Use Claude 3.5 Sonnet if you prefer legacy models
 # REASONING_MODEL=us.anthropic.claude-3-5-sonnet-20241022-v2:0
 
 # AWS Configuration
@@ -62,15 +66,15 @@ AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
 ```
 
-### Enable Claude 4 in AWS Bedrock
+### Enable Amazon Nova in AWS Bedrock
 
 1. Go to [AWS Bedrock Console](https://console.aws.amazon.com/bedrock/)
 2. Navigate to **"Model access"**
 3. Click **"Manage model access"**
 4. Enable these models:
-   - ✅ **Anthropic Claude Opus 4** (us.anthropic.claude-opus-4-20250514-v1:0)
+   - ✅ **Amazon Nova Pro** (us.amazon.nova-pro-v1:0)
+   - ✅ **Amazon Nova Lite** (us.amazon.nova-lite-v1:0)
    - ✅ **Anthropic Claude 3.5 Sonnet v2** (backup)
-   - ✅ **Anthropic Claude 3.5 Haiku** (fast responses)
 5. Click **"Save changes"**
 6. Wait a few minutes for access to be granted
 
@@ -85,23 +89,23 @@ The agent automatically selects the best model for each task:
 ```javascript
 // In BedrockAgentCore.js
 
-// Complex reasoning → Claude 4 Opus
+// Complex reasoning → Amazon Nova Pro
 createExecutionPlan() 
-  → Uses: this.reasoningModel (Claude 4 Opus)
+  → Uses: this.reasoningModel (Amazon Nova Pro)
   → Why: Needs deep reasoning and planning
 
 generateFinalResponse()
-  → Uses: this.reasoningModel (Claude 4 Opus)
+  → Uses: this.reasoningModel (Amazon Nova Pro)
   → Why: Synthesizing complex information
 
-// Standard tasks → Claude 3.5 Sonnet (if needed as fallback)
+// Fast tasks → Amazon Nova Lite
 quickResponse()
-  → Uses: this.sonnetModel (Claude 3.5 Sonnet)
+  → Uses: this.fastModel (Amazon Nova Lite)
   → Why: Fast and capable for standard queries
 
-// Simple tasks → Claude 3.5 Haiku
+// Simple tasks → Amazon Nova Lite
 simpleConfirmation()
-  → Uses: this.fastModel (Claude 3.5 Haiku)
+  → Uses: this.fastModel (Amazon Nova Lite)
   → Why: Ultra-fast for simple responses
 ```
 
@@ -110,28 +114,28 @@ simpleConfirmation()
 You can specify which model to use:
 
 ```javascript
-// Use Claude 4 Opus for maximum reasoning
+// Use Amazon Nova Pro for maximum reasoning
 const result = await agent.processRequest({
   message: "Plan a complex multi-city European tour",
-  useModel: 'opus' // Forces Claude 4 Opus
+  useModel: 'nova-pro' // Forces Amazon Nova Pro
 });
 
-// Use Sonnet for faster responses
+// Use Nova Lite for faster responses
 const result = await agent.processRequest({
   message: "What's the weather in Paris?",
-  useModel: 'sonnet' // Uses Claude 3.5 Sonnet
+  useModel: 'nova-lite' // Uses Amazon Nova Lite
 });
 
-// Use Haiku for ultra-fast
+// Use Nova Lite for ultra-fast
 const result = await agent.processRequest({
   message: "Hello",
-  useModel: 'haiku' // Uses Claude 3.5 Haiku
+  useModel: 'nova-lite' // Uses Amazon Nova Lite
 });
 ```
 
 ---
 
-## 💡 Claude 4 Opus Advantages for Your Hackathon
+## 💡 Amazon Nova Advantages for Your Hackathon
 
 ### 1. Superior Reasoning
 ```javascript
@@ -328,7 +332,7 @@ curl -X POST http://localhost:4000/bedrock-agent/recommend `
 **Solution**:
 ```env
 # Switch to Sonnet for faster responses
-REASONING_MODEL=us.anthropic.claude-3-5-sonnet-20241022-v2:0
+REASONING_MODEL=us.amazon.nova-pro-v1:0
 ```
 
 ### Issue: Higher costs
@@ -408,7 +412,7 @@ async processRequest(request) {
 'us.anthropic.claude-opus-4-20250514-v1:0'
 
 // Claude 3.5 Sonnet v2 (Fast & Capable)
-'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
+'us.amazon.nova-pro-v1:0'
 
 // Claude 3.5 Haiku (Ultra-Fast)
 'us.anthropic.claude-3-5-haiku-20241022-v1:0'

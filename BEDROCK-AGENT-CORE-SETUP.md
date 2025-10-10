@@ -69,7 +69,7 @@ AWS_SECRET_ACCESS_KEY=your_secret_key_here
 AWS_REGION=us-east-1
 
 # Claude Model Configuration
-REASONING_MODEL=us.anthropic.claude-3-5-sonnet-20241022-v2:0
+REASONING_MODEL=us.amazon.nova-pro-v1:0
 
 # Optional: API Keys for Real Data (uses mock data if not provided)
 RAPIDAPI_KEY=your_rapidapi_key

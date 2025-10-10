@@ -22,6 +22,7 @@ const { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand } = require
 const axios = require('axios');
 const FlightService = require('./FlightService');
 const HotelService = require('./HotelService');
+const TripAdvisorRapidAPIService = require('./TripAdvisorRapidAPIService');
 
 class BedrockAgentCore {
   constructor() {
@@ -53,6 +54,9 @@ class BedrockAgentCore {
       rapidApiKey: process.env.RAPIDAPI_KEY
     });
 
+    // Initialize TripAdvisor RapidAPI Service
+    this.tripAdvisorService = new TripAdvisorRapidAPIService();
+
     // Rate limiting
     this.lastApiCall = 0;
     this.minApiDelay = 2000; // Minimum 2 seconds between API calls (AWS Bedrock has strict limits)
@@ -61,14 +65,16 @@ class BedrockAgentCore {
     this.agentId = process.env.BEDROCK_AGENT_ID || null;
     this.agentAliasId = process.env.BEDROCK_AGENT_ALIAS_ID || null;
     
-    // Model configuration - Using Claude 3.5 Sonnet v2 (PROVEN WORKING)
-    // Note: Claude Opus 4.1 access granted but model ID format unclear
-    // Using Claude 3.5 Sonnet v2 which provides excellent reasoning
-    this.reasoningModel = process.env.REASONING_MODEL || 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'; // Claude 3.5 Sonnet v2 ✅ WORKING
+    // Model configuration with fallback mechanism
+    // Primary: Amazon Nova models (if accessible)
+    // Fallback: Claude models (always accessible)
+    this.reasoningModel = process.env.REASONING_MODEL || 'us.amazon.nova-pro-v1:0'; // Amazon Nova Pro v1
+    this.reasoningModelFallback = 'anthropic.claude-3-sonnet-20240229-v1:0'; // Claude 3 Sonnet ✅ WORKING
     
     // Alternative models for different use cases  
-    this.sonnetModel = 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'; // Claude 3.5 Sonnet v2 ✅
-    this.fastModel = 'us.anthropic.claude-sonnet-4-20250514-v1:0';   // Claude Sonnet 4 ✅
+    this.sonnetModel = 'anthropic.claude-3-sonnet-20240229-v1:0'; // Claude 3 Sonnet ✅
+    this.fastModel = process.env.FAST_MODEL || 'us.amazon.nova-lite-v1:0';   // Amazon Nova Lite v1
+    this.fastModelFallback = 'anthropic.claude-3-haiku-20240307-v1:0';   // Claude 3 Haiku ✅ WORKING
 
     // Agent tools registry
     this.tools = this.initializeTools();
@@ -77,15 +83,68 @@ class BedrockAgentCore {
     this.sessions = new Map();
 
     console.log('🤖 Bedrock Agent Core initialized');
-    console.log(`🧠 Reasoning Model (Primary): ${this.reasoningModel} (Claude 3.5 Sonnet v2)`);
+    console.log(`🧠 Reasoning Model (Primary): ${this.reasoningModel} (Amazon Nova Pro v1)`);
+    console.log(`🧠 Reasoning Model (Fallback): ${this.reasoningModelFallback} (Claude 3.5 Sonnet v2)`);
     console.log(`⚡ Sonnet Model (Backup): ${this.sonnetModel} (Claude 3.5 Sonnet v2)`);
-    console.log(`🚀 Fast Model: ${this.fastModel} (Claude Sonnet 4)`);
+    console.log(`🚀 Fast Model (Primary): ${this.fastModel} (Amazon Nova Lite v1)`);
+    console.log(`🚀 Fast Model (Fallback): ${this.fastModelFallback} (Claude 3.5 Haiku)`);
     console.log('');
     console.log('📋 Model Selection Strategy:');
-    console.log('   • Claude 3.5 Sonnet v2: Advanced reasoning, tool calling, multi-step planning ✅ WORKING');
-    console.log('   • Claude Sonnet 4: Alternative fast model ✅');
-    console.log('   • Note: Claude Opus 4.1 access granted but requires inference profile setup');
+    console.log('   • Amazon Nova Pro v1: Advanced reasoning, tool calling, multi-step planning');
+    console.log('   • Amazon Nova Lite v1: Fast responses for simple tasks');
+    console.log('   • Claude 3.5 Sonnet v2: Fallback for reasoning (always accessible)');
+    console.log('   • Claude 3.5 Haiku: Fallback for fast responses (always accessible)');
     console.log('');
+  }
+
+  /**
+   * Invoke model with automatic fallback mechanism
+   */
+  async invokeModelWithFallback(modelId, messages, systemPrompt = null, toolConfig = null, inferenceConfig = null) {
+    const primaryModel = modelId || this.reasoningModel;
+    const fallbackModel = this.reasoningModelFallback;
+    
+    try {
+      console.log(`🤖 Invoking primary model: ${primaryModel}`);
+      
+      const command = new ConverseCommand({
+        modelId: primaryModel,
+        messages: messages,
+        inferenceConfig: inferenceConfig || { maxTokens: 4000, temperature: 0.7 }
+      });
+      
+      if (systemPrompt) command.system = systemPrompt;
+      if (toolConfig) command.toolConfig = toolConfig;
+      
+      const response = await this.bedrockRuntime.send(command);
+      console.log(`✅ Primary model ${primaryModel} successful`);
+      return response;
+    } catch (error) {
+      if (error.name === 'AccessDeniedException' || error.message.includes('access') || error.message.includes('403')) {
+        console.log(`⚠️ Primary model ${primaryModel} access denied, trying fallback: ${fallbackModel}`);
+        
+        try {
+          const fallbackCommand = new ConverseCommand({
+            modelId: fallbackModel,
+            messages: messages,
+            inferenceConfig: inferenceConfig || { maxTokens: 4000, temperature: 0.7 }
+          });
+          
+          if (systemPrompt) fallbackCommand.system = systemPrompt;
+          if (toolConfig) fallbackCommand.toolConfig = toolConfig;
+          
+          const fallbackResponse = await this.bedrockRuntime.send(fallbackCommand);
+          console.log(`✅ Fallback model ${fallbackModel} successful`);
+          return fallbackResponse;
+        } catch (fallbackError) {
+          console.error(`❌ Both models failed. Primary: ${primaryModel}, Fallback: ${fallbackModel}`);
+          throw fallbackError;
+        }
+      } else {
+        console.error(`❌ Error invoking model ${primaryModel}:`, error.message);
+        throw error;
+      }
+    }
   }
 
   /**
@@ -235,6 +294,52 @@ class BedrockAgentCore {
             }
           },
           required: ['optionType', 'options']
+        }
+      },
+      {
+        name: 'search_attractions',
+        description: 'Search for attractions and points of interest near a location using TripAdvisor data.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            location: { type: 'string', description: 'City or location name' },
+            limit: { type: 'number', description: 'Maximum number of attractions to return (default: 5)' }
+          },
+          required: ['location']
+        }
+      },
+      {
+        name: 'search_restaurants',
+        description: 'Search for restaurants near a location using TripAdvisor data.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            location: { type: 'string', description: 'City or location name' },
+            limit: { type: 'number', description: 'Maximum number of restaurants to return (default: 5)' }
+          },
+          required: ['location']
+        }
+      },
+      {
+        name: 'get_attraction_details',
+        description: 'Get detailed information about a specific attraction including reviews and media.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            contentId: { type: 'string', description: 'TripAdvisor content ID of the attraction' }
+          },
+          required: ['contentId']
+        }
+      },
+      {
+        name: 'get_restaurant_details',
+        description: 'Get detailed information about a specific restaurant including reviews and media.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            contentId: { type: 'string', description: 'TripAdvisor content ID of the restaurant' }
+          },
+          required: ['contentId']
         }
       }
     ];
@@ -480,6 +585,18 @@ Respond in JSON format with:
         
         case 'compare_options':
           return await this.compareOptions(input);
+        
+        case 'search_attractions':
+          return await this.searchAttractions(input);
+        
+        case 'search_restaurants':
+          return await this.searchRestaurants(input);
+        
+        case 'get_attraction_details':
+          return await this.getAttractionDetails(input);
+        
+        case 'get_restaurant_details':
+          return await this.getRestaurantDetails(input);
         
         default:
           throw new Error(`Unknown tool: ${name}`);
@@ -876,6 +993,108 @@ Format as JSON with structure:
     return comparison;
   }
 
+  async searchAttractions(params) {
+    console.log('🏛️ Searching attractions using TripAdvisor:', params);
+    
+    try {
+      const limit = params.limit || 5;
+      const attractions = await this.tripAdvisorService.getAttractionsNearby(params.location, limit);
+      
+      return {
+        success: true,
+        location: params.location,
+        attractions: attractions,
+        count: attractions.length,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error searching attractions:', error);
+      return {
+        success: false,
+        error: error.message,
+        location: params.location,
+        attractions: []
+      };
+    }
+  }
+
+  async searchRestaurants(params) {
+    console.log('🍽️ Searching restaurants using TripAdvisor:', params);
+    
+    try {
+      const limit = params.limit || 5;
+      const restaurants = await this.tripAdvisorService.getRestaurantsNearby(params.location, limit);
+      
+      return {
+        success: true,
+        location: params.location,
+        restaurants: restaurants,
+        count: restaurants.length,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error searching restaurants:', error);
+      return {
+        success: false,
+        error: error.message,
+        location: params.location,
+        restaurants: []
+      };
+    }
+  }
+
+  async getAttractionDetails(params) {
+    console.log('🏛️ Getting attraction details:', params);
+    
+    try {
+      const details = await this.tripAdvisorService.getAttractionDetails(params.contentId);
+      const reviews = await this.tripAdvisorService.getAttractionReviews(params.contentId);
+      const media = await this.tripAdvisorService.getAttractionMedia(params.contentId);
+      
+      return {
+        success: true,
+        contentId: params.contentId,
+        details: details,
+        reviews: reviews,
+        media: media,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error getting attraction details:', error);
+      return {
+        success: false,
+        error: error.message,
+        contentId: params.contentId
+      };
+    }
+  }
+
+  async getRestaurantDetails(params) {
+    console.log('🍽️ Getting restaurant details:', params);
+    
+    try {
+      const details = await this.tripAdvisorService.getRestaurantDetails(params.contentId);
+      const reviews = await this.tripAdvisorService.getRestaurantReviews(params.contentId);
+      const media = await this.tripAdvisorService.getRestaurantMedia(params.contentId);
+      
+      return {
+        success: true,
+        contentId: params.contentId,
+        details: details,
+        reviews: reviews,
+        media: media,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error getting restaurant details:', error);
+      return {
+        success: false,
+        error: error.message,
+        contentId: params.contentId
+      };
+    }
+  }
+
   /**
    * Generate final response with reasoning
    */
@@ -1115,16 +1334,13 @@ Keep responses concise and engaging. If users need specific flight/hotel data, l
       this.lastApiCall = Date.now();
 
       // Single API call - no tool calling
-      const response = await this.bedrockRuntime.send(new ConverseCommand({
-        modelId: this.reasoningModel,
-        messages: messages,
-        system: systemPrompt,
-        inferenceConfig: {
-          maxTokens: 2000,
-          temperature: 0.7,
-          topP: 0.9
-        }
-      }));
+      const response = await this.invokeModelWithFallback(
+        this.reasoningModel,
+        messages,
+        systemPrompt,
+        null,
+        { maxTokens: 2000, temperature: 0.7, topP: 0.9 }
+      );
 
       let responseText = '';
       if (response.output.message.content) {
@@ -1284,17 +1500,13 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
       
       this.lastApiCall = Date.now();
       
-      const initialResponse = await this.bedrockRuntime.send(new ConverseCommand({
-        modelId: this.reasoningModel,
-        messages: messages,
-        system: systemPrompt,
-        toolConfig: { tools },
-        inferenceConfig: {
-          maxTokens: 4000,
-          temperature: 0.7,
-          topP: 0.9
-        }
-      }));
+      const initialResponse = await this.invokeModelWithFallback(
+        this.reasoningModel,
+        messages,
+        systemPrompt,
+        { tools },
+        { maxTokens: 4000, temperature: 0.7, topP: 0.9 }
+      );
 
       let responseMessage = initialResponse.output.message;
       let agentResponse = '';
@@ -1364,17 +1576,13 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
         
         this.lastApiCall = Date.now();
         
-        const finalResponse = await this.bedrockRuntime.send(new ConverseCommand({
-          modelId: this.reasoningModel,
-          messages: messages,
-          system: systemPrompt,
-          toolConfig: { tools },
-          inferenceConfig: {
-            maxTokens: 4000,
-            temperature: 0.7,
-            topP: 0.9
-          }
-        }));
+        const finalResponse = await this.invokeModelWithFallback(
+          this.reasoningModel,
+          messages,
+          systemPrompt,
+          { tools },
+          { maxTokens: 4000, temperature: 0.7, topP: 0.9 }
+        );
 
         // Extract final text response
         agentResponse = ''; // Reset to ensure clean extraction
