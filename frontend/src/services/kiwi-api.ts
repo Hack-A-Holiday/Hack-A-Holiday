@@ -50,6 +50,8 @@ export interface KiwiFlight {
       };
     }>;
   };
+  deepLink?: string; // Direct booking link from Kiwi API
+  bookingUrl?: string; // Alternative booking URL field
 }
 
 export interface KiwiApiResponse {
@@ -67,7 +69,7 @@ export interface KiwiApiResponse {
 }
 
 export class KiwiApiService {
-  private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '4bb41c35e2mshabe7faff89c8273p1fe197jsnccfa27353502';
+  private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '8ba82f8f69mshfc586479dacb57dp17b668jsnd41a5fc70e20';
   private readonly baseUrl = 'https://kiwi-com-cheap-flights.p.rapidapi.com';
 
   async searchFlights(
@@ -227,6 +229,7 @@ export class KiwiApiService {
       },
       refundable: false,
       changeable: false,
+      bookingUrl: kiwiFlight.deepLink || kiwiFlight.bookingUrl || undefined, // Use deep_link from Kiwi API
       source: 'kiwi' as const,
       metadata: {
         lastUpdated: new Date().toISOString(),

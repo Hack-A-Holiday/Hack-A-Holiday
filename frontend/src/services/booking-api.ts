@@ -119,7 +119,7 @@ export class BookingApiService {
 
   constructor() {
     // Use environment variable or fallback to provided key
-    this.apiKey = process.env.NEXT_PUBLIC_BOOKING_API_KEY || '2fa64a1f33msh66fae9717bb5ba2p10e28fjsn7419e62e64e2';
+    this.apiKey = process.env.NEXT_PUBLIC_BOOKING_API_KEY || '8ba82f8f69mshfc586479dacb57dp17b668jsnd41a5fc70e20';
   }
 
   /**
@@ -159,6 +159,7 @@ export class BookingApiService {
 
       console.log(`🏨 Searching hotels near ${coordinates.cityName} (${params.airportCode})...`);
       console.log(`🔗 API URL: ${url.split('?')[0]}`);
+      console.log(`🔑 Using API Key: ${this.apiKey.substring(0, 10)}...`);
 
       const response = await fetch(url, {
         method: 'GET',
@@ -169,7 +170,11 @@ export class BookingApiService {
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
+        if (response.status === 429) {
+          console.warn(`⚠️ Booking.com API rate limit exceeded (429). Using mock data.`);
+          return this.getMockHotels(params);
+        }
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -205,7 +210,13 @@ export class BookingApiService {
       };
 
     } catch (error) {
-      console.error('❌ Booking.com API error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ Booking.com API error:', errorMessage);
+      
+      if (errorMessage.includes('429')) {
+        console.warn('⚠️ Rate limit exceeded. Consider upgrading RapidAPI plan or implementing caching.');
+      }
+      
       console.log('📝 Using mock hotel data as fallback');
       return this.getMockHotels(params);
     }

@@ -5,12 +5,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDarkMode } from '../contexts/DarkModeContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import Navbar from '../components/layout/Navbar';
+import { tripTrackingService } from '../services/trip-tracking';
 
 export default function HomePage() {
   const { state } = useAuth();
   const { isDarkMode } = useDarkMode();
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
+  const [tripStats, setTripStats] = useState({ tripsPlanned: 0, countriesExplored: 0, totalSpent: 0 });
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -23,6 +25,36 @@ export default function HomePage() {
     
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
+
+  // Load trip statistics
+  useEffect(() => {
+    const userId = localStorage.getItem('userId') || state.user?.email || 'guest';
+    const stats = tripTrackingService.getTripStats(userId);
+    setTripStats(stats);
+    
+    // Listen for trip updates
+    const handleTripUpdate = () => {
+      const updatedStats = tripTrackingService.getTripStats(userId);
+      setTripStats(updatedStats);
+    };
+    
+    // Listen for when user returns to the tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // User returned to the tab, refresh stats
+        const updatedStats = tripTrackingService.getTripStats(userId);
+        setTripStats(updatedStats);
+      }
+    };
+    
+    window.addEventListener('tripUpdated', handleTripUpdate);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('tripUpdated', handleTripUpdate);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [state.user]);
 
   return (
     <ProtectedRoute requireAuth={true}>
@@ -269,16 +301,16 @@ export default function HomePage() {
                 textAlign: 'center'
               }}>
                 <div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>0</div>
+                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>{tripStats.tripsPlanned}</div>
                   <div style={{ opacity: 0.8 }}>Trips Planned</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>0</div>
+                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>{tripStats.countriesExplored}</div>
                   <div style={{ opacity: 0.8 }}>Countries Explored</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>0</div>
-                  <div style={{ opacity: 0.8 }}>Memories Made</div>
+                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>${tripStats.totalSpent.toFixed(0)}</div>
+                  <div style={{ opacity: 0.8 }}>Total Invested</div>
                 </div>
                 <div>
                   <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>∞</div>

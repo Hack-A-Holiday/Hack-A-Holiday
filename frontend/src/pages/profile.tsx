@@ -5,6 +5,7 @@ import Navbar from '../components/layout/Navbar';
 import Swal from 'sweetalert2';
 import { popularDestinations } from '../data/destinations';
 import { TravelPreferences, defaultTravelPreferences, preferenceOptions, PreferencesUtils } from '../types/preferences';
+import { tripTrackingService, Trip } from '../services/trip-tracking';
 
 function ProfileHeader({ isMobile, isTablet }: Readonly<{ isMobile: boolean; isTablet: boolean }>) {
   return (
@@ -421,6 +422,7 @@ export default function ProfilePage() {
   // Hooks must run unconditionally at top level
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingPreferences, setIsEditingPreferences] = useState(false);
+  const [userTrips, setUserTrips] = useState<Trip[]>([]);
   const isGoogleUser = state.user?.role === 'google';
   
   const [editForm, setEditForm] = useState({
@@ -449,6 +451,38 @@ export default function ProfilePage() {
     }
     return defaultTravelPreferences;
   });
+
+  // Load user trips
+  useEffect(() => {
+    if (state.user) {
+      const userId = localStorage.getItem('userId') || state.user.email || 'guest';
+      const trips = tripTrackingService.getTrips(userId);
+      setUserTrips(trips);
+
+      // Listen for trip updates
+      const handleTripUpdate = () => {
+        const updatedTrips = tripTrackingService.getTrips(userId);
+        setUserTrips(updatedTrips);
+      };
+
+      // Listen for when user returns to the tab
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          // User returned to the tab, refresh trips
+          const updatedTrips = tripTrackingService.getTrips(userId);
+          setUserTrips(updatedTrips);
+        }
+      };
+
+      window.addEventListener('tripUpdated', handleTripUpdate);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        window.removeEventListener('tripUpdated', handleTripUpdate);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
+  }, [state.user]);
 
   if (!state.user) {
     return <div>User not authenticated</div>;
@@ -730,6 +764,73 @@ export default function ProfilePage() {
                 onPreferenceChange={handlePreferenceChange}
                 isEditing={isEditingPreferences}
               />
+            </div>
+
+            {/* Upcoming Trips */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              borderRadius: '20px',
+              padding: '40px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h2 style={{
+                margin: '0 0 25px',
+                color: '#333',
+                fontSize: '1.5rem'
+              }}>✈️ Your Trips ({userTrips.length})</h2>
+              {userTrips.length === 0 ? (
+                <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
+                  No trips planned yet. Start exploring and book your first trip!
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  {userTrips.map((trip) => (
+                    <div
+                      key={trip.id}
+                      style={{
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        borderRadius: '15px',
+                        padding: '20px',
+                        color: 'white'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                        <div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '5px' }}>
+                            {trip.type === 'flight' && '✈️'}
+                            {trip.type === 'package' && '🎫'}
+                            {trip.type === 'hotel' && '🏨'}
+                            {trip.type === 'vacation' && '🎁'}
+                            {' '}
+                            {trip.origin} → {trip.destination}
+                          </div>
+                          <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>
+                            📅 {trip.departureDate}
+                            {trip.returnDate && ` - ${trip.returnDate}`}
+                          </div>
+                        </div>
+                        <div style={{
+                          background: 'rgba(255, 255, 255, 0.2)',
+                          padding: '5px 15px',
+                          borderRadius: '20px',
+                          fontSize: '0.85rem',
+                          fontWeight: 'bold'
+                        }}>
+                          {trip.status.toUpperCase()}
+                        </div>
+                      </div>
+                      {trip.details.totalPrice && (
+                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', marginTop: '10px' }}>
+                          💰 ${trip.details.totalPrice.toFixed(2)}
+                        </div>
+                      )}
+                      <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '10px' }}>
+                        Created: {new Date(trip.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Danger Zone */}
