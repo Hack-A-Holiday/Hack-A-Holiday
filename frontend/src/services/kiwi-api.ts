@@ -50,6 +50,8 @@ export interface KiwiFlight {
       };
     }>;
   };
+  deepLink?: string; // Direct booking link from Kiwi API
+  bookingUrl?: string; // Alternative booking URL field
 }
 
 export interface KiwiApiResponse {
@@ -227,6 +229,7 @@ export class KiwiApiService {
       },
       refundable: false,
       changeable: false,
+      bookingUrl: kiwiFlight.deepLink || kiwiFlight.bookingUrl || undefined, // Use deep_link from Kiwi API
       source: 'kiwi' as const,
       metadata: {
         lastUpdated: new Date().toISOString(),

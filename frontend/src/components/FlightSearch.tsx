@@ -14,6 +14,9 @@ import { FlightOption, FlightSearchRequest, FlightSearchResponse, COMMON_AIRPORT
 import { KiwiApiService } from '../services/kiwi-api';
 import { bookingApiService } from '../services/booking-api';
 import { useDarkMode } from '../contexts/DarkModeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { tripTrackingService } from '../services/trip-tracking';
+import { BookingConfirmationModal } from './BookingConfirmationModal';
 
 // Add CSS animation for spinner
 const spinKeyframes = `
@@ -70,6 +73,7 @@ interface FlightPreferences {
 
 export default function FlightSearch({ onFlightSelect, initialSearch, className = '' }: Readonly<FlightSearchProps>) {
   const { isDarkMode } = useDarkMode();
+  const { state } = useAuth();
   const [searchRequest, setSearchRequest] = useState<FlightSearchRequest>({
     origin: initialSearch?.origin || '',
     destination: initialSearch?.destination || '',
@@ -113,6 +117,271 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
   const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
 
+  // Booking modal state
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [bookingDetails, setBookingDetails] = useState<{
+    type: 'single' | 'package';
+    outbound?: FlightOption;
+    return?: FlightOption;
+    totalPrice?: number;
+    savings?: number;
+  } | null>(null);
+
+  // Trip tracking confirmation state
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [pendingBookingData, setPendingBookingData] = useState<any>(null);
+
+  // Helper function to generate airline booking URLs with specific flight details
+  const getAirlineBookingUrl = (flight: FlightOption): string => {
+    // PRIORITY 1: If flight has a direct booking URL from the API, use that FIRST
+    if (flight.bookingUrl) {
+      console.log(`✅ Using direct booking link from API: ${flight.bookingUrl}`);
+      return flight.bookingUrl;
+    }
+
+    const origin = flight.departure.airport;
+    const destination = flight.arrival.airport;
+    const date = flight.departure.date;
+    
+    // Use Google Flights WITHOUT airline details - Google doesn't parse them well
+    // Simple format works better: "Flights from YYZ to BOM on 2025-10-20"
+    const googleFlightsUrl = `https://www.google.com/travel/flights?q=Flights%20from%20${origin}%20to%20${destination}%20on%20${date}`;
+    
+    console.log('🔗 Google Flights URL:', googleFlightsUrl);
+    console.log('📍 Look for:', flight.airline, flight.flightNumber, 'departing at', flight.departure.time);
+    console.log('💰 Price should be around $' + flight.price);
+    
+    return googleFlightsUrl;
+  };
+
+  // Helper function to generate round-trip booking URL for packages
+  const getRoundTripBookingUrl = (outbound: FlightOption, returnFlight: FlightOption): string => {
+    // Check if both flights have direct booking URLs
+    if (outbound.bookingUrl && returnFlight.bookingUrl) {
+      // Open both tabs for direct booking
+      window.open(returnFlight.bookingUrl, '_blank', 'noopener,noreferrer');
+      return outbound.bookingUrl;
+    }
+
+    // Build comprehensive search URL for Kiwi.com using their deep link format
+    const origin = outbound.departure.airport;
+    const destination = outbound.arrival.airport;
+    const originCity = outbound.departure.city?.replace(/\s+/g, '-').toLowerCase() || origin.toLowerCase();
+    const destCity = outbound.arrival.city?.replace(/\s+/g, '-').toLowerCase() || destination.toLowerCase();
+    
+    // Format dates for Kiwi (YYYY-MM-DD)
+    const departureDate = outbound.departure.date;
+    const returnDate = returnFlight.departure.date;
+    
+    const passengers = searchRequest.passengers.adults + (searchRequest.passengers.children || 0);
+    
+    // Try multiple URL formats for better compatibility
+    
+    // Option 1: Use Google Flights WITHOUT airline details (Google doesn't parse flight numbers well)
+    // Simple format: "Flights from YYZ to BOM on 2025-10-20 return 2025-11-05"
+    const googleFlightsUrl = `https://www.google.com/travel/flights?q=Flights%20from%20${origin}%20to%20${destination}%20on%20${departureDate}%20return%20${returnDate}`;
+    
+    // Option 2: Kiwi.com deep link (current best attempt)
+    const kiwiDeepLink = `https://www.kiwi.com/deep?affilid=hackholiday&currency=USD&departure=${origin}&destination=${destination}&from=${departureDate}&to=${returnDate}&flightsId=&price=&passengers=${passengers}&lang=en&return_from=${returnDate}&return_to=${returnDate}`;
+    
+    // Option 3: Direct Kiwi search (most reliable)
+    const kiwiDirectSearch = `https://www.kiwi.com/en/search/tiles/${origin}/${destination}/${departureDate}/${returnDate}?sortBy=price&adults=${passengers}`;
+    
+    console.log('🔗 Booking URLs Generated:');
+    console.log('1. Google Flights:', googleFlightsUrl);
+    console.log('2. Kiwi Deep Link:', kiwiDeepLink);
+    console.log('3. Kiwi Direct:', kiwiDirectSearch);
+    console.log('🛫 Outbound:', outbound.airline, outbound.flightNumber, 'on', departureDate);
+    console.log('🛬 Return:', returnFlight.airline, returnFlight.flightNumber, 'on', returnDate);
+    
+    // Use Google Flights as it's most reliable for pre-filled searches
+    return googleFlightsUrl;
+  };
+
+  // Helper function to generate hotel booking URL
+  const getHotelBookingUrl = (hotel: any, checkIn: string, checkOut: string): string => {
+    const hotelName = hotel.name;
+    const cityName = hotel.cityName || hotel.address || '';
+    
+    // Parse dates to calculate nights
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Use Booking.com with hotel name + city for specific search
+    // Format: ss=Hotel+Name+City (search string includes both hotel name and city)
+    const searchString = encodeURIComponent(`${hotelName} ${cityName}`);
+    const bookingUrl = `https://www.booking.com/searchresults.html?ss=${searchString}&checkin=${checkIn}&checkout=${checkOut}&group_adults=1&no_rooms=1&group_children=0`;
+    
+    console.log('🏨 Booking.com URL:', bookingUrl);
+    console.log('📍 Hotel:', hotelName, 'in', cityName);
+    console.log('📅 Check-in:', checkIn, '• Check-out:', checkOut, `(${nights} nights)`);
+    
+    return bookingUrl;
+  };
+
+  // Helper function to open booking URLs sequentially
+  const openBookingLinks = async (urls: string[]) => {
+    console.log('Opening booking links:', urls);
+    
+    if (urls.length === 0) return;
+    
+    // Open each URL one at a time with user confirmation
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      const flightType = i === 0 ? '🛫 Outbound Flight' : (i === 1 ? '🛬 Return Flight' : '🏨 Hotel');
+      
+      // Extract flight details from URL for better display
+      const urlParams = new URL(url).searchParams;
+      const searchQuery = urlParams.get('q') || '';
+      const displayInfo = searchQuery ? searchQuery.replace(/\+/g, ' ') : url;
+      
+      if (i === 0) {
+        // Open first link immediately
+        const opened = window.open(url, '_blank', 'noopener,noreferrer');
+        if (!opened) {
+          alert('⚠️ Please allow popups for this site to open booking pages.');
+          return;
+        }
+      } else {
+        // For subsequent links, show confirmation dialog (creates user interaction)
+        const confirmed = confirm(
+          `${flightType}\n\n${displayInfo}\n\n` +
+          `Click OK to open booking page ${i + 1} of ${urls.length}`
+        );
+        
+        if (confirmed) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        } else {
+          // If user cancels, ask if they want to copy remaining URLs
+          const copyUrls = confirm('Would you like to copy the remaining URLs to open manually?');
+          if (copyUrls) {
+            const remaining = urls.slice(i).join('\n');
+            navigator.clipboard.writeText(remaining)
+              .then(() => alert('✅ URLs copied to clipboard!'))
+              .catch(() => alert('URLs:\n' + remaining));
+          }
+          break;
+        }
+      }
+    }
+  };
+
+  // Handle single flight booking
+  const handleBookFlight = (flight: FlightOption) => {
+    // Save pending booking for trip tracking
+    tripTrackingService.savePendingBooking({
+      type: 'flight',
+      origin: flight.departure.airport,
+      destination: flight.arrival.airport,
+      departureDate: flight.departure.date,
+      details: {
+        flights: {
+          outbound: flight
+        },
+        totalPrice: flight.price
+      }
+    });
+
+    setBookingDetails({
+      type: 'single',
+      outbound: flight,
+      totalPrice: flight.price
+    });
+    setShowBookingModal(true);
+  };
+
+  // Handle round-trip package booking
+  const handleBookPackage = (pkg: { outbound: FlightOption; return: FlightOption; totalPrice: number; savings?: number }) => {
+    // Save pending booking for trip tracking
+    tripTrackingService.savePendingBooking({
+      type: 'package',
+      origin: pkg.outbound.departure.airport,
+      destination: pkg.outbound.arrival.airport,
+      departureDate: pkg.outbound.departure.date,
+      returnDate: pkg.return.departure.date,
+      details: {
+        flights: {
+          outbound: pkg.outbound,
+          return: pkg.return
+        },
+        totalPrice: pkg.totalPrice
+      }
+    });
+
+    setBookingDetails({
+      type: 'package',
+      outbound: pkg.outbound,
+      return: pkg.return,
+      totalPrice: pkg.totalPrice,
+      savings: pkg.savings
+    });
+    setShowBookingModal(true);
+  };
+
+  // Confirm and open booking links
+  const confirmBooking = () => {
+    if (!bookingDetails) return;
+
+    if (bookingDetails.type === 'single' && bookingDetails.outbound) {
+      const bookingUrl = getAirlineBookingUrl(bookingDetails.outbound);
+      window.open(bookingUrl, '_blank', 'noopener,noreferrer');
+    } else if (bookingDetails.type === 'package' && bookingDetails.outbound && bookingDetails.return) {
+      // Check if both flights have direct booking URLs
+      if (bookingDetails.outbound.bookingUrl && bookingDetails.return.bookingUrl) {
+        // Open both direct booking links in separate tabs
+        window.open(bookingDetails.outbound.bookingUrl, '_blank', 'noopener,noreferrer');
+        setTimeout(() => {
+          window.open(bookingDetails.return.bookingUrl, '_blank', 'noopener,noreferrer');
+        }, 100);
+      } else {
+        // Open Google Flights for round-trip search (combined)
+        const roundTripUrl = getRoundTripBookingUrl(bookingDetails.outbound, bookingDetails.return);
+        window.open(roundTripUrl, '_blank', 'noopener,noreferrer');
+        
+        // Open second Google Flights tab for return flight search WITHOUT airline details
+        setTimeout(() => {
+          const returnGoogleUrl = `https://www.google.com/travel/flights?q=Flights%20from%20${bookingDetails.return.departure.airport}%20to%20${bookingDetails.return.arrival.airport}%20on%20${bookingDetails.return.departure.date}`;
+          window.open(returnGoogleUrl, '_blank', 'noopener,noreferrer');
+        }, 500);
+      }
+    }
+
+    setShowBookingModal(false);
+    setBookingDetails(null);
+  };
+
+  // Handle trip confirmation when user returns from booking tabs
+  const handleTripConfirmation = () => {
+    if (!pendingBookingData) return;
+
+    // Get user ID from auth context or use email as fallback
+    const userId = state.user?.email || 'guest';
+
+    // Confirm the trip
+    tripTrackingService.confirmBooking(userId, pendingBookingData);
+
+    // Close modal
+    setShowConfirmationModal(false);
+    setPendingBookingData(null);
+
+    // Show success notification using browser notification
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('🎉 Trip Confirmed!', {
+        body: 'Check your profile to see your upcoming trips.',
+        icon: '/favicon.ico'
+      });
+    }
+  };
+
+  // Handle trip cancellation
+  const handleTripCancellation = () => {
+    // Just clear the pending booking and close modal
+    tripTrackingService.clearPendingBooking();
+    setShowConfirmationModal(false);
+    setPendingBookingData(null);
+  };
+
   // Group airports by region for better organization
   const airportsByRegion = COMMON_AIRPORTS.reduce((acc, airport) => {
     if (!acc[airport.region]) {
@@ -155,6 +424,25 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
       return () => clearTimeout(debounceTimer);
     }
   }, [searchRequest.origin, searchRequest.destination, searchRequest.departureDate, searchRequest.passengers, autoSearch]);
+
+  // Trip tracking: Listen for when user returns from booking tabs
+  useEffect(() => {
+    const handleBookingReturn = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const bookingData = customEvent.detail;
+      
+      if (bookingData) {
+        setPendingBookingData(bookingData);
+        setShowConfirmationModal(true);
+      }
+    };
+
+    window.addEventListener('bookingTabReturned', handleBookingReturn as EventListener);
+
+    return () => {
+      window.removeEventListener('bookingTabReturned', handleBookingReturn as EventListener);
+    };
+  }, []);
 
   // Generate more comprehensive mock data
   const generateEnhancedMockFlights = (count = 15, origin?: string, destination?: string, departureDate?: string) => {
@@ -366,6 +654,13 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                 bagNote = `Note: Search returned results with ${kiwiResponse.bagConfigUsed} checked bags (requested ${kiwiResponse.requestedBags}). You can add extra bags during booking.`;
               }
             }
+
+            // Debug: Check if any flights have booking URLs
+            console.log('📋 Flight booking URLs:', realFlights.map(f => ({
+              flight: f.flightNumber,
+              hasBookingUrl: !!f.bookingUrl,
+              bookingUrl: f.bookingUrl || 'N/A'
+            })));
 
             const realResponse: FlightSearchResponse = {
               success: true,
@@ -2108,10 +2403,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                         )}
                       </div>
                       <button
-                        onClick={() => {
-                          console.log('Selected package:', pkg);
-                          // Handle package selection
-                        }}
+                        onClick={() => handleBookPackage(pkg)}
                         style={{
                           padding: '12px 24px',
                           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -2319,12 +2611,10 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                         key={flight.id}
                         style={{
                           borderBottom: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e9ecef',
-                          transition: 'background-color 0.2s ease',
-                          cursor: 'pointer'
+                          transition: 'background-color 0.2s ease'
                         }}
                         onMouseOver={(e) => e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa'}
                         onMouseOut={(e) => e.currentTarget.style.backgroundColor = isDarkMode ? 'transparent' : 'white'}
-                        onClick={() => onFlightSelect?.(flight)}
                       >
                         <td style={{ padding: '12px', borderBottom: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e9ecef' }}>
                           <div style={{ fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#495057' }}>{flight.airline}</div>
@@ -2369,7 +2659,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onFlightSelect?.(flight);
+                              handleBookFlight(flight);
                             }}
                             style={{
                               padding: '6px 12px',
@@ -2397,15 +2687,13 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {filteredAndSortedFlights.map((flight: any, index: number) => (
               <div 
-                key={flight.id} 
-                onClick={() => onFlightSelect?.(flight)}
+                key={flight.id}
                 style={{
                   background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'white',
                   borderRadius: '15px',
                   padding: '25px',
                   boxShadow: isDarkMode ? '0 5px 20px rgba(0,0,0,0.6)' : '0 5px 20px rgba(0,0,0,0.08)',
                   border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9',
-                  cursor: 'pointer',
                   transition: 'all 0.3s ease',
                   position: 'relative',
                   overflow: 'hidden'
@@ -2512,17 +2800,29 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                   </div>
                   
                   <div style={{ marginLeft: '20px' }}>
-                    <button style={{
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      color: 'white',
-                      border: 'none',
-                      padding: '12px 20px',
-                      borderRadius: '8px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}>
-                      Select Flight
+                    <button 
+                      onClick={() => handleBookFlight(flight)}
+                      style={{
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.target as HTMLElement).style.transform = 'translateY(-2px)';
+                        (e.target as HTMLElement).style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.target as HTMLElement).style.transform = 'translateY(0)';
+                        (e.target as HTMLElement).style.boxShadow = 'none';
+                      }}
+                    >
+                      🎫 Book Flight
                     </button>
                   </div>
                 </div>
@@ -2776,7 +3076,26 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                         </div>
                       </div>
                       <button
-                        onClick={() => alert(`Booking ${hotel.name}...`)}
+                        onClick={() => {
+                          const checkIn = hotelResults.searchMetadata.checkIn;
+                          const checkOut = hotelResults.searchMetadata.checkOut;
+                          
+                          // Save pending booking for trip tracking
+                          tripTrackingService.savePendingBooking({
+                            type: 'hotel',
+                            origin: searchRequest.origin || 'Unknown',
+                            destination: hotel.cityName || 'Unknown',
+                            departureDate: checkIn,
+                            returnDate: checkOut,
+                            details: {
+                              hotel: hotel,
+                              totalPrice: hotel.totalPrice
+                            }
+                          });
+                          
+                          const hotelUrl = getHotelBookingUrl(hotel, checkIn, checkOut);
+                          window.open(hotelUrl, '_blank', 'noopener,noreferrer');
+                        }}
                         style={{
                           background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
                           color: 'white',
@@ -3072,7 +3391,50 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                     </div>
 
                     <button
-                      onClick={() => alert(`Booking complete vacation package for $${Math.round(pkg.priceWithDiscount)}...`)}
+                      onClick={() => {
+                        // Open 3 tabs: outbound flight, return flight, and hotel
+                        const outbound = pkg.flight.outbound;
+                        const returnFlight = pkg.flight.return;
+                        const hotel = pkg.hotel;
+                        const checkIn = outbound.departure.date;
+                        const checkOut = returnFlight.departure.date;
+                        
+                        // Save pending booking for trip tracking
+                        tripTrackingService.savePendingBooking({
+                          type: 'vacation',
+                          origin: outbound.departure.airport,
+                          destination: outbound.arrival.airport,
+                          departureDate: checkIn,
+                          returnDate: checkOut,
+                          details: {
+                            flights: {
+                              outbound: outbound,
+                              return: returnFlight
+                            },
+                            hotel: hotel,
+                            totalPrice: pkg.priceWithDiscount
+                          }
+                        });
+                        
+                        // Tab 1: Outbound flight on Google Flights (simple format)
+                        const outboundUrl = `https://www.google.com/travel/flights?q=Flights%20from%20${outbound.departure.airport}%20to%20${outbound.arrival.airport}%20on%20${checkIn}`;
+                        window.open(outboundUrl, '_blank', 'noopener,noreferrer');
+                        
+                        // Tab 2: Return flight on Google Flights (simple format, staggered to avoid popup blocker)
+                        setTimeout(() => {
+                          const returnUrl = `https://www.google.com/travel/flights?q=Flights%20from%20${returnFlight.departure.airport}%20to%20${returnFlight.arrival.airport}%20on%20${checkOut}`;
+                          window.open(returnUrl, '_blank', 'noopener,noreferrer');
+                        }, 500);
+                        
+                        // Tab 3: Hotel on Booking.com with hotel name + city (staggered to avoid popup blocker)
+                        setTimeout(() => {
+                          const hotelName = hotel.name;
+                          const cityName = hotel.cityName || '';
+                          const searchString = encodeURIComponent(`${hotelName} ${cityName}`);
+                          const hotelUrl = `https://www.booking.com/searchresults.html?ss=${searchString}&checkin=${checkIn}&checkout=${checkOut}&group_adults=1&no_rooms=1&group_children=0`;
+                          window.open(hotelUrl, '_blank', 'noopener,noreferrer');
+                        }, 1000);
+                      }}
                       style={{
                         background: 'linear-gradient(135deg, #ffd89b 0%, #19547b 100%)',
                         color: 'white',
@@ -3109,6 +3471,411 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
           </div>
         </div>
       )}
+
+      {/* Booking Confirmation Modal */}
+      {showBookingModal && bookingDetails && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            backdropFilter: 'blur(5px)',
+            animation: 'fadeIn 0.2s ease'
+          }}
+          onClick={() => {
+            setShowBookingModal(false);
+            setBookingDetails(null);
+          }}
+        >
+          <div
+            style={{
+              background: isDarkMode ? '#1e2532' : 'white',
+              borderRadius: '20px',
+              padding: '40px',
+              maxWidth: '600px',
+              width: '90%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+              animation: 'slideUp 0.3s ease',
+              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ marginBottom: '30px', textAlign: 'center' }}>
+              <div style={{ fontSize: '48px', marginBottom: '15px' }}>✈️</div>
+              <h2 style={{
+                margin: 0,
+                fontSize: '28px',
+                fontWeight: '700',
+                color: isDarkMode ? '#e8eaed' : '#2c3e50',
+                marginBottom: '10px'
+              }}>
+                Confirm Your Booking
+              </h2>
+              <p style={{
+                margin: 0,
+                color: isDarkMode ? '#9ca3af' : '#6c757d',
+                fontSize: '14px'
+              }}>
+                {bookingDetails.type === 'package' 
+                  ? 'Review your round-trip flight package details'
+                  : 'Review your flight details'}
+              </p>
+            </div>
+
+            {/* Outbound Flight Details */}
+            {bookingDetails.outbound && (
+              <div style={{
+                background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa',
+                borderRadius: '15px',
+                padding: '20px',
+                marginBottom: bookingDetails.return ? '20px' : '30px',
+                border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e9ecef'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginBottom: '15px',
+                  gap: '10px'
+                }}>
+                  <span style={{ fontSize: '24px' }}>🛫</span>
+                  <h3 style={{
+                    margin: 0,
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    color: isDarkMode ? '#e8eaed' : '#2c3e50'
+                  }}>
+                    {bookingDetails.type === 'package' ? 'Outbound Flight' : 'Flight Details'}
+                  </h3>
+                </div>
+                
+                <div style={{ display: 'grid', gap: '12px', fontSize: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: isDarkMode ? '#9ca3af' : '#6c757d' }}>Airline:</span>
+                    <span style={{ fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                      {bookingDetails.outbound.airline}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: isDarkMode ? '#9ca3af' : '#6c757d' }}>Flight:</span>
+                    <span style={{ fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                      {bookingDetails.outbound.flightNumber}
+                    </span>
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto 1fr',
+                    alignItems: 'center',
+                    gap: '15px',
+                    marginTop: '10px',
+                    paddingTop: '15px',
+                    borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #dee2e6'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                        {bookingDetails.outbound.departure.time}
+                      </div>
+                      <div style={{ fontSize: '12px', color: isDarkMode ? '#9ca3af' : '#6c757d', marginTop: '5px' }}>
+                        {bookingDetails.outbound.departure.airport}
+                      </div>
+                      <div style={{ fontSize: '12px', color: isDarkMode ? '#6b7280' : '#adb5bd' }}>
+                        {bookingDetails.outbound.departure.city}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center', color: isDarkMode ? '#9ca3af' : '#6c757d' }}>
+                      <div style={{ fontSize: '24px' }}>→</div>
+                      <div style={{ fontSize: '11px', marginTop: '5px' }}>
+                        {bookingDetails.outbound.duration}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                        {bookingDetails.outbound.arrival.time}
+                      </div>
+                      <div style={{ fontSize: '12px', color: isDarkMode ? '#9ca3af' : '#6c757d', marginTop: '5px' }}>
+                        {bookingDetails.outbound.arrival.airport}
+                      </div>
+                      <div style={{ fontSize: '12px', color: isDarkMode ? '#6b7280' : '#adb5bd' }}>
+                        {bookingDetails.outbound.arrival.city}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginTop: '10px',
+                    paddingTop: '15px',
+                    borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #dee2e6'
+                  }}>
+                    <span style={{ color: isDarkMode ? '#9ca3af' : '#6c757d' }}>Price:</span>
+                    <span style={{
+                      fontSize: '18px',
+                      fontWeight: '700',
+                      color: '#667eea'
+                    }}>
+                      ${Math.round(bookingDetails.outbound.price)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Return Flight Details */}
+            {bookingDetails.return && (
+              <div style={{
+                background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa',
+                borderRadius: '15px',
+                padding: '20px',
+                marginBottom: '30px',
+                border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e9ecef'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginBottom: '15px',
+                  gap: '10px'
+                }}>
+                  <span style={{ fontSize: '24px' }}>🛬</span>
+                  <h3 style={{
+                    margin: 0,
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    color: isDarkMode ? '#e8eaed' : '#2c3e50'
+                  }}>
+                    Return Flight
+                  </h3>
+                </div>
+                
+                <div style={{ display: 'grid', gap: '12px', fontSize: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: isDarkMode ? '#9ca3af' : '#6c757d' }}>Airline:</span>
+                    <span style={{ fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                      {bookingDetails.return.airline}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: isDarkMode ? '#9ca3af' : '#6c757d' }}>Flight:</span>
+                    <span style={{ fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                      {bookingDetails.return.flightNumber}
+                    </span>
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto 1fr',
+                    alignItems: 'center',
+                    gap: '15px',
+                    marginTop: '10px',
+                    paddingTop: '15px',
+                    borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #dee2e6'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                        {bookingDetails.return.departure.time}
+                      </div>
+                      <div style={{ fontSize: '12px', color: isDarkMode ? '#9ca3af' : '#6c757d', marginTop: '5px' }}>
+                        {bookingDetails.return.departure.airport}
+                      </div>
+                      <div style={{ fontSize: '12px', color: isDarkMode ? '#6b7280' : '#adb5bd' }}>
+                        {bookingDetails.return.departure.city}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center', color: isDarkMode ? '#9ca3af' : '#6c757d' }}>
+                      <div style={{ fontSize: '24px' }}>→</div>
+                      <div style={{ fontSize: '11px', marginTop: '5px' }}>
+                        {bookingDetails.return.duration}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                        {bookingDetails.return.arrival.time}
+                      </div>
+                      <div style={{ fontSize: '12px', color: isDarkMode ? '#9ca3af' : '#6c757d', marginTop: '5px' }}>
+                        {bookingDetails.return.arrival.airport}
+                      </div>
+                      <div style={{ fontSize: '12px', color: isDarkMode ? '#6b7280' : '#adb5bd' }}>
+                        {bookingDetails.return.arrival.city}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginTop: '10px',
+                    paddingTop: '15px',
+                    borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #dee2e6'
+                  }}>
+                    <span style={{ color: isDarkMode ? '#9ca3af' : '#6c757d' }}>Price:</span>
+                    <span style={{
+                      fontSize: '18px',
+                      fontWeight: '700',
+                      color: '#667eea'
+                    }}>
+                      ${Math.round(bookingDetails.return.price)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Total Price */}
+            <div style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              borderRadius: '15px',
+              padding: '20px',
+              marginBottom: '25px',
+              textAlign: 'center',
+              color: 'white'
+            }}>
+              <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '8px' }}>
+                Total Package Price
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: '700' }}>
+                ${Math.round(bookingDetails.totalPrice || 0)}
+              </div>
+              {bookingDetails.savings && bookingDetails.savings > 0 && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '8px 15px',
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>
+                  💰 Save ${Math.round(bookingDetails.savings)} vs separate booking
+                </div>
+              )}
+            </div>
+
+            {/* Important Notice */}
+            <div style={{
+              background: isDarkMode ? 'rgba(251, 191, 36, 0.1)' : '#fff3cd',
+              border: `1px solid ${isDarkMode ? 'rgba(251, 191, 36, 0.3)' : '#ffc107'}`,
+              borderRadius: '12px',
+              padding: '15px',
+              marginBottom: '25px',
+              fontSize: '13px',
+              color: isDarkMode ? '#fbbf24' : '#856404'
+            }}>
+              <div style={{ fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>ℹ️</span>
+                Important Information
+              </div>
+              <div style={{ lineHeight: '1.6' }}>
+                {bookingDetails.type === 'package' ? (
+                  <>
+                    • <strong>2 Google Flights tabs</strong> will open:<br/>
+                    &nbsp;&nbsp;1. Round-trip search ({bookingDetails.outbound?.departure.airport} ⇄ {bookingDetails.outbound?.arrival.airport})<br/>
+                    &nbsp;&nbsp;2. Return flight options ({bookingDetails.return?.departure.airport} → {bookingDetails.return?.arrival.airport})<br/>
+                    • Compare prices and select your preferred flights<br/>
+                    • Make sure popups are enabled for this site
+                  </>
+                ) : (
+                  <>
+                    • Google Flights will open with your search pre-filled<br/>
+                    • Look for {bookingDetails.outbound?.airline} flight {bookingDetails.outbound?.flightNumber}<br/>
+                    • Departing at {bookingDetails.outbound?.departure.time} on {bookingDetails.outbound?.departure.date}<br/>
+                    • Compare prices across multiple booking sites
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '15px'
+            }}>
+              <button
+                onClick={() => {
+                  setShowBookingModal(false);
+                  setBookingDetails(null);
+                }}
+                style={{
+                  padding: '15px',
+                  background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e9ecef',
+                  color: isDarkMode ? '#e8eaed' : '#495057',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLElement).style.background = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : '#dee2e6';
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLElement).style.background = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e9ecef';
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmBooking}
+                style={{
+                  padding: '15px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLElement).style.transform = 'translateY(-2px)';
+                  (e.target as HTMLElement).style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLElement).style.transform = 'translateY(0)';
+                  (e.target as HTMLElement).style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+                }}
+              >
+                {bookingDetails.type === 'package' ? 'Search on Google Flights' : 'Proceed to Booking'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trip Confirmation Modal */}
+      {showConfirmationModal && pendingBookingData && (
+        <BookingConfirmationModal
+          bookingData={pendingBookingData}
+          onConfirm={handleTripConfirmation}
+          onCancel={handleTripCancellation}
+        />
+      )}
+
+      {/* Add animations */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }
