@@ -17,6 +17,7 @@ import { useDarkMode } from '../contexts/DarkModeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { tripTrackingService } from '../services/trip-tracking';
 import { BookingConfirmationModal } from './BookingConfirmationModal';
+import Swal from 'sweetalert2';
 
 // Add CSS animation for spinner
 const spinKeyframes = `
@@ -579,6 +580,25 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
             request.returnDate // Pass return date for round-trip searches
           );
           console.log('Kiwi API Response:', kiwiResponse);
+
+          // Check if Google Flights fallback was used (returns null)
+          if (kiwiResponse === null) {
+            console.log('🌐 Google Flights fallback was triggered');
+            Swal.fire({
+              title: 'Opening Google Flights',
+              html: `
+                <p>We couldn't find flights in our database for this route.</p>
+                <p><strong>We've opened Google Flights in a new tab</strong> with your search details pre-filled.</p>
+                <p>Route: ${request.origin} → ${request.destination}</p>
+                <p>Date: ${request.departureDate}${request.returnDate ? ` - ${request.returnDate}` : ''}</p>
+              `,
+              icon: 'info',
+              confirmButtonText: 'OK',
+              timer: 6000
+            });
+            setLoading(false);
+            return;
+          }
 
           if (kiwiResponse.itineraries && kiwiResponse.itineraries.length > 0) {
             const realFlights = kiwiResponse.itineraries

@@ -1726,13 +1726,15 @@ Return ONLY the JSON array:`;
         results: results.flights || [],
         totalResults: results.flights?.length || 0,
         provider: results.provider,
-        searchTime: results.searchTime
+        searchTime: results.searchTime,
+        googleFlightsFallback: results.googleFlightsFallback // Pass through the fallback info
       };
       
       console.log('   ✅ Returning real flight data:', JSON.stringify({
         type: returnData.type,
         totalResults: returnData.totalResults,
-        provider: returnData.provider
+        provider: returnData.provider,
+        hasGoogleFallback: !!returnData.googleFlightsFallback
       }, null, 2));
       console.log('🛫 ===== FLIGHT API FETCH END (SUCCESS) =====\n');
       
@@ -1933,6 +1935,12 @@ Return ONLY the JSON array:`;
             contextPrompt += `- Duration: ${flight.duration || 'N/A'}\n`;
             contextPrompt += `- Stops: ${flight.stops || 'Direct'}\n`;
           });
+        } else if (realData.googleFlightsFallback) {
+          // No results but Google Flights fallback available
+          contextPrompt += `No flights found in our database.\n`;
+          contextPrompt += `IMPORTANT: Tell the user you can help them search on Google Flights instead.\n`;
+          contextPrompt += `Google Flights URL: ${realData.googleFlightsFallback.url}\n`;
+          contextPrompt += `YOU MUST include this clickable link in your response so users can continue their search.\n`;
         } else {
           contextPrompt += `No flights found. Provide general guidance.\n`;
         }

@@ -255,8 +255,22 @@ class FlightService {
       if (!response.data || itineraries.length === 0) {
         console.log('   ⚠️ No flights found in API response');
         console.log('   📄 Response metadata:', JSON.stringify(response.data?.metadata, null, 2));
+        
+        // Generate Google Flights fallback URL
+        const googleFlightsUrl = this.buildGoogleFlightsUrl(searchRequest);
+        console.log('   🌐 Generated Google Flights fallback URL:', googleFlightsUrl);
         console.log('🔵 ===== KIWI API CALL END (NO RESULTS) =====\n');
-        return { success: true, flights: [], totalResults: 0 };
+        
+        return { 
+          success: true, 
+          flights: [], 
+          totalResults: 0,
+          googleFlightsFallback: {
+            url: googleFlightsUrl,
+            reason: 'no_results',
+            message: 'No flights found in our database. You can search on Google Flights instead.'
+          }
+        };
       }
 
       console.log(`   ✈️ Found ${itineraries.length} flight itineraries`);
@@ -324,8 +338,24 @@ class FlightService {
       console.error('   Response Status:', error.response?.status);
       console.error('   Response Data:', JSON.stringify(error.response?.data, null, 2));
       console.error('   Request URL:', error.config?.url);
+      
+      // Generate Google Flights fallback URL for API errors
+      const googleFlightsUrl = this.buildGoogleFlightsUrl(searchRequest);
+      console.log('   🌐 Generated Google Flights fallback URL:', googleFlightsUrl);
       console.log('🔵 ===== KIWI API CALL END (ERROR) =====\n');
-      throw error;
+      
+      // Instead of throwing, return error with fallback
+      return {
+        success: false,
+        flights: [],
+        totalResults: 0,
+        error: error.message,
+        googleFlightsFallback: {
+          url: googleFlightsUrl,
+          reason: 'api_error',
+          message: 'Flight search API encountered an error. You can search on Google Flights instead.'
+        }
+      };
     }
   }
 
@@ -605,6 +635,66 @@ class FlightService {
     const hours = parseInt(match[1] || 0);
     const minutes = parseInt(match[2] || 0);
     return hours * 60 + minutes;
+  }
+
+  /**
+   * Generate Google Flights URL for fallback
+   */
+  buildGoogleFlightsUrl(searchRequest) {
+    const {
+      origin,
+      destination,
+      departureDate,
+      returnDate,
+      passengers = {},
+      cabinClass = 'economy'
+    } = searchRequest;
+
+    // Convert to IATA codes
+    const originCode = this.getCityCode(origin);
+    const destCode = this.getCityCode(destination);
+
+    // Format dates: YYYY-MM-DD
+    const depDate = departureDate;
+    const retDate = returnDate || '';
+
+    // Build Google Flights URL with route format
+    let url = `https://www.google.com/travel/flights`;
+    
+    if (retDate) {
+      // Round-trip: /flights/ORIGIN.DESTINATION.DEPDATE.RETDATE
+      url += `/flights/${originCode}.${destCode}.${depDate}.${retDate}`;
+    } else {
+      // One-way: /flights/ORIGIN.DESTINATION.DEPDATE
+      url += `/flights/${originCode}.${destCode}.${depDate}`;
+    }
+
+    // Add query parameters
+    const params = new URLSearchParams();
+    params.append('hl', 'en');
+    params.append('curr', 'USD');
+
+    // Add passengers
+    const adults = passengers.adults || 1;
+    const children = passengers.children || 0;
+    const infants = passengers.infants || 0;
+    
+    if (adults > 1) params.append('adults', adults.toString());
+    if (children > 0) params.append('children', children.toString());
+    if (infants > 0) params.append('infants', infants.toString());
+
+    // Add cabin class
+    const cabinMap = {
+      'economy': '2',
+      'premium_economy': '3',
+      'business': '4',
+      'first': '5'
+    };
+    const cabinCode = cabinMap[cabinClass.toLowerCase()] || '2';
+    params.append('tfs', `f.CABIN.c.${cabinCode}`);
+
+    const queryString = params.toString();
+    return queryString ? `${url}?${queryString}` : url;
   }
 }
 
