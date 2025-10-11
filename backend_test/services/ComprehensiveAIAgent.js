@@ -221,6 +221,37 @@ class ComprehensiveAIAgent {
   }
 
   /**
+   * Get default analysis when errors occur
+   */
+  getDefaultAnalysis() {
+    return {
+      preferences: {
+        budget: 'medium',
+        interests: [],
+        travelStyle: 'general'
+      },
+      travelIntent: {
+        isPlanning: false,
+        destination: null,
+        budget: null,
+        timeframe: 'flexible',
+        travelStyle: 'general',
+        urgency: 'low'
+      },
+      flightNeeds: {
+        needsFlights: false,
+        preferences: {
+          class: 'economy',
+          direct: false,
+          flexible: false
+        },
+        flexibility: 'medium'
+      },
+      personalizationLevel: 0.3
+    };
+  }
+
+  /**
    * Generate personalized recommendations based on conversation analysis
    */
   async generatePersonalizedRecommendations(analysis, userProfile, userContext) {
@@ -490,6 +521,45 @@ Respond in a friendly, knowledgeable tone with specific details and practical ad
     return 'flexible';
   }
 
+  extractTravelStyle(messages) {
+    const text = messages.map(m => m.content).join(' ').toLowerCase();
+    if (text.includes('adventure') || text.includes('hiking') || text.includes('outdoor')) return 'adventure';
+    if (text.includes('luxury') || text.includes('premium') || text.includes('5-star')) return 'luxury';
+    if (text.includes('budget') || text.includes('cheap') || text.includes('affordable')) return 'budget';
+    if (text.includes('family') || text.includes('kids')) return 'family';
+    if (text.includes('romantic') || text.includes('honeymoon')) return 'romantic';
+    return 'general';
+  }
+
+  assessUrgency(messages) {
+    const text = messages.map(m => m.content).join(' ').toLowerCase();
+    if (text.includes('urgent') || text.includes('asap') || text.includes('immediately')) return 'high';
+    if (text.includes('soon') || text.includes('next week')) return 'medium';
+    return 'low';
+  }
+
+  extractFlightPreferences(messages) {
+    const text = messages.map(m => m.content).join(' ').toLowerCase();
+    const preferences = {
+      class: 'economy',
+      direct: false,
+      flexible: false
+    };
+
+    if (text.includes('business class') || text.includes('first class')) preferences.class = 'business';
+    if (text.includes('direct') || text.includes('non-stop')) preferences.direct = true;
+    if (text.includes('flexible') || text.includes('any time')) preferences.flexible = true;
+
+    return preferences;
+  }
+
+  assessFlexibility(messages) {
+    const text = messages.map(m => m.content).join(' ').toLowerCase();
+    if (text.includes('flexible') || text.includes('any time') || text.includes('whenever')) return 'high';
+    if (text.includes('specific') || text.includes('exact') || text.includes('must be')) return 'low';
+    return 'medium';
+  }
+
   detectFlightNeeds(messages) {
     const flightKeywords = ['flight', 'fly', 'airline', 'airport', 'booking'];
     const text = messages.map(m => m.content).join(' ').toLowerCase();
@@ -552,6 +622,95 @@ Respond in a friendly, knowledgeable tone with specific details and practical ad
       role: 'ai',
       content: 'I apologize for the technical difficulty. I\'m here to help you plan your perfect trip! What destination interests you?',
       metadata: { model: 'fallback', analysisUsed: false }
+    };
+  }
+
+  getFallbackRecommendations() {
+    return {
+      role: 'ai',
+      content: 'I can help you with personalized travel recommendations! Tell me about your travel preferences, budget, and dream destinations.',
+      metadata: { model: 'fallback' },
+      recommendations: {
+        destinations: [],
+        flights: [],
+        activities: [],
+        travelTips: ['Start by telling me about your travel preferences!'],
+        budgetAdvice: [],
+        timingRecommendations: []
+      }
+    };
+  }
+
+  async generateActivityRecommendations(interests, destination) {
+    return interests.map(interest => ({
+      activity: `${interest} activity in ${destination || 'your destination'}`,
+      description: `Enjoy ${interest}-related experiences`,
+      estimatedCost: '$50-100'
+    }));
+  }
+
+  async generatePersonalizedTips(analysis, userProfile) {
+    const tips = [];
+
+    if (analysis.travelIntent?.budget === 'low') {
+      tips.push('💰 Book accommodations with free cancellation for flexibility');
+      tips.push('🍽️ Try local street food for authentic and affordable meals');
+    } else if (analysis.travelIntent?.budget === 'high') {
+      tips.push('✨ Consider concierge services for a seamless experience');
+      tips.push('🏨 Book early for exclusive hotel perks and upgrades');
+    }
+
+    if (analysis.travelIntent?.travelStyle === 'adventure') {
+      tips.push('🎒 Pack light and bring versatile clothing');
+      tips.push('📱 Download offline maps for remote areas');
+    } else if (analysis.travelIntent?.travelStyle === 'family') {
+      tips.push('👨‍👩‍👧‍👦 Look for family-friendly hotels with kids activities');
+      tips.push('🎡 Book attractions in advance to avoid long queues');
+    }
+
+    if (analysis.travelIntent?.urgency === 'high') {
+      tips.push('⚡ Consider travel insurance for last-minute trips');
+      tips.push('📞 Contact airlines directly for better last-minute deals');
+    }
+
+    if (tips.length === 0) {
+      tips.push('🌍 Research visa requirements early');
+      tips.push('💳 Notify your bank before traveling abroad');
+      tips.push('📱 Download useful travel apps before departure');
+    }
+
+    return tips.slice(0, 5);
+  }
+
+  async generateBudgetAdvice(budget, destination) {
+    const advice = [];
+
+    if (budget === 'low') {
+      advice.push('Consider traveling during off-peak seasons for better rates');
+      advice.push('Look for package deals that bundle flights and hotels');
+      advice.push('Use public transportation to save on local travel');
+    } else if (budget === 'high') {
+      advice.push('Invest in premium experiences for lasting memories');
+      advice.push('Consider private tours for personalized attention');
+      advice.push('Book luxury hotels with inclusive amenities');
+    } else {
+      advice.push('Balance splurge experiences with budget-friendly options');
+      advice.push('Allocate more budget to unique experiences');
+      advice.push('Look for mid-range hotels with good reviews');
+    }
+
+    if (destination) {
+      advice.push(`Research average costs in ${destination} before booking`);
+    }
+
+    return advice;
+  }
+
+  async performDeepAnalysis(messages, userProfile, userContext) {
+    return {
+      role: 'ai',
+      content: 'Deep analysis feature coming soon! For now, I can help with travel planning and recommendations.',
+      metadata: { model: 'analysis', feature: 'in-development' }
     };
   }
 

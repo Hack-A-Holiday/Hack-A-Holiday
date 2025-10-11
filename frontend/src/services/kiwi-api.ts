@@ -67,7 +67,7 @@ export interface KiwiApiResponse {
 }
 
 export class KiwiApiService {
-  private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '4bb41c35e2mshabe7faff89c8273p1fe197jsnccfa27353502';
+  private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '8ba82f8f69mshfc586479dacb57dp17b668jsnd41a5fc70e20';
   private readonly baseUrl = 'https://kiwi-com-cheap-flights.p.rapidapi.com';
 
   async searchFlights(

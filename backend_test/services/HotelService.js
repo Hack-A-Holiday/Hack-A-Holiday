@@ -37,23 +37,19 @@ class HotelService {
             fallbackUsed: false
           };
         } catch (error) {
-          console.log('Booking API failed, using mock data...', error.message);
+          console.log('Booking API failed, returning null...', error.message);
+          // Return null instead of mock data when API fails
+          return null;
         }
       }
 
-      // Use enhanced mock data as fallback
-      const mockResults = await this.generateEnhancedMockData(searchRequest);
-      return {
-        ...mockResults,
-        searchStartTime,
-        provider: 'mock',
-        fallbackUsed: true,
-        fallbackReason: 'External APIs unavailable'
-      };
+      // No API keys available
+      console.log('⚠️ No hotel API keys available, returning null');
+      return null;
 
     } catch (error) {
       console.error('All hotel search methods failed:', error);
-      throw new Error('Hotel search service temporarily unavailable');
+      return null;
     }
   }
 
@@ -74,33 +70,65 @@ class HotelService {
     // Get destination coordinates
     const destCoords = this.getDestinationCoordinates(destination);
 
+    // Use dest_id based search (same as working frontend)
+    // For now, use city name search - can expand with dest_id mapping later
     const params = {
-      latitude: destCoords.latitude,
-      longitude: destCoords.longitude,
-      checkin_date: checkIn,
-      checkout_date: checkOut,
-      adults_number: adults,
-      children_number: children,
-      room_number: rooms,
+      dest_id: '-2092174', // Default to Mumbai - should be mapped per city
+      search_type: 'CITY',
+      arrival_date: checkIn,
+      departure_date: checkOut,
+      adults: adults.toString(),
+      children_age: children > 0 ? '0,5' : undefined,
+      room_qty: rooms.toString(),
+      page_number: '1',
       units: 'metric',
-      page_number: 0,
-      filter_by_currency: currency,
-      locale: 'en-us',
-      order_by: 'popularity'
+      temperature_unit: 'c',
+      languagecode: 'en-us',
+      currency_code: currency
     };
 
     const apiKey = this.bookingApiKey || this.rapidApiKey;
     
-    const response = await axios.get(`https://${this.bookingApiHost}/v1/hotels/search-by-coordinates`, {
-      params,
-      headers: {
-        'X-RapidAPI-Key': apiKey,
-        'X-RapidAPI-Host': this.bookingApiHost
-      },
-      timeout: 30000
+    console.log('\n🟣 ===== BOOKING API CALL START =====');
+    console.log('   📥 Input Parameters:', JSON.stringify({ destination, checkIn, checkOut, adults, children, rooms }, null, 2));
+    console.log('   📍 Destination:', destination);
+    console.log('   🌐 API Request Details:', {
+      url: `https://${this.bookingApiHost}/api/v1/hotels/searchHotels`,
+      params: params,
+      hasApiKey: !!apiKey,
+      apiKeyPrefix: apiKey?.substring(0, 10) + '...',
+      host: this.bookingApiHost
     });
 
-    const hotels = (response.data.result || []).map((hotel, index) => ({
+    try {
+      const response = await axios.get(`https://${this.bookingApiHost}/api/v1/hotels/searchHotels`, {
+        params,
+        headers: {
+          'x-rapidapi-key': apiKey,
+          'x-rapidapi-host': this.bookingApiHost
+        },
+        timeout: 30000
+      });
+
+      console.log('   ✅ API Response Status:', response.status);
+      console.log('   📊 Raw Response Data Structure:', {
+        hasData: !!response.data,
+        dataKeys: response.data ? Object.keys(response.data) : [],
+        hasResult: !!response.data?.result,
+        resultIsArray: Array.isArray(response.data?.result),
+        resultLength: response.data?.result?.length || 0
+      });
+
+      if (!response.data || !response.data.result || response.data.result.length === 0) {
+        console.log('   ⚠️ No hotels found in API response');
+        console.log('   📄 Full Response:', JSON.stringify(response.data, null, 2));
+        console.log('🟣 ===== BOOKING API CALL END (NO RESULTS) =====\n');
+        return { success: true, hotels: [], totalResults: 0 };
+      }
+
+      console.log(`   🏨 Found ${response.data.result.length} hotels`);
+
+      const hotels = (response.data.result || []).map((hotel, index) => ({
       id: `booking-${hotel.hotel_id || index}`,
       name: hotel.hotel_name || 'Hotel',
       address: hotel.address || '',
@@ -128,14 +156,29 @@ class HotelService {
       propertyType: hotel.accommodation_type_name || 'Hotel'
     }));
 
-    return {
-      success: true,
-      hotels,
-      totalResults: hotels.length,
-      searchId: `booking-search-${Date.now()}`,
-      currency,
-      destination: destCoords.cityName
-    };
+      console.log('   ✅ Successfully parsed hotels');
+      console.log('🟣 ===== BOOKING API CALL END (SUCCESS) =====\n');
+
+      return {
+        success: true,
+        hotels,
+        totalResults: hotels.length,
+        searchId: `booking-search-${Date.now()}`,
+        currency,
+        destination: destCoords.cityName
+      };
+    } catch (error) {
+      console.error('\n   ❌ BOOKING API ERROR:');
+      console.error('   Error Message:', error.message);
+      console.error('   Error Code:', error.code);
+      console.error('   Response Status:', error.response?.status);
+      console.error('   Response Status Text:', error.response?.statusText);
+      console.error('   Response Data:', JSON.stringify(error.response?.data, null, 2));
+      console.error('   Request URL:', error.config?.url);
+      console.error('   Request Params:', JSON.stringify(error.config?.params, null, 2));
+      console.log('🟣 ===== BOOKING API CALL END (ERROR) =====\n');
+      throw error;
+    }
   }
 
   /**

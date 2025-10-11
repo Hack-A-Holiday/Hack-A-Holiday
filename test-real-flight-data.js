@@ -5,7 +5,7 @@
 
 const https = require('https');
 
-const RAPIDAPI_KEY = 'dc260b79a1mshf60901d122bb384p183ba0jsn9093522cbb9b';
+const RAPIDAPI_KEY = '8ba82f8f69mshfc586479dacb57dp17b668jsnd41a5fc70e20';
 
 async function testKiwiAPI() {
   console.log('🛫 Testing Kiwi.com Flight API with Real Data');

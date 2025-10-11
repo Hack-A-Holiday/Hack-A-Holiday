@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 // pages/_app.tsx
 import { AuthProvider } from '../contexts/AuthContext';
-import { TripProvider } from '@/contexts/TripContext'; // Updated to use the alias defined in tsconfig.json
+import { TripProvider } from '../contexts/TripContext';
 import { DarkModeProvider } from '../contexts/DarkModeContext';
 import type { AppProps } from 'next/app';
 import '../styles/globals.css';

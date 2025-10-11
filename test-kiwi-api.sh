@@ -10,7 +10,7 @@ echo ""
 # Check if RapidAPI key is set
 if [ -z "$RAPIDAPI_KEY" ]; then
     echo "❌ RapidAPI Key not set"
-    echo "Run: export RAPIDAPI_KEY='dc260b79a1mshf60901d122bb384p183ba0jsn9093522cbb9b'"
+    echo "Run: export RAPIDAPI_KEY='8ba82f8f69mshfc586479dacb57dp17b668jsnd41a5fc70e20'"
     exit 1
 fi
 

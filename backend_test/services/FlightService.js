@@ -12,12 +12,76 @@ class FlightService {
     this.amadeuApiSecret = config.amadeuApiSecret;
     this.mockDataEnabled = !this.rapidApiKey && !this.amadeuApiKey;
     
+    // City name to IATA code mapping
+    this.cityToIATA = {
+      'delhi': 'DEL',
+      'new delhi': 'DEL',
+      'mumbai': 'BOM',
+      'bangalore': 'BLR',
+      'chennai': 'MAA',
+      'kolkata': 'CCU',
+      'hyderabad': 'HYD',
+      'madrid': 'MAD',
+      'barcelona': 'BCN',
+      'paris': 'PAR',
+      'london': 'LON',
+      'new york': 'NYC',
+      'los angeles': 'LAX',
+      'tokyo': 'TYO',
+      'dubai': 'DXB',
+      'singapore': 'SIN',
+      'bangkok': 'BKK',
+      'rome': 'ROM',
+      'amsterdam': 'AMS',
+      'sydney': 'SYD',
+      'berlin': 'BER',
+      'vienna': 'VIE',
+      'prague': 'PRG',
+      'budapest': 'BUD',
+      'istanbul': 'IST',
+      'athens': 'ATH',
+      'lisbon': 'LIS',
+      'stockholm': 'STO',
+      'copenhagen': 'CPH',
+      'oslo': 'OSL',
+      'helsinki': 'HEL',
+      'zurich': 'ZRH',
+      'geneva': 'GVA',
+      'brussels': 'BRU',
+      'dublin': 'DUB',
+      'edinburgh': 'EDI',
+      'manchester': 'MAN'
+    };
+    
     console.log('FlightService initialized:', {
       rapidApiAvailable: !!this.rapidApiKey,
       rapidApiHost: this.rapidApiHost,
       amadeusAvailable: !!this.amadeuApiKey,
       mockDataEnabled: this.mockDataEnabled
     });
+  }
+
+  /**
+   * Convert city name to IATA code
+   */
+  getCityCode(cityName) {
+    if (!cityName) return null;
+    
+    const normalized = cityName.toLowerCase().trim();
+    const code = this.cityToIATA[normalized];
+    
+    if (code) {
+      console.log(`   🔄 Converted "${cityName}" → ${code}`);
+      return code;
+    }
+    
+    // If already looks like an IATA code (3 letters), return as-is
+    if (/^[A-Z]{3}$/.test(cityName.toUpperCase())) {
+      return cityName.toUpperCase();
+    }
+    
+    console.log(`   ⚠️ No IATA code found for "${cityName}", using as-is`);
+    return cityName;
   }
 
   /**
@@ -78,6 +142,7 @@ class FlightService {
    * Search flights using Kiwi API (via RapidAPI)
    */
   async searchKiwiFlights(searchRequest) {
+    console.log('\n🔵 ===== KIWI API CALL START =====');
     const {
       origin,
       destination,
@@ -89,23 +154,47 @@ class FlightService {
       filters = {}
     } = searchRequest;
 
+    console.log('   📥 Input Parameters:', JSON.stringify({
+      origin,
+      destination,
+      departureDate,
+      returnDate,
+      passengers,
+      cabinClass,
+      currency
+    }, null, 2));
+
+    // Convert city names to IATA codes
+    const originCode = this.getCityCode(origin);
+    const destinationCode = this.getCityCode(destination);
+
+    console.log('   🔄 Code Conversion:', {
+      originalOrigin: origin,
+      convertedOrigin: originCode,
+      originalDestination: destination,
+      convertedDestination: destinationCode
+    });
+
+    // Use the SAME parameters as the working frontend implementation
     const params = {
-      fly_from: origin,
-      fly_to: destination,
-      date_from: departureDate,
-      date_to: departureDate,
-      adults: passengers.adults || 1,
-      children: passengers.children || 0,
-      infants: passengers.infants || 0,
-      selected_cabins: cabinClass.charAt(0).toUpperCase(),
-      curr: currency,
-      limit: filters.limit || 50,
-      sort: 'price'
+      source: `City:${originCode}`,
+      destination: `City:${destinationCode}`,
+      departureDate: departureDate,
+      currency: currency.toLowerCase(),
+      locale: 'en',
+      adults: (passengers.adults || 1).toString(),
+      children: (passengers.children || 0).toString(),
+      infants: (passengers.infants || 0).toString(),
+      handbags: '1',
+      holdbags: '0',
+      cabinClass: cabinClass.toUpperCase(),
+      sortBy: 'QUALITY',
+      sortOrder: 'ASCENDING',
+      limit: (filters.limit || 20).toString()
     };
 
     if (returnDate) {
-      params.return_from = returnDate;
-      params.return_to = returnDate;
+      params.returnDate = returnDate;
     }
 
     if (filters.maxPrice) {
@@ -117,69 +206,127 @@ class FlightService {
     }
 
     // Use RapidAPI proxy if host is configured, otherwise direct Kiwi API
-    const apiUrl = this.rapidApiHost && this.rapidApiHost.includes('rapidapi') 
-      ? `https://${this.rapidApiHost}/v2/search`
-      : 'https://tequila-api.kiwi.com/v2/search';
+    // Use /round-trip endpoint (same as working frontend implementation)
+    let apiUrl;
+    if (this.rapidApiHost && this.rapidApiHost.includes('rapidapi')) {
+      apiUrl = `https://${this.rapidApiHost}/round-trip`;
+    } else {
+      apiUrl = 'https://tequila-api.kiwi.com/v2/search';
+    }
     
     const headers = this.rapidApiHost && this.rapidApiHost.includes('rapidapi')
       ? {
-          'X-RapidAPI-Key': this.rapidApiKey,
-          'X-RapidAPI-Host': this.rapidApiHost
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.rapidApiHost
         }
       : {
           'apikey': this.rapidApiKey
         };
 
-    const response = await axios.get(apiUrl, {
-      params,
-      headers,
-      timeout: 30000
+    console.log('   🌐 API Request Details:', {
+      url: apiUrl,
+      params: params,
+      hasApiKey: !!this.rapidApiKey,
+      apiKeyPrefix: this.rapidApiKey?.substring(0, 10) + '...',
+      headers: { ...headers, 'X-RapidAPI-Key': '***hidden***' }
     });
 
-    const flights = response.data.data.map((flight, index) => ({
-      id: `kiwi-${flight.id || index}`,
-      airline: flight.airlines?.[0] || 'Unknown',
-      flightNumber: `${flight.airlines?.[0] || 'XX'}${flight.route?.[0]?.flight_no || '000'}`,
-      origin: flight.flyFrom,
-      destination: flight.flyTo,
-      departureTime: flight.local_departure,
-      arrivalTime: flight.local_arrival,
-      duration: `${Math.floor(flight.duration.total / 3600)}h ${Math.floor((flight.duration.total % 3600) / 60)}m`,
-      durationMinutes: Math.floor(flight.duration.total / 60),
-      stops: flight.route.length - 1,
-      stopDetails: flight.route.slice(1, -1).map(stop => ({
-        airport: stop.flyTo,
-        duration: `${Math.floor(stop.duration.total / 3600)}h ${Math.floor((stop.duration.total % 3600) / 60)}m`
-      })),
-      price: flight.price,
-      currency: currency,
-      cabinClass: cabinClass,
-      baggage: {
-        carry_on: flight.baglimit?.hand_weight ? `${flight.baglimit.hand_weight}kg` : '10kg',
-        checked: flight.baglimit?.hold_weight ? `${flight.baglimit.hold_weight}kg` : 'Not included'
-      },
-      bookingUrl: flight.deep_link,
-      aircraft: flight.route?.[0]?.vehicle_type || 'Unknown',
-      operatingAirline: flight.operating_carrier || flight.airlines?.[0],
-      marketingAirline: flight.airlines?.[0],
-      fareType: 'Basic',
-      refundable: false,
-      changeable: true,
-      seatSelection: false,
-      mealIncluded: cabinClass !== 'economy',
-      wifiAvailable: false,
-      powerOutlets: cabinClass !== 'economy',
-      entertainment: cabinClass !== 'economy'
-    }));
+    // Use the single working endpoint (matches frontend)
+    try {
+      console.log(`   🔄 Calling endpoint: ${apiUrl}`);
+      
+      const response = await axios.get(apiUrl, {
+        params,
+        headers,
+        timeout: 30000
+      });
 
-    return {
-      success: true,
-      flights,
-      totalResults: flights.length,
-      searchId: `kiwi-search-${Date.now()}`,
-      currency,
-      recommendations: this.generateRecommendations(flights)
-    };
+      console.log('   ✅ API Response Status:', response.status);
+      console.log('   📊 Raw Response Data Structure:', {
+        hasData: !!response.data,
+        dataKeys: response.data ? Object.keys(response.data) : [],
+        hasItineraries: Array.isArray(response.data?.itineraries),
+        itinerariesLength: response.data?.itineraries?.length || 0
+      });
+
+      // New API format uses 'itineraries' array
+      const itineraries = response.data?.itineraries || [];
+      
+      if (!response.data || itineraries.length === 0) {
+        console.log('   ⚠️ No flights found in API response');
+        console.log('   📄 Response metadata:', JSON.stringify(response.data?.metadata, null, 2));
+        console.log('🔵 ===== KIWI API CALL END (NO RESULTS) =====\n');
+        return { success: true, flights: [], totalResults: 0 };
+      }
+
+      console.log(`   ✈️ Found ${itineraries.length} flight itineraries`);
+
+      // Parse new itinerary format
+      const flights = itineraries.map((itinerary, index) => {
+        const outbound = itinerary.outbound;
+        const firstSegment = outbound?.sectorSegments?.[0]?.segment;
+        const lastSegment = outbound?.sectorSegments?.[outbound.sectorSegments.length - 1]?.segment;
+        const carrier = firstSegment?.carrier || {};
+        
+        return {
+          id: itinerary.id || `kiwi-${index}`,
+          airline: carrier.name || 'Unknown',
+          flightNumber: `${carrier.code || 'XX'}${firstSegment?.code || '000'}`,
+          origin: firstSegment?.source?.station?.code || originCode,
+          destination: lastSegment?.destination?.station?.code || destinationCode,
+          departureTime: firstSegment?.source?.localTime,
+          arrivalTime: lastSegment?.destination?.localTime,
+          duration: `${Math.floor(outbound.duration / 3600)}h ${Math.floor((outbound.duration % 3600) / 60)}m`,
+          durationMinutes: Math.floor(outbound.duration / 60),
+          stops: (outbound?.sectorSegments?.length || 1) - 1,
+          stopDetails: outbound?.sectorSegments?.slice(1).map(seg => ({
+            airport: seg.segment?.source?.station?.code,
+            city: seg.segment?.source?.station?.city?.name,
+            duration: seg.layover ? `${Math.floor(seg.layover.duration / 3600)}h ${Math.floor((seg.layover.duration % 3600) / 60)}m` : '0h'
+          })) || [],
+          price: parseFloat(itinerary.price?.amount) || 0,
+          currency: currency,
+          cabinClass: firstSegment?.cabinClass?.toLowerCase() || cabinClass,
+          baggage: {
+            carry_on: itinerary.bagsInfo?.includedHandBags ? `${itinerary.bagsInfo.includedHandBags} bag` : 'Not included',
+            checked: itinerary.bagsInfo?.includedCheckedBags ? `${itinerary.bagsInfo.includedCheckedBags} bag` : 'Not included'
+          },
+          bookingUrl: itinerary.bookingOptions?.edges?.[0]?.node?.bookingUrl || null,
+          aircraft: 'Aircraft',
+          operatingAirline: carrier.name,
+          marketingAirline: carrier.name,
+          fareType: itinerary.provider?.code || 'Basic',
+          refundable: false,
+          changeable: true,
+          seatSelection: false,
+          mealIncluded: cabinClass !== 'economy',
+          wifiAvailable: false,
+          powerOutlets: cabinClass !== 'economy',
+          entertainment: cabinClass !== 'economy'
+        };
+      });
+
+      console.log('   ✅ Successfully parsed flights');
+      console.log('🔵 ===== KIWI API CALL END (SUCCESS) =====\n');
+
+      return {
+        success: true,
+        flights,
+        totalResults: flights.length,
+        searchId: `kiwi-search-${Date.now()}`,
+        currency,
+        recommendations: this.generateRecommendations(flights)
+      };
+    } catch (error) {
+      console.error('\n   ❌ KIWI API ERROR:');
+      console.error('   Error Message:', error.message);
+      console.error('   Error Code:', error.code);
+      console.error('   Response Status:', error.response?.status);
+      console.error('   Response Data:', JSON.stringify(error.response?.data, null, 2));
+      console.error('   Request URL:', error.config?.url);
+      console.log('🔵 ===== KIWI API CALL END (ERROR) =====\n');
+      throw error;
+    }
   }
 
   /**

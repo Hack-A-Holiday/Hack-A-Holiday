@@ -3,7 +3,66 @@ import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Navbar from '../components/layout/Navbar';
+import ProtectedRoute from '../components/auth/ProtectedRoute';
 import Swal from 'sweetalert2';
+
+// Utility function to render formatted text (bold support)
+// Helper to render inline bold within text
+const renderInlineBold = (text: string) => {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={idx} className="font-bold text-white">{part.slice(2, -2)}</strong>;
+    }
+    return <span key={idx}>{part}</span>;
+  });
+};
+
+const renderFormattedText = (text: string | any) => {
+  if (typeof text !== 'string') return text;
+  
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-2">
+      {lines.map((line, lineIdx) => {
+        // Handle markdown headers (#### Header)
+        const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
+        if (headerMatch) {
+          const level = headerMatch[1].length;
+          const headerText = headerMatch[2];
+          
+          // Map header levels to styles
+          const headerStyles: { [key: number]: string } = {
+            1: 'text-2xl font-bold mt-6 mb-3 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400',
+            2: 'text-xl font-bold mt-5 mb-2 text-indigo-300',
+            3: 'text-lg font-bold mt-4 mb-2 text-indigo-200',
+            4: 'text-base font-semibold mt-3 mb-1 text-indigo-100',
+            5: 'text-sm font-semibold mt-2 mb-1 text-gray-200',
+            6: 'text-sm font-medium mt-2 mb-1 text-gray-300'
+          };
+          
+          return (
+            <div key={lineIdx} className={headerStyles[level] || headerStyles[4]}>
+              {renderInlineBold(headerText)}
+            </div>
+          );
+        }
+        
+        // Regular line with bold support
+        if (line.trim()) {
+          return (
+            <div key={lineIdx} className="leading-relaxed">
+              {renderInlineBold(line)}
+            </div>
+          );
+        }
+        
+        // Empty line
+        return <div key={lineIdx} className="h-2" />;
+      })}
+    </div>
+  );
+};
 
 interface ChatMessage {
   id: string;
@@ -35,10 +94,13 @@ export default function AIAssistant() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    if (!state.user) {
-      router.push('/');
-      return;
-    }
+    // Debug auth state
+    console.log('AI Assistant - Auth State:', {
+      hasUser: !!state.user,
+      hasToken: !!state.token,
+      userName: state.user?.name,
+      userEmail: state.user?.email
+    });
 
     // Check screen size
     const checkScreenSize = () => {
@@ -47,11 +109,13 @@ export default function AIAssistant() {
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
 
-    // Initialize conversation
-    initializeConversation();
+    // Initialize conversation only if user is present
+    if (state.user) {
+      initializeConversation();
+    }
 
     return () => window.removeEventListener('resize', checkScreenSize);
-  }, [state.user, router]);
+  }, [state.user]);
 
   useEffect(() => {
     scrollToBottom();
@@ -69,16 +133,17 @@ export default function AIAssistant() {
     const welcomeMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'assistant',
-      content: `👋 Hello ${state.user?.name || 'there'}! I'm your AI Travel Assistant powered by AWS Bedrock and Claude 4 Opus.
+      content: `👋 Hello ${state.user?.name || 'there'}! I'm your AI Travel Assistant.
 
 I can help you with:
-✈️ **Flight Recommendations** - Find the best flights for your budget
-🏨 **Hotel Suggestions** - Discover perfect accommodations
-🌍 **Destination Ideas** - Personalized travel recommendations based on your query
-🎯 **Trip Planning** - Complete itinerary creation with autonomous reasoning
+✈️ **Flight Search** - Real-time flight availability and pricing from our API
+🏨 **Hotel Search** - Live hotel recommendations with real-time data
+🌍 **Destination Ideas** - Personalized travel recommendations based on your preferences
+🎯 **Trip Planning** - Complete itinerary creation with context-aware AI
 💰 **Budget Optimization** - Get the most value for your money
+🧠 **Smart Context** - I remember our conversation and your preferences
 
-Just tell me what you're looking for, and I'll use advanced AI reasoning to plan your perfect trip!`,
+Just tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!`,
       timestamp: Date.now(),
       type: 'text'
     };
@@ -102,56 +167,87 @@ Just tell me what you're looking for, and I'll use advanced AI reasoning to plan
     setIsLoading(true);
 
     try {
-      // Call Bedrock Agent Core endpoint with Claude 4 Opus
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bedrock-agent/chat`, {
+      // Build messages array with conversation history for context
+      const messagesForAPI = [
+        ...messages
+          .filter(m => m.role !== 'system') // Exclude system messages
+          .map(m => ({
+            role: m.role === 'assistant' ? 'assistant' : 'user',
+            content: m.content
+          })),
+        { role: 'user', content: inputMessage }
+      ];
+
+      // Call Integrated AI Travel Agent via /api/ai/chat
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      console.log('Calling API:', `${apiUrl}/api/ai/chat`);
+      console.log('Token:', state.token ? 'Present' : 'Missing');
+      
+      const response = await fetch(`${apiUrl}/api/ai/chat`, {
         method: 'POST',
+        credentials: 'include', // Send cookies with request
         headers: {
           'Authorization': `Bearer ${state.token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           message: inputMessage,
-          sessionId: conversationId,
-          userId: state.user?.id || 'anonymous',
-          conversationHistory: messages.filter(m => m.role !== 'system').map(m => ({
-            role: m.role,
-            content: m.content
-          }))
+          messages: messagesForAPI, // Send full conversation history
+          conversationId: conversationId,
+          preferences: state.user?.preferences || {},
+          userContext: {
+            userId: state.user?.id || 'anonymous',
+            email: state.user?.email,
+            name: state.user?.name,
+            sessionId: conversationId
+          }
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get AI response');
+        const errorText = await response.text();
+        console.error('API Error Response:', errorText);
+        throw new Error(`API Error (${response.status}): ${errorText}`);
       }
 
       const data = await response.json();
 
       console.log('Backend response:', data); // Debug log
 
-      // Add AI response from Bedrock Agent Core (Claude 4 Opus)
+      // Add AI response from Integrated AI Travel Agent
       const aiMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: data.success ? (data.message || data.response) : (data.message || 'I apologize, but I encountered an error.'),
+        content: data.success ? (data.data?.response || data.message) : (data.message || 'I apologize, but I encountered an error.'),
         timestamp: Date.now(),
-        type: 'text',
-        data: data.toolsUsed ? { 
-          tools: data.toolsUsed, 
-          reasoning: data.reasoning,
-          sessionId: data.sessionId
-        } : undefined
+        type: data.data?.recommendations?.length > 0 ? 'recommendation' : 'text',
+        data: {
+          recommendations: data.data?.recommendations || [],
+          realData: data.data?.realData,
+          intent: data.data?.intent,
+          conversationId: data.data?.conversationId,
+          sessionId: data.data?.conversationId
+        }
       };
+
+      // Update conversation ID if returned from backend
+      if (data.data?.conversationId && data.data.conversationId !== conversationId) {
+        setConversationId(data.data.conversationId);
+      }
 
       setMessages(prev => [...prev, aiMessage]);
 
     } catch (error) {
       console.error('Error sending message:', error);
+      console.error('API URL:', process.env.NEXT_PUBLIC_API_URL);
+      console.error('Token available:', !!state.token);
+      console.error('User:', state.user);
       
       // Show actual error instead of fallback for debugging
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: `❌ Connection Error: Unable to reach the AI service. Please check:\n\n• Backend server is running (port 4000)\n• Network connection\n• API endpoint: ${process.env.NEXT_PUBLIC_API_URL}\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        content: `❌ Connection Error: Unable to reach the AI Travel Agent.\n\nPlease check:\n• Backend server is running (port 4000)\n• Network connection is active\n• You are logged in\n\nAPI endpoint: ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/ai/chat\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nTry refreshing the page and logging in again.`,
         timestamp: Date.now(),
         type: 'text'
       };
@@ -307,8 +403,8 @@ What would you like to explore?`,
         >
           {message.type === 'recommendation' && message.data?.recommendations ? (
             <div>
-              <div style={{ marginBottom: '12px', whiteSpace: 'pre-wrap' }}>
-                {message.content}
+              <div style={{ marginBottom: '12px', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                {renderFormattedText(message.content)}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {message.data.recommendations.map((rec: Recommendation, idx: number) => (
@@ -368,7 +464,7 @@ What would you like to explore?`,
               </div>
             </div>
           ) : (
-            <div style={{ whiteSpace: 'pre-wrap' }}>{message.content}</div>
+            <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{renderFormattedText(message.content)}</div>
           )}
           <div
             style={{
@@ -400,7 +496,7 @@ What would you like to explore?`,
   };
 
   return (
-    <>
+    <ProtectedRoute requireAuth={true}>
       <Head>
         <title>AI Travel Assistant - HackTravel</title>
         <meta name="description" content="Get personalized travel recommendations powered by AI" />
@@ -426,14 +522,27 @@ What would you like to explore?`,
             {/* Header */}
             <div style={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              padding: '20px',
-              color: 'white'
+              padding: isMobile ? '20px' : '28px 48px',
+              color: 'white',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
             }}>
-              <h1 style={{ margin: 0, fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 'bold' }}>
-                🤖 AI Travel Assistant
+              <h1 style={{ 
+                margin: 0, 
+                fontSize: isMobile ? '1.5rem' : '1.8rem', 
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <span style={{ fontSize: isMobile ? '1.8rem' : '2rem' }}>🤖</span>
+                <span>AI Travel Assistant</span>
               </h1>
-              <p style={{ margin: '8px 0 0', opacity: 0.9, fontSize: '0.9rem' }}>
-                Powered by Amazon SageMaker | Real-time recommendations
+              <p style={{ 
+                margin: '5px 0 0 0', 
+                opacity: 0.9, 
+                fontSize: '0.9rem' 
+              }}>
+                Your intelligent travel planning assistant • AI-Powered
               </p>
             </div>
 
@@ -446,21 +555,34 @@ What would you like to explore?`,
             }}>
               {messages.map(renderMessage)}
               {isLoading && (
-                <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '16px', animation: 'fadeIn 0.3s ease-in' }}>
                   <div style={{
-                    padding: '12px 16px',
-                    borderRadius: '18px',
-                    background: '#f0f2f5',
-                    color: '#666'
+                    padding: '18px 24px',
+                    borderRadius: '20px',
+                    background: 'linear-gradient(135deg, #f0f2f5 0%, #e8eaf0 100%)',
+                    color: '#667eea',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    fontSize: '0.95rem',
+                    fontWeight: '500'
                   }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <div className="typing-indicator">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                      AI is thinking...
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            animation: `bounce 1.4s ease-in-out ${i * 0.16}s infinite`,
+                          }}
+                        />
+                      ))}
                     </div>
+                    Planning your adventure...
                   </div>
                 </div>
               )}
@@ -492,22 +614,24 @@ What would you like to explore?`,
                       key={idx}
                       onClick={() => handlePromptClick(prompt)}
                       style={{
-                        padding: '8px 16px',
-                        background: '#f0f2f5',
-                        border: '1px solid #e0e0e0',
-                        borderRadius: '20px',
-                        fontSize: '0.85rem',
+                        padding: '10px 20px',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        border: 'none',
+                        borderRadius: '24px',
+                        fontSize: '0.9rem',
                         cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        color: '#333'
+                        transition: 'all 0.3s ease',
+                        color: 'white',
+                        fontWeight: '600',
+                        boxShadow: '0 4px 12px rgba(59,130,246,0.3)'
                       }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.background = '#667eea';
-                        e.currentTarget.style.color = 'white';
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-3px) scale(1.05)';
+                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(59,130,246,0.5)';
                       }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.background = '#f0f2f5';
-                        e.currentTarget.style.color = '#333';
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(59,130,246,0.3)';
                       }}
                     >
                       {prompt}
@@ -558,11 +682,48 @@ What would you like to explore?`,
                     fontSize: '1rem',
                     fontWeight: 'bold',
                     cursor: inputMessage.trim() && !isLoading ? 'pointer' : 'not-allowed',
-                    transition: 'all 0.2s',
-                    boxShadow: inputMessage.trim() && !isLoading ? '0 4px 12px rgba(102, 126, 234, 0.3)' : 'none'
+                    transition: 'all 0.3s ease',
+                    boxShadow: inputMessage.trim() && !isLoading ? '0 4px 12px rgba(102, 126, 234, 0.3)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    minWidth: '120px',
+                    justifyContent: 'center'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (inputMessage.trim() && !isLoading) {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.4)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = inputMessage.trim() && !isLoading ? '0 4px 12px rgba(102, 126, 234, 0.3)' : 'none';
                   }}
                 >
-                  {isLoading ? '...' : 'Send 📤'}
+                  {isLoading ? (
+                    <>
+                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            style={{
+                              width: '6px',
+                              height: '6px',
+                              borderRadius: '50%',
+                              background: 'white',
+                              animation: `bounce 1.4s ease-in-out ${i * 0.16}s infinite`,
+                            }}
+                          />
+                        ))}
+                      </div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      Send 📤
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -578,6 +739,17 @@ What would you like to explore?`,
             to {
               opacity: 1;
               transform: translateY(0);
+            }
+          }
+
+          @keyframes bounce {
+            0%, 80%, 100% {
+              transform: translateY(0);
+              opacity: 0.7;
+            }
+            40% {
+              transform: translateY(-10px);
+              opacity: 1;
             }
           }
 
@@ -615,6 +787,6 @@ What would you like to explore?`,
           }
         `}</style>
       </div>
-    </>
+    </ProtectedRoute>
   );
 }

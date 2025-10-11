@@ -101,7 +101,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<'price-asc' | 'price-desc' | 'duration-asc' | 'duration-desc' | 'departure-asc' | 'recommended'>('recommended');
-  const [useRealData, setUseRealData] = useState(false);
+  const [useRealData, setUseRealData] = useState(true); // Always use real data
   const [kiwiApiService] = useState(() => new KiwiApiService());
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -1548,77 +1548,27 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
           )}
         </button>
 
-        {/* Real-Time Data Toggle */}
+        {/* Real-Time Data Indicator (always enabled) */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '16px',
-          background: useRealData ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : '#f8f9fa',
+          justifyContent: 'center',
+          padding: '12px 16px',
+          background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
           borderRadius: '12px',
           marginTop: '20px',
-          border: useRealData ? '2px solid #28a745' : '2px solid #e1e5e9',
+          border: '2px solid #28a745',
           transition: 'all 0.3s ease'
         }}>
-          <div style={{ flex: 1 }}>
-            <div style={{
-              fontWeight: '600',
-              color: useRealData ? 'white' : '#495057',
-              marginBottom: '4px',
-              fontSize: '16px'
-            }}>
-              {useRealData ? '🌐 Real-Time Flight Data' : '📝 Mock Flight Data'}
-            </div>
-            <div style={{
-              fontSize: '13px',
-              color: useRealData ? 'rgba(255,255,255,0.9)' : '#6c757d',
-              lineHeight: '1.4'
-            }}>
-              {useRealData 
-                ? 'Searching live flights from Kiwi.com API with real pricing and availability'
-                : 'Using simulated flight data for testing purposes'}
-            </div>
-          </div>
-          <button
-            onClick={handleRealDataToggle}
-            style={{
-              padding: '10px 20px',
-              background: useRealData ? (isDarkMode ? '#252d3d' : 'white') : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: useRealData ? (isDarkMode ? '#10b981' : '#28a745') : 'white',
-              border: isDarkMode && useRealData ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.6)' : '0 2px 8px rgba(0,0,0,0.15)',
-              whiteSpace: 'nowrap'
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLElement).style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLElement).style.transform = 'scale(1)';
-            }}
-          >
-            {useRealData ? '📝 Use Mock Data' : '🌐 Use Real Data'}
-          </button>
-        </div>
-
-        {useRealData && (
           <div style={{
-            padding: '12px 16px',
-            background: isDarkMode ? 'rgba(251, 191, 36, 0.15)' : '#fff3cd',
-            border: isDarkMode ? '1px solid rgba(251, 191, 36, 0.3)' : '1px solid #ffc107',
-            borderRadius: '8px',
-            marginTop: '15px',
-            fontSize: '13px',
-            color: isDarkMode ? '#fbbf24' : '#856404'
+            fontWeight: '600',
+            color: 'white',
+            fontSize: '14px',
+            textAlign: 'center'
           }}>
-            ⚠️ <strong>Note:</strong> Real-time data requires a valid RapidAPI key for Kiwi.com API. 
-            {!process.env.NEXT_PUBLIC_RAPIDAPI_KEY && ' (API key not configured)'}
+            🌐 Real-Time Flight Data • Live pricing and availability
           </div>
-        )}
+        </div>
       </div>
 
       {showFilters && (

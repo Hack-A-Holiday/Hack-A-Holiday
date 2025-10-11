@@ -2,10 +2,22 @@
 import Globe from 'react-globe.gl';
 import { popularDestinations, Destination } from '../data/destinations';
 
+interface Coordinates {
+  lat: number;
+  lng: number;
+  name: string;
+}
+
+interface RouteData {
+  source: Coordinates;
+  destination: Coordinates;
+}
+
 interface GlobeProps {
   onDestinationSelect: (destination: Destination) => void;
   selectedDestination?: Destination;
   searchQuery?: string;
+  routeData?: RouteData | null;
 }
 
 const getCategoryColor = (category: string) => {
@@ -35,7 +47,8 @@ const getCategoryEmoji = (category: string) => {
 export default function InteractiveGlobe({
   onDestinationSelect,
   selectedDestination,
-  searchQuery = ''
+  searchQuery = '',
+  routeData = null
 }: Readonly<GlobeProps>) {
   const globeRef = useRef<any>();
   const [isClient, setIsClient] = useState(false);
@@ -54,6 +67,19 @@ export default function InteractiveGlobe({
     );
   }, [searchQuery]);
 
+  // Arc data for route visualization
+  const arcsData = useMemo(() => {
+    if (!routeData) return [];
+    
+    return [{
+      startLat: routeData.source.lat,
+      startLng: routeData.source.lng,
+      endLat: routeData.destination.lat,
+      endLng: routeData.destination.lng,
+      color: ['#ff6b6b', '#4ecdc4'] // Red to teal gradient
+    }];
+  }, [routeData]);
+
   // Convert destinations to points with proper lat/lng
   const globeData = filteredDestinations.map(dest => ({
     lat: dest.latitude,
@@ -65,6 +91,42 @@ export default function InteractiveGlobe({
     color: getCategoryColor(dest.category),
     destId: dest.id // Store the destination ID to find the full object later
   }));
+
+  // Route points (source and destination markers)
+  const routePoints = useMemo(() => {
+    if (!routeData) return [];
+    
+    return [
+      {
+        lat: routeData.source.lat,
+        lng: routeData.source.lng,
+        size: 0.7,
+        color: '#ff6b6b',
+        name: `🛫 ${routeData.source.name}`,
+        destId: 'route-source'
+      },
+      {
+        lat: routeData.destination.lat,
+        lng: routeData.destination.lng,
+        size: 0.7,
+        color: '#4ecdc4',
+        name: `🛬 ${routeData.destination.name}`,
+        destId: 'route-dest'
+      }
+    ];
+  }, [routeData]);
+
+  // Combine regular destinations with route points
+  // If routeData exists, ONLY show route points (source + destination)
+  // Otherwise show all destination markers
+  const allPoints = useMemo(() => {
+    if (routeData) {
+      // Only show source and destination when route is active
+      return routePoints;
+    }
+    // Show all destinations when no route
+    return globeData;
+  }, [globeData, routePoints, routeData]);
 
   const handlePointClick = useCallback((point: any) => {
     // Find the full destination object using the ID
@@ -231,8 +293,8 @@ export default function InteractiveGlobe({
         globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
         backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
         
-        // Points data
-        pointsData={globeData}
+        // Points data (includes destinations + route points)
+        pointsData={allPoints}
         pointLat="lat"
         pointLng="lng"
         pointColor="color"
@@ -258,13 +320,26 @@ export default function InteractiveGlobe({
               ${point.name}
             </div>
             <div style="opacity: 0.8; font-size: 13px; margin-bottom: 4px;">
-              📍 ${point.country}
+              📍 ${point.country || ''}
             </div>
             <div style="opacity: 0.7; font-size: 12px; font-style: italic;">
-              ${point.description}
+              ${point.description || ''}
             </div>
           </div>
         `}
+        
+        // Arcs data (for route visualization)
+        arcsData={arcsData}
+        arcStartLat="startLat"
+        arcStartLng="startLng"
+        arcEndLat="endLat"
+        arcEndLng="endLng"
+        arcColor="color"
+        arcStroke={0.5}
+        arcDashLength={0.4}
+        arcDashGap={0.2}
+        arcDashAnimateTime={2000}
+        arcAltitudeAutoScale={0.3}
         
         // Globe controls
         enablePointerInteraction={true}
