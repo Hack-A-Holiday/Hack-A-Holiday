@@ -11,4 +11,7 @@ router.put('/profile', userController.updateProfile);
 // Update home city specifically
 router.put('/profile/home-city', userController.updateHomeCity);
 
+// Delete account (soft delete with 30-day retention)
+router.delete('/account', userController.deleteAccount);
+
 module.exports = router;

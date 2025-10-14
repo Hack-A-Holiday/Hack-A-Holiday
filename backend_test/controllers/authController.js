@@ -5,6 +5,16 @@ exports.login = async (req, res) => {
   const { email, password } = req.body;
   const user = await userService.authenticate(email, password);
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+  
+  // Check if account is deleted
+  if (user.isDeleted) {
+    return res.status(403).json({ 
+      error: 'Account deleted', 
+      message: 'This account has been deleted. Please sign up again to restore your account.',
+      isDeleted: true 
+    });
+  }
+  
   // Always return a single user object, never an array
   const userObj = Array.isArray(user) ? user[0] : user;
   const token = jwt.sign({ userId: userObj.id, email: userObj.email }, process.env.JWT_SECRET || 'devsecret', { expiresIn: '7d' });
@@ -20,8 +30,39 @@ exports.login = async (req, res) => {
 
 exports.signup = async (req, res) => {
   const { email, password, name } = req.body;
+  
+  // Check if user with this email exists
+  const existingUser = await userService.getUserByEmail(email);
+  
+  if (existingUser) {
+    // If account is deleted, restore it
+    if (existingUser.isDeleted) {
+      console.log(`♻️ Restoring deleted account for ${email}`);
+      const restoredUser = await userService.restoreUser(existingUser.id);
+      
+      // Update password and name if provided
+      if (password || name) {
+        await userService.updateUserProfile(existingUser.id, {
+          ...(password && { password }),
+          ...(name && { name })
+        });
+      }
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Welcome back! Your account has been restored with all your data. Please log in.',
+        restored: true
+      });
+    }
+    
+    // Account exists and is not deleted
+    return res.status(400).json({ error: 'User already exists' });
+  }
+  
+  // Create new user
   const user = await userService.createUser(email, password, name);
-  if (!user) return res.status(400).json({ error: 'User already exists' });
+  if (!user) return res.status(400).json({ error: 'Failed to create user' });
+  
   // Do NOT log in user after signup. Require login.
   res.status(201).json({ success: true, message: 'Signup successful. Please log in.' });
 };
