@@ -35,6 +35,8 @@ exports.createUser = async (email, password, name) => {
 exports.authenticate = async (email, password) => {
   const user = await userModel.getUserByEmail(email);
   if (!user || user.password !== password) return null;
+  
+  // Return user with isDeleted flag intact (for login controller to check)
   if (user && 'password' in user) {
     const { password, ...userNoPass } = user;
     return userNoPass;
@@ -47,6 +49,13 @@ exports.getUserById = async (id) => {
   if (!user) return null;
   const { password: pwd, ...userNoPass } = user;
   return userNoPass;
+};
+
+exports.getUserByEmail = async (email) => {
+  const user = await userModel.getUserByEmail(email);
+  if (!user) return null;
+  // Don't remove password here - may be needed for auth checks
+  return user;
 };
 
 exports.storeGoogleUser = async ({ uid, email, displayName, photoURL }) => {
@@ -73,6 +82,12 @@ exports.storeGoogleUser = async ({ uid, email, displayName, photoURL }) => {
     };
     await userModel.createUser(user);
   } else {
+    // If account was deleted, restore it
+    if (user.isDeleted) {
+      console.log(`♻️ Restoring deleted Google account for ${email}`);
+      user = await userModel.restoreUser(user.id);
+    }
+    
     // Update user info if needed
     user.displayName = displayName;
     user.profilePicture = photoURL;
@@ -121,4 +136,26 @@ exports.updateUserProfile = async (userId, updates) => {
   // Remove password before returning
   const { password, ...userNoPass } = updatedUser;
   return userNoPass;
+};
+
+/**
+ * Soft delete user account (30-day retention)
+ */
+exports.softDeleteUser = async (userId) => {
+  console.log(`🔍 Service: Attempting to soft delete user ${userId}`);
+  try {
+    const result = await userModel.softDeleteUser(userId);
+    console.log(`✅ Service: User ${userId} soft deleted successfully`);
+    return result;
+  } catch (error) {
+    console.error(`❌ Service: Error deleting user ${userId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Restore deleted user account
+ */
+exports.restoreUser = async (userId) => {
+  return await userModel.restoreUser(userId);
 };

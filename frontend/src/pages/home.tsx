@@ -6,13 +6,24 @@ import { useDarkMode } from '../contexts/DarkModeContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import Navbar from '../components/layout/Navbar';
 import { tripTrackingService } from '../services/trip-tracking';
+import { tripApiService, TripStats } from '../services/trip-api';
 
 export default function HomePage() {
   const { state } = useAuth();
   const { isDarkMode } = useDarkMode();
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
-  const [tripStats, setTripStats] = useState({ tripsPlanned: 0, countriesExplored: 0, totalSpent: 0 });
+  const [tripStats, setTripStats] = useState<TripStats>({ 
+    tripsPlanned: 0, 
+    tripsCompleted: 0,
+    totalTrips: 0,
+    destinationsExplored: 0, 
+    totalSpent: 0 
+  });
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  
+  // Cache duration: 30 seconds
+  const CACHE_DURATION = 30 * 1000;
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -26,24 +37,52 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  // Load trip statistics
-  useEffect(() => {
-    const userId = localStorage.getItem('userId') || state.user?.email || 'guest';
-    const stats = tripTrackingService.getTripStats(userId);
-    setTripStats(stats);
+  // Load trip statistics from API with caching
+  const loadStats = async (forceRefresh = false) => {
+    if (!state.user) return;
     
-    // Listen for trip updates
+    // Check cache - skip if recent fetch (within 30 seconds) and not forced
+    const now = Date.now();
+    if (!forceRefresh && lastFetchTime && (now - lastFetchTime) < CACHE_DURATION) {
+      console.log(`⚡ Using cached stats (fetched ${Math.round((now - lastFetchTime) / 1000)}s ago)`);
+      return;
+    }
+    
+    try {
+      const userId = state.user.email || 'guest';
+      const { stats } = await tripApiService.getUserTrips(userId, false);
+      setTripStats(stats);
+      setLastFetchTime(Date.now());
+      console.log(`✅ Loaded trip stats from API:`, stats);
+    } catch (error) {
+      console.error('❌ Error loading stats:', error);
+      // Fallback to localStorage for backward compatibility
+      const userId = state.user.email || 'guest';
+      const localStats = tripTrackingService.getTripStats(userId);
+      setTripStats({
+        ...localStats,
+        tripsCompleted: 0,
+        totalTrips: localStats.tripsPlanned,
+        destinationsExplored: localStats.countriesExplored
+      });
+    }
+  };
+
+  // Load stats on mount and when user changes
+  useEffect(() => {
+    loadStats();
+    
+    // Listen for trip updates (always force refresh on trip changes)
     const handleTripUpdate = () => {
-      const updatedStats = tripTrackingService.getTripStats(userId);
-      setTripStats(updatedStats);
+      console.log('🔄 Trip updated, force refreshing stats...');
+      loadStats(true);
     };
     
-    // Listen for when user returns to the tab
+    // Listen for when user returns to the tab (use cache if recent)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // User returned to the tab, refresh stats
-        const updatedStats = tripTrackingService.getTripStats(userId);
-        setTripStats(updatedStats);
+        console.log('👀 Tab became visible, checking cache...');
+        loadStats(false); // Will use cache if recent
       }
     };
     
@@ -91,7 +130,7 @@ export default function HomePage() {
                 lineHeight: '1.2',
                 textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
               }}>
-                Welcome back, {state.user?.name?.split(' ')[0] || 'Traveler'}! ✈️
+                Welcome back, {state.user?.name?.split(' ')[0] || 'Traveler'}!
               </h1>
               <p style={{
                 fontSize: isMobile ? '1.1rem' : isTablet ? '1.2rem' : '1.3rem',
@@ -134,7 +173,7 @@ export default function HomePage() {
                   e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}>
-                  🗺️ Plan New Trip
+                  Plan New Trip
                 </Link>
                 <Link href="/profile" style={{
                   display: 'inline-block',
@@ -158,7 +197,7 @@ export default function HomePage() {
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = 'none';
                 }}>
-                  👤 View Profile
+                  View Profile
                 </Link>
               </div>
             </div>
@@ -205,9 +244,23 @@ export default function HomePage() {
                   border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
                 }}>
                   <div style={{
-                    fontSize: '3rem',
-                    marginBottom: '20px'
-                  }}>🤖</div>
+                    width: '80px',
+                    height: '80px',
+                    margin: '0 auto 20px',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    borderRadius: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 20px rgba(102, 126, 234, 0.3)'
+                  }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <rect x="3" y="11" width="18" height="10" rx="2" />
+                      <circle cx="12" cy="5" r="2" />
+                      <path d="M12 7v4" />
+                      <path d="M8 16h8" />
+                    </svg>
+                  </div>
                   <h3 style={{
                     fontSize: '1.5rem',
                     color: isDarkMode ? '#e8eaed' : '#333',
@@ -232,9 +285,21 @@ export default function HomePage() {
                   border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
                 }}>
                   <div style={{
-                    fontSize: '3rem',
-                    marginBottom: '20px'
-                  }}>🎯</div>
+                    width: '80px',
+                    height: '80px',
+                    margin: '0 auto 20px',
+                    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                    borderRadius: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 20px rgba(245, 87, 108, 0.3)'
+                  }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
                   <h3 style={{
                     fontSize: '1.5rem',
                     color: isDarkMode ? '#e8eaed' : '#333',
@@ -259,9 +324,20 @@ export default function HomePage() {
                   border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
                 }}>
                   <div style={{
-                    fontSize: '3rem',
-                    marginBottom: '20px'
-                  }}>⚡</div>
+                    width: '80px',
+                    height: '80px',
+                    margin: '0 auto 20px',
+                    background: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+                    borderRadius: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 20px rgba(252, 182, 159, 0.3)'
+                  }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                    </svg>
+                  </div>
                   <h3 style={{
                     fontSize: '1.5rem',
                     color: isDarkMode ? '#e8eaed' : '#333',
@@ -279,46 +355,48 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* Quick Stats */}
-          <section style={{
-            background: isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.1)',
-            padding: '60px 20px',
-            color: 'white'
-          }}>
-            <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-              <h2 style={{
-                textAlign: 'center',
-                fontSize: '2rem',
-                marginBottom: '40px',
-                color: isDarkMode ? '#e8eaed' : 'white'
-              }}>
-                Your Travel Journey
-              </h2>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '30px',
-                textAlign: 'center'
-              }}>
-                <div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>{tripStats.tripsPlanned}</div>
-                  <div style={{ opacity: 0.8 }}>Trips Planned</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>{tripStats.countriesExplored}</div>
-                  <div style={{ opacity: 0.8 }}>Countries Explored</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>${tripStats.totalSpent.toFixed(0)}</div>
-                  <div style={{ opacity: 0.8 }}>Total Invested</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>∞</div>
-                  <div style={{ opacity: 0.8 }}>Adventures Ahead</div>
+          {/* Quick Stats - only show if user has trips */}
+          {(tripStats.tripsPlanned > 0 || tripStats.destinationsExplored > 0 || tripStats.totalSpent > 0) && (
+            <section style={{
+              background: isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.1)',
+              padding: '60px 20px',
+              color: 'white'
+            }}>
+              <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                <h2 style={{
+                  textAlign: 'center',
+                  fontSize: '2rem',
+                  marginBottom: '40px',
+                  color: isDarkMode ? '#e8eaed' : 'white'
+                }}>
+                  Your Travel Journey
+                </h2>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '30px',
+                  textAlign: 'center'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>{tripStats.tripsPlanned}</div>
+                    <div style={{ opacity: 0.8 }}>Trips Planned</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>{tripStats.destinationsExplored}</div>
+                    <div style={{ opacity: 0.8 }}>Countries Explored</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>${tripStats.totalSpent}</div>
+                    <div style={{ opacity: 0.8 }}>Total Invested</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>∞</div>
+                    <div style={{ opacity: 0.8 }}>Adventures Ahead</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          )}
 
           {/* Call to Action */}
           <section style={{

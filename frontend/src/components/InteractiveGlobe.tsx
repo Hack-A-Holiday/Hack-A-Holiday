@@ -51,11 +51,29 @@ export default function InteractiveGlobe({
   routeData = null
 }: Readonly<GlobeProps>) {
   const globeRef = useRef<any>();
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isClient, setIsClient] = useState(false);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   
   // Ensure we only render on client side (avoid SSR issues)
   useEffect(() => {
     setIsClient(true);
+    
+    // Update dimensions on mount and resize
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.clientWidth;
+        const height = containerRef.current.clientHeight;
+        console.log(`📐 Globe container dimensions: ${width}x${height}`);
+        setDimensions({ width, height });
+      }
+    };
+    
+    // Small delay to ensure container is fully rendered
+    setTimeout(updateDimensions, 100);
+    window.addEventListener('resize', updateDimensions);
+    
+    return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
   const filteredDestinations = useMemo(() => {
@@ -178,16 +196,24 @@ export default function InteractiveGlobe({
   }
 
   return (
-    <div style={{
-      width: '100%',
-      height: '600px', // Increased from 400px
-      background: 'linear-gradient(135deg, #000428 0%, #004e92 100%)',
-      borderRadius: '16px', // Larger border radius
-      position: 'relative',
-      overflow: 'hidden',
-      boxShadow: '0 20px 40px rgba(0,0,0,0.3)', // Enhanced shadow
-      border: '1px solid rgba(255,255,255,0.1)' // Subtle border
-    }}>
+    <div 
+      ref={containerRef}
+      style={{
+        width: '100%',
+        maxWidth: '900px',
+        height: '700px',
+        background: 'linear-gradient(135deg, #000428 0%, #004e92 100%)',
+        borderRadius: '16px',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '0 auto'
+      }}
+    >
       {/* Globe badge */}
       <div style={{
         position: 'absolute',
@@ -288,8 +314,8 @@ export default function InteractiveGlobe({
 
       <Globe
         ref={globeRef}
-        width={600} // Increased from 400
-        height={600} // Increased from 400
+        width={dimensions.width}
+        height={dimensions.height}
         globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
         backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
         

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useDarkMode } from '../contexts/DarkModeContext';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Navbar from '../components/layout/Navbar';
@@ -227,6 +228,7 @@ interface Recommendation {
 
 export default function AIAssistant() {
   const { state } = useAuth();
+  const { isDarkMode } = useDarkMode();
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -537,9 +539,10 @@ What would you like to explore?`,
             borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
             background: isUser
               ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-              : '#f0f2f5',
-            color: isUser ? 'white' : '#333',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              : isDarkMode ? '#2d3548' : '#f0f2f5',
+            color: isUser ? 'white' : (isDarkMode ? '#e8eaed' : '#333'),
+            boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
+            border: (!isUser && isDarkMode) ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
             wordBreak: 'break-word'
           }}
         >
@@ -644,45 +647,51 @@ What would you like to explore?`,
         <meta name="description" content="Get personalized travel recommendations powered by AI" />
       </Head>
 
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <div style={{ 
+        minHeight: '100vh', 
+        background: isDarkMode 
+          ? 'linear-gradient(135deg, #1a1f2e 0%, #16213e 100%)' 
+          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      }}>
         <Navbar />
 
         <main style={{
-          maxWidth: '1200px',
+          maxWidth: '1400px',
           margin: '0 auto',
-          padding: isMobile ? '20px' : '40px 20px'
+          padding: isMobile ? '10px' : '15px'
         }}>
           <div style={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            borderRadius: '20px',
+            background: isDarkMode ? '#252d3d' : 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '16px',
             overflow: 'hidden',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-            height: isMobile ? 'calc(100vh - 100px)' : '75vh',
+            boxShadow: isDarkMode ? '0 20px 60px rgba(0,0,0,0.8)' : '0 20px 60px rgba(0,0,0,0.2)',
+            height: isMobile ? 'calc(100vh - 80px)' : 'calc(100vh - 100px)',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
           }}>
             {/* Header */}
             <div style={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              padding: isMobile ? '20px' : '28px 48px',
+              padding: isMobile ? '16px 20px' : '20px 32px',
               color: 'white',
               boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
             }}>
               <h1 style={{ 
                 margin: 0, 
-                fontSize: isMobile ? '1.5rem' : '1.8rem', 
+                fontSize: isMobile ? '1.3rem' : '1.6rem', 
                 fontWeight: '700',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px'
               }}>
-                <span style={{ fontSize: isMobile ? '1.8rem' : '2rem' }}>🤖</span>
+                <span style={{ fontSize: isMobile ? '1.5rem' : '1.8rem' }}>🤖</span>
                 <span>AI Travel Assistant</span>
               </h1>
               <p style={{ 
-                margin: '5px 0 0 0', 
+                margin: '3px 0 0 0', 
                 opacity: 0.9, 
-                fontSize: '0.9rem' 
+                fontSize: '0.85rem' 
               }}>
                 Your intelligent travel planning assistant • AI-Powered
               </p>
@@ -693,7 +702,7 @@ What would you like to explore?`,
               flex: 1,
               overflowY: 'auto',
               padding: '20px',
-              background: '#fafafa'
+              background: isDarkMode ? '#1e2433' : '#fafafa'
             }}>
               {messages.map(renderMessage)}
               {isLoading && (
@@ -735,12 +744,12 @@ What would you like to explore?`,
             {messages.length <= 1 && (
               <div style={{
                 padding: '16px 20px',
-                background: 'white',
-                borderTop: '1px solid #e0e0e0'
+                background: isDarkMode ? '#252d3d' : 'white',
+                borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e0e0e0'
               }}>
                 <div style={{
                   fontSize: '0.85rem',
-                  color: '#666',
+                  color: isDarkMode ? '#9ca3af' : '#666',
                   marginBottom: '8px',
                   fontWeight: '500'
                 }}>
@@ -785,9 +794,9 @@ What would you like to explore?`,
 
             {/* Input Area */}
             <div style={{
-              padding: '20px',
-              background: 'white',
-              borderTop: '1px solid #e0e0e0'
+              padding: isMobile ? '12px' : '16px 20px',
+              background: isDarkMode ? '#252d3d' : 'white',
+              borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e0e0e0'
             }}>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <input
@@ -801,14 +810,15 @@ What would you like to explore?`,
                     flex: 1,
                     padding: '14px 20px',
                     borderRadius: '25px',
-                    border: '2px solid #e0e0e0',
+                    border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.2)' : '2px solid #e0e0e0',
                     fontSize: '1rem',
                     outline: 'none',
                     transition: 'border-color 0.2s',
-                    backgroundColor: isLoading ? '#f5f5f5' : 'white'
+                    backgroundColor: isLoading ? (isDarkMode ? '#1e2433' : '#f5f5f5') : (isDarkMode ? '#1e2433' : 'white'),
+                    color: isDarkMode ? '#e8eaed' : '#333'
                   }}
                   onFocus={(e) => e.currentTarget.style.borderColor = '#667eea'}
-                  onBlur={(e) => e.currentTarget.style.borderColor = '#e0e0e0'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.2)' : '#e0e0e0'}
                 />
                 <button
                   onClick={handleSendMessage}

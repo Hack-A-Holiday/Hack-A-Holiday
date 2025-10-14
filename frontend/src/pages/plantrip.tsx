@@ -716,7 +716,9 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 							borderRadius: '15px', 
 							padding: getContainerPadding(), 
 							boxShadow: isDarkMode ? '0 20px 40px rgba(0,0,0,0.6)' : '0 20px 40px rgba(0,0,0,0.1)',
-							border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
+							border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
+							maxWidth: '1200px',
+							margin: '0 auto'
 						}}>
 							{/* Interactive Globe for Destination Selection - Always visible */}
 							<div style={{ marginBottom: '30px' }}>
