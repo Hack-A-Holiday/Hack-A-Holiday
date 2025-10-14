@@ -1,7 +1,10 @@
 /**
  * Kiwi.com Flight API Service
  * Direct integration with Kiwi API for real flight data
+ * With Google Flights fallback integration
  */
+
+import { GoogleFlightsFallbackService, GoogleFlightsParams } from './google-flights-fallback';
 
 export interface KiwiFlight {
   id: string;
@@ -69,17 +72,23 @@ export interface KiwiApiResponse {
 }
 
 export class KiwiApiService {
-  private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '8ba82f8f69mshfc586479dacb57dp17b668jsnd41a5fc70e20';
-  private readonly baseUrl = 'https://kiwi-com-cheap-flights.p.rapidapi.com';
+  private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '';
+  private readonly host = process.env.NEXT_PUBLIC_RAPIDAPI_HOST || '';
+  private readonly baseUrl = this.host ? `https://${this.host}` : '';
 
+  /**
+   * Search flights with automatic Google Flights fallback
+   * @param useGoogleFallback - If true, automatically opens Google Flights if Kiwi API fails
+   */
   async searchFlights(
     origin: string,
     destination: string,
     departureDate: string,
     passengers: { adults: number; children?: number; infants?: number },
     checkedBags: number = 0,
-    returnDate?: string
-  ): Promise<KiwiApiResponse> {
+    returnDate?: string,
+    useGoogleFallback: boolean = true
+  ): Promise<KiwiApiResponse | null> {
     // Try different bag configurations if the initial search fails
     // Start with requested bags, then try progressively fewer bags
     const allConfigs = [checkedBags, 2, 1, 0];
@@ -120,7 +129,7 @@ export class KiwiApiService {
         const response = await fetch(url, {
           method: 'GET',
           headers: {
-            'x-rapidapi-host': 'kiwi-com-cheap-flights.p.rapidapi.com',
+            'x-rapidapi-host': this.host,
             'x-rapidapi-key': this.apiKey
           }
         });
@@ -171,6 +180,26 @@ export class KiwiApiService {
     }
     
     // If we get here, no configuration worked
+    if (useGoogleFallback) {
+      console.log('🔄 No Kiwi results found, triggering Google Flights fallback...');
+      
+      // Prepare Google Flights parameters
+      const googleParams: GoogleFlightsParams = {
+        origin,
+        destination,
+        departureDate,
+        returnDate,
+        passengers,
+        cabinClass: 'economy'
+      };
+      
+      // Open Google Flights in new tab
+      await GoogleFlightsFallbackService.openGoogleFlights(googleParams);
+      
+      // Return null to indicate fallback was used
+      return null;
+    }
+    
     throw new Error(`No flights found for ${origin} to ${destination} with any bag configuration`);
   }
 

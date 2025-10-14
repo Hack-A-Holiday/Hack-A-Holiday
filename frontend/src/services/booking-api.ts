@@ -115,17 +115,26 @@ export interface BookingApiResponse {
 
 export class BookingApiService {
   private readonly apiKey: string;
-  private readonly baseUrl = 'https://booking-com15.p.rapidapi.com/api/v1';
+  private readonly host: string;
+  private readonly baseUrl: string;
 
   constructor() {
-    // Use environment variable or fallback to provided key
-    this.apiKey = process.env.NEXT_PUBLIC_BOOKING_API_KEY || '8ba82f8f69mshfc586479dacb57dp17b668jsnd41a5fc70e20';
+    this.apiKey = process.env.NEXT_PUBLIC_BOOKING_API_KEY || '';
+    this.host = process.env.NEXT_PUBLIC_BOOKING_API_HOST || '';
+    this.baseUrl = this.host ? `https://${this.host}/api/v1` : '';
+    
+    if (!this.apiKey || !this.host) {
+      console.warn('⚠️ Booking API credentials not configured. Set NEXT_PUBLIC_BOOKING_API_KEY and NEXT_PUBLIC_BOOKING_API_HOST in .env.local');
+    }
   }
 
   /**
    * Search for hotels near an airport
    */
   async searchHotels(params: HotelSearchParams): Promise<BookingApiResponse> {
+    if (!this.apiKey || !this.host || !this.baseUrl) {
+      throw new Error('Booking.com RapidAPI environment variables are not configured. Please set NEXT_PUBLIC_BOOKING_API_KEY and NEXT_PUBLIC_BOOKING_API_HOST.');
+    }
     const coordinates = AIRPORT_COORDINATES[params.airportCode];
     
     if (!coordinates) {
@@ -164,7 +173,7 @@ export class BookingApiService {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'x-rapidapi-host': 'booking-com15.p.rapidapi.com',
+          'x-rapidapi-host': this.host,
           'x-rapidapi-key': this.apiKey
         }
       });

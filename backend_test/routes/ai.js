@@ -1,57 +1,149 @@
 // backend_test/routes/ai.js
 const express = require('express');
 const router = express.Router();
-const sagemakerService = require('../services/sagemakerService');
+const IntegratedAITravelAgent = require('../services/IntegratedAITravelAgent');
 const verifyToken = require('../middleware/authMiddleware');
+
+// Initialize the integrated AI travel agent
+const aiAgent = new IntegratedAITravelAgent();
 
 /**
  * POST /ai/chat
  * Process chat message with AI agent
+ * 
+ * Integrated Features:
+ * - Bedrock (Nova Pro) for all responses
+ * - Real-time flight API integration
+ * - Real-time hotel API integration
+ * - Conversation history storage and context
+ * - User preferences tracking
  */
 router.post('/chat', verifyToken, async (req, res) => {
   try {
-    const { message, conversationId, preferences } = req.body;
+    const { message, messages, conversationId, preferences, userContext } = req.body;
     const userId = req.user.userId;
+    const userEmail = req.user.email;
+
+    console.log('\n🤖 ═══════════════════════════════════════');
+    console.log('🤖 AI Chat Request (Agent Mode) - User:', userEmail);
+    console.log('🤖 ═══════════════════════════════════════');
 
     // Validate input
-    if (!message || !message.trim()) {
+    if (!message && (!messages || messages.length === 0)) {
       return res.status(400).json({
         success: false,
         error: 'Message is required'
       });
     }
 
-    // Get conversation history (if conversationId provided)
-    const conversationHistory = []; // TODO: Fetch from database
+    // Get current user context for intelligent processing
+    const agentContext = aiAgent.getUserContext(userId);
+    console.log('   🧠 User context loaded:', {
+      homeCity: agentContext.preferences?.homeCity,
+      searches: agentContext.searchHistory?.length || 0,
+      trips: agentContext.tripHistory?.length || 0,
+      interests: agentContext.preferences?.interests?.length || 0
+    });
 
-    // Process message with SageMaker
-    const aiResponse = await sagemakerService.processMessage(
-      message,
-      userId,
-      preferences,
-      conversationHistory
-    );
+    // Build messages array
+    let messagesArray = messages || [];
+    if (message && !messages) {
+      // Single message format - just send the current message
+      // Let processMessage handle conversation history internally
+      messagesArray = [{ role: 'user', content: message }];
+    }
 
-    // TODO: Store message and response in database
+    // Extract current message for preference learning
+    const currentMessage = messagesArray[messagesArray.length - 1]?.content || '';
     
+    // Extract and store any preferences mentioned in this message
+    if (currentMessage) {
+      const extractedPrefs = aiAgent.extractPreferencesFromMessage(currentMessage, agentContext);
+      if (Object.keys(extractedPrefs).length > 0) {
+        aiAgent.updateUserContext(userId, { preferences: extractedPrefs });
+        console.log('   ✨ Learned new preferences from message:', extractedPrefs);
+      }
+    }
+
+    // Process message through integrated AI agent with full context
+    const response = await aiAgent.processMessage({
+      messages: messagesArray,
+      userContext: {
+        ...agentContext, // Include full agent context
+        ...userContext,
+        preferences: {
+          ...agentContext.preferences,
+          ...preferences
+        },
+        userId,
+        email: userEmail,
+        sessionId: conversationId || userId
+      },
+      userId,
+      sessionId: conversationId || userId
+    });
+
+    console.log('✅ AI Agent response generated with context');
+    console.log('   📊 Context stats:', {
+      preferences: Object.keys(agentContext.preferences || {}).length,
+      searches: agentContext.searchHistory?.length || 0,
+      apiCalls: response.metadata?.apiCallsMade
+    });
+    console.log('═══════════════════════════════════════\n');
+
+    // Format response to match existing frontend expectations
+    // Extract recommendations from realData
+    let recommendations = null;
+    
+    if (response.realData) {
+      // Handle combined flight + hotel data
+      if (response.realData.type === 'combined') {
+        // Return flight results as primary recommendations
+        if (response.realData.flights?.results && response.realData.flights.results.length > 0) {
+          recommendations = response.realData.flights.results;
+        }
+      }
+      // Handle single flight/hotel data
+      else if (response.realData.results && response.realData.results.length > 0) {
+        recommendations = response.realData.results;
+      }
+    }
+
     res.json({
       success: true,
       data: {
-        response: aiResponse.response,
-        type: aiResponse.type,
-        recommendations: aiResponse.recommendations || [],
-        intent: aiResponse.intent,
-        conversationId: conversationId || `conv_${Date.now()}_${userId}`,
-        timestamp: new Date().toISOString()
+        response: response.content,
+        role: response.role,
+        type: response.metadata.intent,
+        recommendations: recommendations,
+        intent: response.metadata.intent,
+        conversationId: response.metadata.sessionId,
+        timestamp: response.metadata.timestamp,
+        // Additional data for enhanced UI
+        realData: response.realData,
+        userPreferences: response.userPreferences,
+        apiCallsMade: response.metadata.apiCallsMade,
+        dataSource: response.metadata.dataSource,
+        // AI Agent context metadata
+        agentContext: {
+          usedHomeCity: agentContext.preferences?.homeCity,
+          totalSearches: agentContext.searchHistory?.length || 0,
+          totalTrips: agentContext.tripHistory?.length || 0,
+          learnedInterests: agentContext.preferences?.interests || [],
+          personalizedResponse: Object.keys(agentContext.preferences || {}).length > 0
+        }
       }
     });
 
   } catch (error) {
-    console.error('AI chat error:', error);
+    console.error('❌ AI chat error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to process message',
-      message: error.message
+      message: error.message,
+      fallback: {
+        response: 'I apologize for the technical issue. I\'m here to help you plan your perfect trip! What can I assist you with today?'
+      }
     });
   }
 });
@@ -64,12 +156,13 @@ router.get('/conversations', verifyToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     
-    // TODO: Fetch conversations from database
-    const conversations = [];
+    // Get conversation history from integrated agent
+    const history = await aiAgent.loadConversationHistory(userId);
 
     res.json({
       success: true,
-      data: conversations
+      data: history,
+      totalConversations: history.length
     });
 
   } catch (error) {
@@ -90,14 +183,15 @@ router.get('/conversations/:conversationId', verifyToken, async (req, res) => {
     const { conversationId } = req.params;
     const userId = req.user.userId;
 
-    // TODO: Fetch conversation messages from database
-    const messages = [];
+    // Fetch conversation messages from integrated agent
+    const messages = await aiAgent.loadConversationHistory(conversationId);
 
     res.json({
       success: true,
       data: {
         conversationId,
-        messages
+        messages,
+        totalMessages: messages.length
       }
     });
 
@@ -119,7 +213,8 @@ router.delete('/conversations/:conversationId', verifyToken, async (req, res) =>
     const { conversationId } = req.params;
     const userId = req.user.userId;
 
-    // TODO: Delete conversation from database
+    // Delete conversation from integrated agent
+    aiAgent.conversations.delete(conversationId);
 
     res.json({
       success: true,
@@ -136,6 +231,62 @@ router.delete('/conversations/:conversationId', verifyToken, async (req, res) =>
 });
 
 /**
+ * GET /ai/preferences
+ * Get user's travel preferences
+ */
+router.get('/preferences', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Load user preferences from integrated agent
+    const preferences = await aiAgent.loadUserPreferences(userId);
+
+    res.json({
+      success: true,
+      data: preferences,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Get preferences error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get preferences'
+    });
+  }
+});
+
+/**
+ * POST /ai/preferences
+ * Update user's travel preferences
+ */
+router.post('/preferences', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { preferences } = req.body;
+
+    // Save user preferences to integrated agent
+    await aiAgent.saveUserPreferences(userId, {
+      ...preferences,
+      lastUpdated: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      message: 'Preferences updated successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Update preferences error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update preferences'
+    });
+  }
+});
+
+/**
  * POST /ai/feedback
  * Submit feedback on AI responses
  */
@@ -144,7 +295,8 @@ router.post('/feedback', verifyToken, async (req, res) => {
     const { messageId, rating, feedback } = req.body;
     const userId = req.user.userId;
 
-    // TODO: Store feedback in database for model improvement
+    // Store feedback for model improvement
+    console.log('📊 User feedback received:', { userId, messageId, rating, feedback });
 
     res.json({
       success: true,

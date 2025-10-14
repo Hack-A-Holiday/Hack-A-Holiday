@@ -1,51 +1,69 @@
-// Bedrock direct integration (JavaScript)
-const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
+// Bedrock direct integration using AWS Nova Pro (JavaScript)
+const { BedrockRuntimeClient, ConverseCommand } = require('@aws-sdk/client-bedrock-runtime');
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
-const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-sonnet-4-20250514-v1:0';
+const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-pro-v1:0'; // Using Nova Pro
 
 const client = new BedrockRuntimeClient({ region: REGION });
 
 function buildAdventurePlanningPrompt(preferences) {
-  return `You are an adventure travel expert AI. Plan an adventure for the following preferences as a JSON itinerary.\nPreferences: ${JSON.stringify(preferences, null, 2)}`;
+  return `You are an adventure travel expert AI powered by AWS Nova Pro. Plan an exciting adventure based on these preferences and return a detailed JSON itinerary.
+
+Preferences: ${JSON.stringify(preferences, null, 2)}
+
+Create a comprehensive adventure plan with:
+- Day-by-day itinerary
+- Activities and experiences
+- Accommodation suggestions
+- Budget estimates
+- Safety tips
+- Packing recommendations
+
+Format as valid JSON.`;
 }
 
 exports.planAdventure = async (userId, preferences, token) => {
   const prompt = buildAdventurePlanningPrompt(preferences);
+  
+  // Use Converse API (recommended for Nova models)
   const input = {
     modelId: MODEL_ID,
-    contentType: 'application/json',
-    accept: 'application/json',
-    body: JSON.stringify({
-      anthropic_version: 'bedrock-2023-05-31',
-      max_tokens: 4000,
+    messages: [
+      {
+        role: 'user',
+        content: [{ text: prompt }]
+      }
+    ],
+    inferenceConfig: {
+      maxTokens: 4000,
       temperature: 0.7,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    })
+      topP: 0.9
+    }
   };
 
-  let responseBody = '';
+  let responseText = '';
   try {
-    const command = new InvokeModelCommand(input);
+    const command = new ConverseCommand(input);
     const response = await client.send(command);
-    responseBody = response?.body?.toString('utf-8') || '{}';
-    console.log('Raw Bedrock response:', responseBody);
-
-    // Clean and parse Bedrock response
-    let cleaned = responseBody.replace(/^\uFEFF/, '');
-    if (typeof cleaned === 'string' && /^[0-9]+(,[0-9]+)*$/.test(cleaned.trim())) {
-      const asciiArr = cleaned.split(',').map(Number);
-      cleaned = String.fromCharCode(...asciiArr);
+    
+    // Extract text from Converse API response
+    if (response.output && response.output.message && response.output.message.content) {
+      for (const content of response.output.message.content) {
+        if (content.text) {
+          responseText += content.text;
+        }
+      }
     }
-    if (typeof cleaned === 'string' && cleaned.startsWith('```')) {
+    
+    console.log('Nova Pro response received:', responseText.substring(0, 200) + '...');
+
+    // Clean and parse response
+    let cleaned = responseText.replace(/^\uFEFF/, '').trim();
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.replace(/^```json\n?/, '').replace(/```$/, '');
+    } else if (cleaned.startsWith('```')) {
       cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '');
     }
-    cleaned = cleaned.replace(/\n/g, '').trim();
     console.log('Cleaned Bedrock response:', cleaned);
     let parsedResponse;
     try {

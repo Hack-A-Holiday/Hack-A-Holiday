@@ -65,10 +65,10 @@ export class BedrockAgentStack extends cdk.Stack {
         'bedrock-runtime:InvokeModelWithResponseStream'
       ],
       resources: [
-        `arn:aws:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet*`,
-        `arn:aws:bedrock:*::foundation-model/anthropic.claude-3-5-haiku*`,
-        `arn:aws:bedrock:*::foundation-model/us.anthropic.claude-3-5-sonnet*`,
-        `arn:aws:bedrock:*::foundation-model/us.anthropic.claude-3-5-haiku*`
+        `arn:aws:bedrock:*::foundation-model/us.amazon.nova-pro*`,
+        `arn:aws:bedrock:*::foundation-model/us.amazon.nova-lite*`,
+        `arn:aws:bedrock:*::foundation-model/amazon.nova-pro*`,
+        `arn:aws:bedrock:*::foundation-model/amazon.nova-lite*`
       ]
     }));
 
@@ -91,8 +91,8 @@ export class BedrockAgentStack extends cdk.Stack {
         DYNAMODB_SESSION_TABLE: sessionTable.tableName,
         AWS_REGION: this.region,
         NODE_ENV: 'production',
-        REASONING_MODEL: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-        FAST_MODEL: 'us.anthropic.claude-3-5-haiku-20241022-v1:0'
+        REASONING_MODEL: 'us.amazon.nova-pro-v1:0',
+        FAST_MODEL: 'us.amazon.nova-lite-v1:0'
       },
       logRetention: logs.RetentionDays.ONE_WEEK
     });

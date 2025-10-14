@@ -92,6 +92,15 @@ export default function PlanTrip() {
 	const [error, setError] = useState<string | null>(null);
 	const [showPreferencesForm, setShowPreferencesForm] = useState(false);
 	const [editablePreferences, setEditablePreferences] = useState<TravelPreferences>(userTravelPreferences);
+	
+	// Globe route visualization states
+	const [sourceDestination, setSourceDestination] = useState<Destination | null>(null);
+	const [destinationLocation, setDestinationLocation] = useState<Destination | null>(null);
+	const [routeData, setRouteData] = useState<any>(null);
+	const [loadingRoute, setLoadingRoute] = useState(false);
+	const [clickStep, setClickStep] = useState<'source' | 'destination'>('source');
+	const [typedSource, setTypedSource] = useState('');
+	const [typedDestination, setTypedDestination] = useState('');
 
 	// Helper functions for responsive styling
 	const getContainerPadding = () => {
@@ -112,13 +121,74 @@ export default function PlanTrip() {
 	};
 
 	const handleDestinationSelect = (destination: Destination) => {
+		if (clickStep === 'source') {
+			// First click - set as source
+			setSourceDestination(destination);
+			setTypedSource(`${destination.name}, ${destination.country}`);
+			setClickStep('destination');
+			setResult(null);
+			setError(null);
+		} else {
+			// Second click - set as destination and fetch route
+			setDestinationLocation(destination);
+			setTypedDestination(`${destination.name}, ${destination.country}`);
+			setPreferences(prev => ({
+				...prev,
+				destination: `${destination.name}, ${destination.country}`,
+				destinationData: destination
+			}));
+			setResult(null);
+			setError(null);
+			
+			// Automatically fetch route with both locations
+			const source = sourceDestination?.name || typedSource.trim();
+			if (source) {
+				fetchRouteCoordinates(source, destination.name);
+			}
+		}
+	};
+
+	// Fetch route coordinates using Nova Lite
+	const fetchRouteCoordinates = async (source: string, destination: string) => {
+		if (!source.trim() || !destination.trim()) {
+			return;
+		}
+
+		setLoadingRoute(true);
+		const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+		try {
+			const response = await fetch(`${apiUrl}/globe/route`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ source: source.trim(), destination: destination.trim() })
+			});
+
+			const data = await response.json();
+			if (data.success) {
+				setRouteData(data.route);
+			} else {
+				console.error('Failed to fetch route:', data);
+			}
+		} catch (err) {
+			console.error('Error fetching route:', err);
+		} finally {
+			setLoadingRoute(false);
+		}
+	};
+
+	const handleResetSelection = () => {
+		setSourceDestination(null);
+		setDestinationLocation(null);
+		setRouteData(null);
+		setClickStep('source');
+		setTypedSource('');
+		setTypedDestination('');
 		setPreferences(prev => ({
 			...prev,
-			destination: `${destination.name}, ${destination.country}`,
-			destinationData: destination
+			destination: '',
+			destinationData: undefined
 		}));
-		setResult(null);
-		setError(null);
 	};
 
 	const handlePreferenceChange = (field: keyof TravelPreferences, value: any) => {
@@ -144,11 +214,17 @@ export default function PlanTrip() {
 	};
 
 	const handlePlanClick = () => {
-		if (!preferences.destinationData) {
+		// Check if destination is selected either from globe OR typed
+		const hasDestination = preferences.destinationData || 
+							   destinationLocation || 
+							   (typedDestination && typedDestination.trim().length > 0) ||
+							   (preferences.destination && preferences.destination.trim().length > 0);
+		
+		if (!hasDestination) {
 			Swal.fire({
 				icon: 'error',
 				title: 'Validation Error',
-				text: 'Please select a destination from the globe.',
+				text: 'Please select a destination from the globe or type a destination.',
 			});
 			return;
 		}
@@ -221,6 +297,78 @@ export default function PlanTrip() {
 		}
 	};
 
+	// Parse AI response text to extract daily itinerary
+	const parseItineraryFromAI = (aiText: string, duration: number) => {
+		const dailyPlans = [];
+		
+		// Try to extract days using regex patterns
+		const dayPatterns = [
+			/#### Day (\d+): (.+?)[\n\r]([\s\S]*?)(?=#### Day \d+:|###|$)/gi,
+			/Day (\d+): (.+?)[\n\r]([\s\S]*?)(?=Day \d+:|###|$)/gi,
+		];
+		
+		let matches: RegExpMatchArray | null = null;
+		let pattern: RegExp | null = null;
+		
+		for (const p of dayPatterns) {
+			const testMatches = Array.from(aiText.matchAll(p));
+			if (testMatches.length > 0) {
+				matches = testMatches as any;
+				pattern = p;
+				break;
+			}
+		}
+		
+		if (matches && matches.length > 0) {
+			for (const match of matches as any) {
+				const dayNum = parseInt(match[1]);
+				const title = match[2].trim();
+				const content = match[3].trim();
+				
+				// Parse activities from the day content
+				const activities: string[] = [];
+				
+				// Split by lines and look for activity patterns
+				const lines = content.split('\n');
+				lines.forEach((line: string) => {
+					const trimmed = line.trim();
+					// Match lines starting with ** (bold), - (bullet), or time patterns
+					if (trimmed.startsWith('-') || 
+					    trimmed.startsWith('**') || 
+					    /^\*\*[A-Z]/.test(trimmed) ||
+					    /^[0-9]{1,2}:[0-9]{2}/.test(trimmed)) {
+						// Clean up the line
+						let activity = trimmed
+							.replace(/^-\s*/, '')
+							.replace(/^\*\*/, '')
+							.replace(/\*\*:/, ':')
+							.trim();
+						if (activity) activities.push(activity);
+					}
+				});
+				
+				dailyPlans.push({
+					day: dayNum,
+					title: title,
+					description: content,
+					activities: activities.length > 0 ? activities : [content]
+				});
+			}
+		}
+		
+		// If no structured days found, create a single day entry
+		if (dailyPlans.length === 0) {
+			dailyPlans.push({
+				day: 1,
+				title: 'Trip Overview',
+				description: aiText,
+				activities: [aiText]
+			});
+		}
+		
+		return dailyPlans;
+	};
+
 	const triggerApiCall = async (tripPreferences: TripPreferences, travelPrefs: TravelPreferences) => {
 		setLoading(true);
 		setError(null);
@@ -230,15 +378,48 @@ export default function PlanTrip() {
 			'Content-Type': 'application/json',
 			...(state.token && { Authorization: `Bearer ${state.token}` }),
 		};
+
+		// Build a conversational message for the AI agent
+		const originCity = typedSource || (sourceDestination ? `${sourceDestination.name}, ${sourceDestination.country}` : 'Not specified');
+		
+		const tripMessage = `I want to plan a trip with the following details:
+- Traveling from: ${originCity}
+- Destination: ${tripPreferences.destination}
+- Duration: ${tripPreferences.duration} days
+- Budget: $${tripPreferences.budget}
+- Number of travelers: ${tripPreferences.travelers}
+- Start date: ${tripPreferences.startDate}
+- Travel style: ${tripPreferences.travelStyle}
+- Interests: ${tripPreferences.interests.join(', ')}
+
+Please help me create a detailed itinerary for this trip from ${originCity} to ${tripPreferences.destination}. Include daily activities, recommendations for hotels and flights (departing from ${originCity}), and make sure it fits within my budget and preferences.`;
+
 		const requestBody = {
+			message: tripMessage,
+			conversationId: `trip_${Date.now()}`,
 			preferences: {
-				...tripPreferences,
-				travelPreferences: travelPrefs,
+				...travelPrefs,
+				budget: tripPreferences.budget,
+				travelers: tripPreferences.travelers,
+				travelStyle: tripPreferences.travelStyle,
+				interests: tripPreferences.interests,
 				existingUserPreferences: state?.user?.preferences || {},
 			},
+			userContext: {
+				userId: state.user?.id || 'anonymous',
+				email: state.user?.email,
+				name: state.user?.name,
+				tripDetails: {
+					...tripPreferences,
+					origin: originCity,
+					source: sourceDestination
+				}
+			}
 		};
+
 		try {
-			const response = await fetch(`${apiUrl}/plan-trip`, {
+			// Use the same AI chat endpoint as AI Assistant
+			const response = await fetch(`${apiUrl}/api/ai/chat`, {
 				method: 'POST',
 				headers,
 				body: JSON.stringify(requestBody),
@@ -253,26 +434,50 @@ export default function PlanTrip() {
 					errorData = { message: errorText };
 				}
 				console.error('API Error Response:', errorData);
-				throw new Error(`API responded with status ${response.status}: ${response.statusText} - ${errorData.message}`);
+				throw new Error(`API responded with status ${response.status}: ${response.statusText} - ${errorData.message || errorData.error}`);
 			}
 			const data = await response.json();
-			// Robust mapping for Bedrock response
-			let itinerary = data.itinerary || data;
-			if (itinerary.itinerary) itinerary = itinerary.itinerary;
-			if (itinerary.dailyItinerary || itinerary.dailyPlans) {
-				itinerary.dailyItinerary = itinerary.dailyItinerary || itinerary.dailyPlans;
-			}
-			if (itinerary.destination || (itinerary.overview && itinerary.overview.destination)) {
-				itinerary.destination = itinerary.destination || (itinerary.overview && itinerary.overview.destination);
-			}
-			if (itinerary.totalBudget || itinerary.budget || itinerary.totalCost) {
-				itinerary.totalBudget = itinerary.totalBudget || itinerary.budget || itinerary.totalCost;
-			}
-			if (itinerary.duration || tripPreferences.duration) {
-				itinerary.duration = itinerary.duration || tripPreferences.duration;
-			}
-			setResult(data);
-			router.push({ pathname: '/ai-agent', query: { itinerary: JSON.stringify(itinerary) } });
+			
+			console.log('AI Chat Response:', data);
+
+			// Parse AI response to extract daily itinerary
+			const aiResponseText = data.data?.response || data.message || 'Trip planned successfully!';
+			const dailyPlans = parseItineraryFromAI(aiResponseText, tripPreferences.duration);
+
+			// Build itinerary object from AI response
+			const itinerary = {
+				destination: tripPreferences.destination,
+				origin: originCity,
+				duration: tripPreferences.duration,
+				budget: tripPreferences.budget,
+				travelers: tripPreferences.travelers,
+				startDate: tripPreferences.startDate,
+				travelStyle: tripPreferences.travelStyle,
+				interests: tripPreferences.interests,
+				aiResponse: aiResponseText,
+				dailyPlans: dailyPlans, // Structured daily itinerary
+				recommendations: data.data?.recommendations || [],
+				realData: data.data?.realData,
+				conversationId: data.data?.conversationId,
+				// Keep for backward compatibility
+				totalBudget: `$${tripPreferences.budget}`,
+				overview: {
+					destination: tripPreferences.destination,
+					duration: tripPreferences.duration,
+					travelStyle: tripPreferences.travelStyle
+				}
+			};
+
+			setResult({ success: true, itinerary });
+			
+			// Redirect to ai-agent with the itinerary and conversation ID
+			router.push({ 
+				pathname: '/ai-agent', 
+				query: { 
+					itinerary: JSON.stringify(itinerary),
+					conversationId: data.data?.conversationId || `trip_${Date.now()}`
+				} 
+			});
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Network error');
 		} finally {
@@ -485,7 +690,7 @@ export default function PlanTrip() {
 		<>
 			<Head>
 				<title>Plan Trip - Hack-A-Holiday</title>
-				<meta name="description" content="AI-powered travel planning with Claude 4" />
+				<meta name="description" content="AI-powered travel planning assistant" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<link rel="icon" href="/favicon.ico" />
 			</Head>
@@ -503,7 +708,7 @@ export default function PlanTrip() {
 								🌍 Hack-A-Holiday
 							</h1>
 							<p style={{ fontSize: getTitleFontSize(), opacity: 0.9, lineHeight: '1.4' }}>
-								AI-powered trip planning with Claude 4
+								Your intelligent travel planning assistant
 							</p>
 						</div>
 						<div style={{ 
@@ -515,32 +720,13 @@ export default function PlanTrip() {
 						}}>
 							{/* Interactive Globe for Destination Selection - Always visible */}
 							<div style={{ marginBottom: '30px' }}>
-								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '10px' : '0' }}>
+								<div style={{ marginBottom: '15px' }}>
 									<h3 style={{ margin: '0 0 10px 0', fontSize: isMobile ? '1.3rem' : '1.6rem', fontWeight: 'bold', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-										🌍 Choose Your Destination
+										🌍 Select Destination
 									</h3>
 									<p style={{ margin: '0 0 15px 0', color: isDarkMode ? '#9ca3af' : '#666', fontSize: '14px', fontStyle: 'italic' }}>
-										Explore the world and select your perfect travel destination
+										Type locations or click on the globe below
 									</p>
-									<input
-										type="text"
-										value={globeSearchQuery}
-										onChange={(e) => setGlobeSearchQuery(e.target.value)}
-										placeholder="🔍 Search destinations..."
-										style={{ 
-											padding: '12px 20px', 
-											border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9', 
-											borderRadius: '25px', 
-											fontSize: '14px', 
-											width: '100%', 
-											outline: 'none', 
-											marginBottom: '20px', 
-											transition: 'border-color 0.3s ease, box-shadow 0.3s ease', 
-											boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.6)' : '0 2px 8px rgba(0,0,0,0.1)',
-											backgroundColor: isDarkMode ? '#1a1f2e' : 'white',
-											color: isDarkMode ? '#e8eaed' : '#000'
-										}}
-									/>
 								</div>
 								{preferences.destinationData && (
 									<div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', padding: '20px', borderRadius: '16px', marginBottom: '25px', boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)', border: '1px solid rgba(255,255,255,0.2)' }}>
@@ -567,14 +753,210 @@ export default function PlanTrip() {
 										</div>
 									</div>
 								)}
-								<InteractiveGlobe
-									onDestinationSelect={handleDestinationSelect}
-									selectedDestination={preferences.destinationData}
-									searchQuery={globeSearchQuery}
+						{/* Instructions for Globe Selection */}
+						<div style={{ 
+							marginBottom: '20px', 
+							padding: '16px 20px',
+							background: isDarkMode 
+								? 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)' 
+								: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+							border: `2px solid ${isDarkMode ? 'rgba(102, 126, 234, 0.3)' : 'rgba(102, 126, 234, 0.3)'}`,
+							borderRadius: '12px',
+							textAlign: 'center'
+						}}>
+							<div style={{ 
+								fontSize: '1.1rem', 
+								fontWeight: 'bold', 
+								marginBottom: '8px',
+								color: isDarkMode ? '#e8eaed' : '#333'
+							}}>
+								{clickStep === 'source' ? '🛫 Step 1: Click your starting location' : '🛬 Step 2: Click your destination'}
+							</div>
+							<div style={{ 
+								fontSize: '0.95rem', 
+								color: isDarkMode ? '#9ca3af' : '#666'
+							}}>
+								{clickStep === 'source' 
+									? 'Select where you want to travel FROM on the globe below' 
+									: 'Now select where you want to travel TO'}
+							</div>
+						</div>
+						
+						{/* Source and Destination Inputs */}
+						<div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+							{/* Source City Input */}
+							<div>
+								<label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+									🛫 Traveling From
+								</label>
+								<input
+									type="text"
+									value={sourceDestination ? `${sourceDestination.name}, ${sourceDestination.country}` : typedSource}
+									onChange={(e) => {
+										const value = e.target.value;
+										setTypedSource(value);
+										// Clear globe selection if user is typing
+										if (sourceDestination) {
+											setSourceDestination(null);
+										}
+										// Clear route when editing
+										if (routeData) {
+											setRouteData(null);
+										}
+									}}
+									placeholder="Type city or click on globe..."
+									style={{
+										width: '100%',
+										padding: '14px 16px',
+										border: `2px solid ${isDarkMode ? 'rgba(102, 126, 234, 0.5)' : 'rgba(102, 126, 234, 0.5)'}`,
+										borderRadius: '12px',
+										fontSize: '16px',
+										backgroundColor: isDarkMode ? '#1a1f2e' : '#ffffff',
+										color: isDarkMode ? '#e8eaed' : '#000',
+										outline: 'none',
+										transition: 'all 0.3s'
+									}}
 								/>
 							</div>
 							
-							{/* Trip Planning Form */}
+							{/* Destination Input */}
+							<div>
+								<label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+									🛬 Traveling To
+								</label>
+								<input
+									type="text"
+									value={destinationLocation ? `${destinationLocation.name}, ${destinationLocation.country}` : typedDestination}
+									onChange={(e) => {
+										const value = e.target.value;
+										setTypedDestination(value);
+										setPreferences(prev => ({ ...prev, destination: value }));
+										// Clear globe selection if user is typing
+										if (destinationLocation) {
+											setDestinationLocation(null);
+										}
+										// Clear route when editing
+										if (routeData) {
+											setRouteData(null);
+										}
+									}}
+									placeholder="Type city or click on globe..."
+									style={{
+										width: '100%',
+										padding: '14px 16px',
+										border: `2px solid ${isDarkMode ? 'rgba(118, 75, 162, 0.5)' : 'rgba(118, 75, 162, 0.5)'}`,
+										borderRadius: '12px',
+										fontSize: '16px',
+										backgroundColor: isDarkMode ? '#1a1f2e' : '#ffffff',
+										color: isDarkMode ? '#e8eaed' : '#000',
+										outline: 'none',
+										transition: 'all 0.3s'
+									}}
+								/>
+							</div>
+						</div>
+						
+						{/* Action Buttons */}
+						<div style={{ marginBottom: '20px', textAlign: 'center', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+							{/* Show Route Button (for typed inputs) */}
+							{(typedSource.trim() || typedDestination.trim()) && !routeData && (
+								<button
+									type="button"
+									onClick={() => {
+										const source = sourceDestination?.name || typedSource.trim();
+										const dest = destinationLocation?.name || typedDestination.trim();
+										if (source && dest) {
+											fetchRouteCoordinates(source, dest);
+										}
+									}}
+									disabled={!typedSource.trim() || !typedDestination.trim() || loadingRoute}
+									style={{
+										padding: '12px 28px',
+										background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+										color: 'white',
+										border: 'none',
+										borderRadius: '8px',
+										fontSize: '15px',
+										fontWeight: '600',
+										cursor: (!typedSource.trim() || !typedDestination.trim() || loadingRoute) ? 'not-allowed' : 'pointer',
+										transition: 'all 0.3s',
+										opacity: (!typedSource.trim() || !typedDestination.trim() || loadingRoute) ? 0.5 : 1
+									}}
+								>
+									🌍 Show Route on Globe
+								</button>
+							)}
+							
+							{/* Reset Button */}
+							{(sourceDestination || destinationLocation || typedSource || typedDestination) && (
+								<button
+									type="button"
+									onClick={handleResetSelection}
+									style={{
+										padding: '12px 24px',
+										background: isDarkMode ? 'rgba(255,255,255,0.1)' : '#f3f4f6',
+										color: isDarkMode ? '#e8eaed' : '#374151',
+										border: 'none',
+										borderRadius: '8px',
+										fontSize: '14px',
+										fontWeight: '600',
+										cursor: 'pointer',
+										transition: 'all 0.3s'
+									}}
+								>
+									🔄 Reset Selection
+								</button>
+							)}
+						</div>
+						
+						{/* Loading Route Message */}
+						{loadingRoute && (
+							<div style={{
+								padding: '14px 20px',
+								marginBottom: '20px',
+								background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%)',
+								border: '2px solid rgba(102, 126, 234, 0.4)',
+								borderRadius: '12px',
+								color: isDarkMode ? '#a5b4fc' : '#667eea',
+								display: 'flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+								gap: '10px',
+								fontWeight: '600'
+							}}>
+								<span style={{ fontSize: '1.5rem' }}>⏳</span>
+								<span>Fetching route coordinates from AWS Bedrock...</span>
+							</div>
+						)}
+						
+						{/* Route Success Message */}
+						{routeData && !loadingRoute && (
+							<div style={{
+								padding: '14px 20px',
+									marginBottom: '20px',
+									background: 'linear-gradient(135deg, rgba(78, 205, 196, 0.15) 0%, rgba(72, 187, 120, 0.15) 100%)',
+									border: '2px solid rgba(78, 205, 196, 0.4)',
+									borderRadius: '12px',
+									color: isDarkMode ? '#4ecdcc' : '#0d9488',
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+									gap: '10px',
+									fontWeight: '600'
+								}}>
+									<span style={{ fontSize: '1.5rem' }}>✈️</span>
+									<span>Route displayed on globe!</span>
+								</div>
+							)}
+							
+							{/* Interactive Globe */}
+							<InteractiveGlobe
+								onDestinationSelect={handleDestinationSelect}
+								selectedDestination={preferences.destinationData}
+								searchQuery={globeSearchQuery}
+								routeData={routeData}
+							/>
+						</div>							{/* Trip Planning Form */}
 							<form onSubmit={e => e.preventDefault()} style={{ marginTop: '30px' }}>
 								<div style={{ display: 'grid', gridTemplateColumns: getGridColumns(), gap: isMobile ? '15px' : '20px', marginBottom: '25px' }}>
 									<div>

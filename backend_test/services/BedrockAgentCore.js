@@ -2,18 +2,19 @@
  * AWS Bedrock Agent Core Implementation
  * 
  * This implements a full AWS Bedrock Agent with:
- * - Reasoning LLM (Claude) for autonomous decision-making
+ * - Reasoning LLM (AWS Nova Pro) for autonomous decision-making
  * - API integrations (flights, hotels, weather)
  * - Database integration (user preferences, booking history)
  * - External tool integration (web search, calculations)
  * - Autonomous task execution with human-in-the-loop option
  * 
  * Meets AWS Hackathon Requirements:
- * ✅ Amazon Bedrock/Nova for LLM
+ * ✅ Amazon Bedrock/Nova for LLM (Nova Pro + Nova Lite)
  * ✅ Bedrock Agent Core with primitives
- * ✅ Reasoning LLM for decision-making
+ * ✅ Reasoning LLM for decision-making (Nova Pro)
  * ✅ Autonomous capabilities
  * ✅ API, database, and tool integrations
+ * ✅ 100% AWS Native Implementation
  */
 
 const { BedrockAgentRuntimeClient, InvokeAgentCommand, RetrieveAndGenerateCommand } = require('@aws-sdk/client-bedrock-agent-runtime');
@@ -22,6 +23,8 @@ const { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand } = require
 const axios = require('axios');
 const FlightService = require('./FlightService');
 const HotelService = require('./HotelService');
+const TripAdvisorRapidAPIService = require('./TripAdvisorRapidAPIService');
+const GoogleFlightsLinkGenerator = require('./GoogleFlightsLinkGenerator');
 
 class BedrockAgentCore {
   constructor() {
@@ -46,12 +49,18 @@ class BedrockAgentCore {
       amadeuApiSecret: process.env.AMADEUS_API_SECRET
     });
 
+    // Initialize Google Flights link generator
+    this.googleFlights = new GoogleFlightsLinkGenerator();
+
     // Initialize HotelService with real API credentials
     this.hotelService = new HotelService({
       bookingApiKey: process.env.BOOKING_API_KEY,
       bookingApiHost: process.env.BOOKING_API_HOST,
       rapidApiKey: process.env.RAPIDAPI_KEY
     });
+
+    // Initialize TripAdvisor RapidAPI Service
+    this.tripAdvisorService = new TripAdvisorRapidAPIService();
 
     // Rate limiting
     this.lastApiCall = 0;
@@ -61,31 +70,77 @@ class BedrockAgentCore {
     this.agentId = process.env.BEDROCK_AGENT_ID || null;
     this.agentAliasId = process.env.BEDROCK_AGENT_ALIAS_ID || null;
     
-    // Model configuration - Using Claude 3.5 Sonnet v2 (PROVEN WORKING)
-    // Note: Claude Opus 4.1 access granted but model ID format unclear
-    // Using Claude 3.5 Sonnet v2 which provides excellent reasoning
-    this.reasoningModel = process.env.REASONING_MODEL || 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'; // Claude 3.5 Sonnet v2 ✅ WORKING
+    // Model configuration - Using AWS Nova Pro & Nova Lite ONLY
+    // Nova Pro provides excellent reasoning and is AWS-native
+    // Nova Lite for fast, simple queries
+    this.reasoningModel = process.env.REASONING_MODEL || 'us.amazon.nova-pro-v1:0'; // Nova Pro ✅
+    this.fastModel = process.env.FAST_MODEL || 'us.amazon.nova-pro-v1:0'; // Use Nova Pro for fast model until Nova Lite is enabled
     
-    // Alternative models for different use cases  
-    this.sonnetModel = 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'; // Claude 3.5 Sonnet v2 ✅
-    this.fastModel = 'us.anthropic.claude-sonnet-4-20250514-v1:0';   // Claude Sonnet 4 ✅
-
     // Agent tools registry
     this.tools = this.initializeTools();
     
     // Session storage for multi-turn conversations
     this.sessions = new Map();
 
-    console.log('🤖 Bedrock Agent Core initialized');
-    console.log(`🧠 Reasoning Model (Primary): ${this.reasoningModel} (Claude 3.5 Sonnet v2)`);
-    console.log(`⚡ Sonnet Model (Backup): ${this.sonnetModel} (Claude 3.5 Sonnet v2)`);
-    console.log(`🚀 Fast Model: ${this.fastModel} (Claude Sonnet 4)`);
+    console.log('🤖 Bedrock Agent Core initialized with AWS Nova Models');
+    console.log(`🧠 Reasoning Model (Complex queries): ${this.reasoningModel}`);
+    console.log(`⚡ Fast Model (Simple queries): ${this.fastModel}`);
     console.log('');
     console.log('📋 Model Selection Strategy:');
-    console.log('   • Claude 3.5 Sonnet v2: Advanced reasoning, tool calling, multi-step planning ✅ WORKING');
-    console.log('   • Claude Sonnet 4: Alternative fast model ✅');
-    console.log('   • Note: Claude Opus 4.1 access granted but requires inference profile setup');
+    console.log('   • Nova Pro: Advanced reasoning, tool calling, multi-step planning ✅');
+    console.log('   • Nova Lite: Fast responses for simple queries ✅');
+    console.log('   • 100% AWS Native - No Claude models used');
     console.log('');
+  }
+
+  /**
+   * Invoke model with automatic fallback mechanism
+   */
+  async invokeModelWithFallback(modelId, messages, systemPrompt = null, toolConfig = null, inferenceConfig = null) {
+    const primaryModel = modelId || this.reasoningModel;
+    const fallbackModel = this.reasoningModelFallback;
+    
+    try {
+      console.log(`🤖 Invoking primary model: ${primaryModel}`);
+      
+      const command = new ConverseCommand({
+        modelId: primaryModel,
+        messages: messages,
+        inferenceConfig: inferenceConfig || { maxTokens: 4000, temperature: 0.7 }
+      });
+      
+      if (systemPrompt) command.system = systemPrompt;
+      if (toolConfig) command.toolConfig = toolConfig;
+      
+      const response = await this.bedrockRuntime.send(command);
+      console.log(`✅ Primary model ${primaryModel} successful`);
+      return response;
+    } catch (error) {
+      if (error.name === 'AccessDeniedException' || error.message.includes('access') || error.message.includes('403')) {
+        console.log(`⚠️ Primary model ${primaryModel} access denied, trying fallback: ${fallbackModel}`);
+        
+        try {
+          const fallbackCommand = new ConverseCommand({
+            modelId: fallbackModel,
+            messages: messages,
+            inferenceConfig: inferenceConfig || { maxTokens: 4000, temperature: 0.7 }
+          });
+          
+          if (systemPrompt) fallbackCommand.system = systemPrompt;
+          if (toolConfig) fallbackCommand.toolConfig = toolConfig;
+          
+          const fallbackResponse = await this.bedrockRuntime.send(fallbackCommand);
+          console.log(`✅ Fallback model ${fallbackModel} successful`);
+          return fallbackResponse;
+        } catch (fallbackError) {
+          console.error(`❌ Both models failed. Primary: ${primaryModel}, Fallback: ${fallbackModel}`);
+          throw fallbackError;
+        }
+      } else {
+        console.error(`❌ Error invoking model ${primaryModel}:`, error.message);
+        throw error;
+      }
+    }
   }
 
   /**
@@ -235,6 +290,52 @@ class BedrockAgentCore {
             }
           },
           required: ['optionType', 'options']
+        }
+      },
+      {
+        name: 'search_attractions',
+        description: 'Search for attractions and points of interest near a location using TripAdvisor data.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            location: { type: 'string', description: 'City or location name' },
+            limit: { type: 'number', description: 'Maximum number of attractions to return (default: 5)' }
+          },
+          required: ['location']
+        }
+      },
+      {
+        name: 'search_restaurants',
+        description: 'Search for restaurants near a location using TripAdvisor data.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            location: { type: 'string', description: 'City or location name' },
+            limit: { type: 'number', description: 'Maximum number of restaurants to return (default: 5)' }
+          },
+          required: ['location']
+        }
+      },
+      {
+        name: 'get_attraction_details',
+        description: 'Get detailed information about a specific attraction including reviews and media.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            contentId: { type: 'string', description: 'TripAdvisor content ID of the attraction' }
+          },
+          required: ['contentId']
+        }
+      },
+      {
+        name: 'get_restaurant_details',
+        description: 'Get detailed information about a specific restaurant including reviews and media.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            contentId: { type: 'string', description: 'TripAdvisor content ID of the restaurant' }
+          },
+          required: ['contentId']
         }
       }
     ];
@@ -481,6 +582,18 @@ Respond in JSON format with:
         case 'compare_options':
           return await this.compareOptions(input);
         
+        case 'search_attractions':
+          return await this.searchAttractions(input);
+        
+        case 'search_restaurants':
+          return await this.searchRestaurants(input);
+        
+        case 'get_attraction_details':
+          return await this.getAttractionDetails(input);
+        
+        case 'get_restaurant_details':
+          return await this.getRestaurantDetails(input);
+        
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
@@ -522,32 +635,47 @@ Respond in JSON format with:
       
       if (results.success && results.flights && results.flights.length > 0) {
         // Format flights for agent response
-        const formattedFlights = results.flights.slice(0, 5).map(flight => ({
-          id: flight.id,
-          airline: flight.airline || flight.marketingAirline,
-          airlines: flight.airline || flight.marketingAirline,
-          flightNumber: flight.flightNumber,
-          price: Math.round(flight.price),
-          currency: flight.currency,
-          duration: flight.duration,
-          durationFormatted: flight.duration,
-          durationMinutes: flight.durationMinutes,
-          stops: flight.stops,
-          stopsText: flight.stops === 0 ? 'Direct' : `${flight.stops} stop(s)`,
-          origin: flight.origin,
-          destination: flight.destination,
-          departureTime: flight.departureTime,
-          arrivalTime: flight.arrivalTime,
-          route: `${flight.origin} → ${flight.destination}`,
-          cabinClass: flight.cabinClass,
-          baggage: flight.baggage,
-          amenities: {
-            wifi: flight.wifiAvailable,
-            power: flight.powerOutlets,
-            entertainment: flight.entertainment,
-            meal: flight.mealIncluded
-          }
-        }));
+        const formattedFlights = results.flights.slice(0, 5).map(flight => {
+          // Generate Google Flights link for this specific flight
+          const googleFlightsUrl = this.googleFlights.generateFromFlightResult(flight);
+          
+          return {
+            id: flight.id,
+            airline: flight.airline || flight.marketingAirline,
+            airlines: flight.airline || flight.marketingAirline,
+            flightNumber: flight.flightNumber,
+            price: Math.round(flight.price),
+            currency: flight.currency,
+            duration: flight.duration,
+            durationFormatted: flight.duration,
+            durationMinutes: flight.durationMinutes,
+            stops: flight.stops,
+            stopsText: flight.stops === 0 ? 'Direct' : `${flight.stops} stop(s)`,
+            origin: flight.origin,
+            destination: flight.destination,
+            departureTime: flight.departureTime,
+            arrivalTime: flight.arrivalTime,
+            route: `${flight.origin} → ${flight.destination}`,
+            cabinClass: flight.cabinClass,
+            baggage: flight.baggage,
+            amenities: {
+              wifi: flight.wifiAvailable,
+              power: flight.powerOutlets,
+              entertainment: flight.entertainment,
+              meal: flight.mealIncluded
+            },
+            googleFlightsUrl: googleFlightsUrl  // Add Google Flights link
+          };
+        });
+
+        // Also generate a general search URL for the route
+        const generalSearchUrl = this.googleFlights.generateSearchUrl({
+          from: params.origin,
+          to: params.destination,
+          departDate: params.departDate,
+          returnDate: params.returnDate,
+          adults: params.passengers || 1
+        });
 
         return {
           success: true,
@@ -556,7 +684,8 @@ Respond in JSON format with:
           provider: results.provider,
           recommendations: results.recommendations,
           searchId: results.searchId,
-          currency: results.currency
+          currency: results.currency,
+          googleFlightsSearchUrl: generalSearchUrl  // General search URL
         };
       }
 
@@ -876,6 +1005,108 @@ Format as JSON with structure:
     return comparison;
   }
 
+  async searchAttractions(params) {
+    console.log('🏛️ Searching attractions using TripAdvisor:', params);
+    
+    try {
+      const limit = params.limit || 5;
+      const attractions = await this.tripAdvisorService.getAttractionsNearby(params.location, limit);
+      
+      return {
+        success: true,
+        location: params.location,
+        attractions: attractions,
+        count: attractions.length,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error searching attractions:', error);
+      return {
+        success: false,
+        error: error.message,
+        location: params.location,
+        attractions: []
+      };
+    }
+  }
+
+  async searchRestaurants(params) {
+    console.log('🍽️ Searching restaurants using TripAdvisor:', params);
+    
+    try {
+      const limit = params.limit || 5;
+      const restaurants = await this.tripAdvisorService.getRestaurantsNearby(params.location, limit);
+      
+      return {
+        success: true,
+        location: params.location,
+        restaurants: restaurants,
+        count: restaurants.length,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error searching restaurants:', error);
+      return {
+        success: false,
+        error: error.message,
+        location: params.location,
+        restaurants: []
+      };
+    }
+  }
+
+  async getAttractionDetails(params) {
+    console.log('🏛️ Getting attraction details:', params);
+    
+    try {
+      const details = await this.tripAdvisorService.getAttractionDetails(params.contentId);
+      const reviews = await this.tripAdvisorService.getAttractionReviews(params.contentId);
+      const media = await this.tripAdvisorService.getAttractionMedia(params.contentId);
+      
+      return {
+        success: true,
+        contentId: params.contentId,
+        details: details,
+        reviews: reviews,
+        media: media,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error getting attraction details:', error);
+      return {
+        success: false,
+        error: error.message,
+        contentId: params.contentId
+      };
+    }
+  }
+
+  async getRestaurantDetails(params) {
+    console.log('🍽️ Getting restaurant details:', params);
+    
+    try {
+      const details = await this.tripAdvisorService.getRestaurantDetails(params.contentId);
+      const reviews = await this.tripAdvisorService.getRestaurantReviews(params.contentId);
+      const media = await this.tripAdvisorService.getRestaurantMedia(params.contentId);
+      
+      return {
+        success: true,
+        contentId: params.contentId,
+        details: details,
+        reviews: reviews,
+        media: media,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error getting restaurant details:', error);
+      return {
+        success: false,
+        error: error.message,
+        contentId: params.contentId
+      };
+    }
+  }
+
   /**
    * Generate final response with reasoning
    */
@@ -1114,9 +1345,9 @@ Keep responses concise and engaging. If users need specific flight/hotel data, l
       
       this.lastApiCall = Date.now();
 
-      // Single API call - no tool calling
+      // Single API call - use fast Nova Lite model for simple queries
       const response = await this.bedrockRuntime.send(new ConverseCommand({
-        modelId: this.reasoningModel,
+        modelId: this.fastModel, // Use Nova Lite for speed
         messages: messages,
         system: systemPrompt,
         inferenceConfig: {
@@ -1138,12 +1369,15 @@ Keep responses concise and engaging. If users need specific flight/hotel data, l
       console.log('✅ Simple chat response generated');
       console.log(`📏 Response length: ${responseText.length} characters`);
 
+      // Format the response for better readability
+      const formattedResponse = this.formatResponse(responseText);
+
       return {
         success: true,
-        response: responseText,
+        response: formattedResponse,
         toolsUsed: [],
         toolResults: [],
-        model: this.reasoningModel,
+        model: this.fastModel, // Nova Lite for simple queries
         sessionId: session.sessionId,
         agentMode: false,
         simpleMode: true
@@ -1259,7 +1493,7 @@ Say things like:
 This makes you feel like a REAL AGENT, not just a chatbot!`
       }];
 
-      // Define tools for Claude to use (function calling)
+      // Define tools for Nova Pro to use (function calling)
       const tools = this.tools.map(tool => ({
         toolSpec: {
           name: tool.name,
@@ -1270,8 +1504,8 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
         }
       }));
 
-      // First call - Claude decides which tools to use
-      console.log('🧠 Agent analyzing request and planning actions...');
+      // First call - Nova Pro decides which tools to use
+      console.log('🧠 Agent analyzing request and planning actions with Nova Pro...');
       
       // Rate limiting - wait if needed
       const now = Date.now();
@@ -1284,23 +1518,19 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
       
       this.lastApiCall = Date.now();
       
-      const initialResponse = await this.bedrockRuntime.send(new ConverseCommand({
-        modelId: this.reasoningModel,
-        messages: messages,
-        system: systemPrompt,
-        toolConfig: { tools },
-        inferenceConfig: {
-          maxTokens: 4000,
-          temperature: 0.7,
-          topP: 0.9
-        }
-      }));
+      const initialResponse = await this.invokeModelWithFallback(
+        this.reasoningModel,
+        messages,
+        systemPrompt,
+        { tools },
+        { maxTokens: 4000, temperature: 0.7, topP: 0.9 }
+      );
 
       let responseMessage = initialResponse.output.message;
       let agentResponse = '';
       let toolResults = [];
 
-      // Check if Claude wants to use tools
+      // Check if Nova Pro wants to use tools
       if (responseMessage.content) {
         for (const content of responseMessage.content) {
           if (content.text) {
@@ -1364,17 +1594,13 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
         
         this.lastApiCall = Date.now();
         
-        const finalResponse = await this.bedrockRuntime.send(new ConverseCommand({
-          modelId: this.reasoningModel,
-          messages: messages,
-          system: systemPrompt,
-          toolConfig: { tools },
-          inferenceConfig: {
-            maxTokens: 4000,
-            temperature: 0.7,
-            topP: 0.9
-          }
-        }));
+        const finalResponse = await this.invokeModelWithFallback(
+          this.reasoningModel,
+          messages,
+          systemPrompt,
+          { tools },
+          { maxTokens: 4000, temperature: 0.7, topP: 0.9 }
+        );
 
         // Extract final text response
         agentResponse = ''; // Reset to ensure clean extraction
@@ -1389,7 +1615,7 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
 
         // If still no response, create one from tool results
         if (!agentResponse || agentResponse.trim().length === 0) {
-          console.log('⚠️ No text response from Claude, synthesizing from tool results...');
+          console.log('⚠️ No text response from Nova Pro, synthesizing from tool results...');
           agentResponse = this.synthesizeResponseFromTools(toolResults, message);
         }
       }
@@ -1404,9 +1630,12 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
         agentResponse = 'I found some information for you, but I\'m having trouble formatting my response. Let me try again - what specific aspect would you like me to focus on?';
       }
 
+      // Format the response for better readability
+      const formattedResponse = this.formatResponse(agentResponse);
+
       return {
         success: true,
-        response: agentResponse,
+        response: formattedResponse,
         toolsUsed: toolResults.map(t => t.toolName),
         toolResults: toolResults,
         model: this.reasoningModel,
@@ -1478,103 +1707,196 @@ Please try again in a few seconds! I apologize for the inconvenience.`,
   }
 
   /**
-   * Synthesize a response from tool results when Claude doesn't provide text
+   * Format response text for better readability
+   * Ensures proper markdown formatting, spacing, and structure
+   */
+  formatResponse(text) {
+    if (!text) return '';
+    
+    // Clean up excessive newlines
+    text = text.replace(/\n{4,}/g, '\n\n\n');
+    
+    // Ensure proper spacing after headers
+    text = text.replace(/^(#{1,6} .+)$/gm, '$1\n');
+    
+    // Ensure proper spacing around lists
+    text = text.replace(/([^\n])\n([\-\*])/g, '$1\n\n$2');
+    
+    // Format prices consistently
+    text = text.replace(/\$(\d+)\.00/g, '$$$1');
+    text = text.replace(/\$\s+(\d+)/g, '$$$1');
+    
+    // Format bullet points consistently
+    text = text.replace(/^[\-\*]\s+/gm, '- ');
+    
+    // Trim and return
+    return text.trim();
+  }
+
+  /**
+   * Synthesize a response from tool results when Nova Pro doesn't provide text
+   * Creates a formatted, readable response from raw tool data
    */
   synthesizeResponseFromTools(toolResults, originalMessage) {
-    console.log('🔨 Synthesizing response from tool results...');
+    console.log('Synthesizing formatted response from tool results...');
 
-    let response = 'Based on your request, here\'s what I found:\n\n';
+    let response = '**Search Results:**\n\n';
 
     for (const toolResult of toolResults) {
       const { toolName, result } = toolResult;
 
       if (toolName === 'search_flights' && result.flights) {
-        response += '✈️ **Flight Options:**\n\n';
-        result.flights.slice(0, 3).forEach((flight, idx) => {
-          const price = typeof flight.price === 'number' ? Math.round(flight.price) : flight.price;
-          const duration = flight.durationFormatted || 
-                          (flight.duration ? `${Math.floor(flight.duration / 60)}h ${flight.duration % 60}m` : 'N/A');
-          const airline = flight.airlines || flight.airline || 'Airlines';
-          const stops = flight.stopsText || (flight.stops === 0 ? 'Direct' : `${flight.stops} stop(s)`);
+        response += '---\n\n## Flight Options\n\n';
+        
+        if (result.flights.length === 0) {
+          response += '_No flights found for this route. Try adjusting your dates or destination._\n\n';
+        } else {
+          result.flights.slice(0, 3).forEach((flight, idx) => {
+            const price = typeof flight.price === 'number' ? Math.round(flight.price) : flight.price;
+            const duration = flight.durationFormatted || 
+                            (flight.duration ? `${Math.floor(flight.duration / 60)}h ${flight.duration % 60}m` : 'N/A');
+            const airline = flight.airlines || flight.airline || 'Airlines';
+            const stops = flight.stopsText || (flight.stops === 0 ? 'Direct' : `${flight.stops} stop(s)`);
+            
+            response += `### ${idx + 1}. ${airline}\n`;
+            response += `**Price:** $${price} ${flight.currency || 'USD'}\n`;
+            response += `**Duration:** ${duration}\n`;
+            response += `**Stops:** ${stops}\n`;
+            if (flight.route) response += `**Route:** ${flight.route}\n`;
+            if (flight.departureTime) response += `**Departure:** ${flight.departureTime}\n`;
+            if (flight.arrivalTime) response += `**Arrival:** ${flight.arrivalTime}\n`;
+            if (flight.cabinClass) response += `**Class:** ${flight.cabinClass}\n`;
+            response += '\n';
+          });
           
-          response += `${idx + 1}. **${airline}** - $${price}\n`;
-          response += `   • Duration: ${duration}\n`;
-          response += `   • ${stops}\n`;
-          if (flight.route) response += `   • Route: ${flight.route}\n`;
-          response += '\n';
-        });
+          if (result.flights.length > 3) {
+            response += `_... and ${result.flights.length - 3} more option(s) available_\n\n`;
+          }
+        }
       }
 
       if (toolName === 'get_destination_info' && result.name) {
-        response += `\n🌍 **About ${result.name}:**\n\n`;
-        if (result.weather) response += `• **Weather:** ${result.weather}\n`;
-        if (result.bestTime) response += `• **Best time to visit:** ${result.bestTime}\n`;
-        if (result.attractions) {
-          response += `• **Top attractions:** ${result.attractions.slice(0, 3).join(', ')}\n`;
+        response += `---\n\n## Destination: ${result.name}\n\n`;
+        
+        if (result.weather) response += `**Weather:** ${result.weather}\n`;
+        if (result.bestTime) response += `**Best Time to Visit:** ${result.bestTime}\n`;
+        if (result.currency) response += `**Currency:** ${result.currency}\n`;
+        if (result.language) response += `**Language:** ${result.language}\n`;
+        if (result.timezone) response += `**Timezone:** ${result.timezone}\n`;
+        
+        if (result.attractions && result.attractions.length > 0) {
+          response += `\n**Top Attractions:**\n`;
+          result.attractions.slice(0, 5).forEach(attraction => {
+            response += `  - ${attraction}\n`;
+          });
         }
-        if (result.tips) {
-          response += `• **Travel tips:** ${result.tips.slice(0, 2).join(', ')}\n`;
+        
+        if (result.tips && result.tips.length > 0) {
+          response += `\n**Travel Tips:**\n`;
+          result.tips.slice(0, 3).forEach(tip => {
+            response += `  - ${tip}\n`;
+          });
         }
         response += '\n';
       }
 
       if (toolName === 'search_hotels' && result.hotels) {
-        response += '\n🏨 **Hotel Options:**\n\n';
-        result.hotels.slice(0, 3).forEach((hotel, idx) => {
-          const pricePerNight = typeof hotel.pricePerNight === 'number' ? Math.round(hotel.pricePerNight) : hotel.pricePerNight;
-          const totalPrice = hotel.totalPrice ? (typeof hotel.totalPrice === 'number' ? Math.round(hotel.totalPrice) : hotel.totalPrice) : null;
-          const rating = hotel.rating ? parseFloat(hotel.rating).toFixed(1) : '7.5';
-          const reviewCount = hotel.reviewCount || '';
+        response += '---\n\n## Hotel Options\n\n';
+        
+        if (result.hotels.length === 0) {
+          response += '_No hotels found for this destination. Try adjusting your dates or location._\n\n';
+        } else {
+          result.hotels.slice(0, 3).forEach((hotel, idx) => {
+            const pricePerNight = typeof hotel.pricePerNight === 'number' ? Math.round(hotel.pricePerNight) : hotel.pricePerNight;
+            const totalPrice = hotel.totalPrice ? (typeof hotel.totalPrice === 'number' ? Math.round(hotel.totalPrice) : hotel.totalPrice) : null;
+            const rating = hotel.rating ? parseFloat(hotel.rating).toFixed(1) : '7.5';
+            const reviewCount = hotel.reviewCount || '';
+            
+            response += `### ${idx + 1}. ${hotel.name}\n`;
+            response += `**Price:** $${pricePerNight}/night`;
+            if (totalPrice) response += ` (Total: $${totalPrice})`;
+            response += '\n';
+            response += `**Rating:** ${rating}/10`;
+            if (reviewCount) response += ` (${reviewCount} reviews)`;
+            response += '\n';
+            
+            if (hotel.address) {
+              response += `**Location:** ${hotel.address}\n`;
+            }
+            
+            if (hotel.distanceFromCenter) {
+              response += `**Distance from center:** ${hotel.distanceFromCenter}\n`;
+            }
+            
+            if (hotel.propertyType) {
+              response += `**Type:** ${hotel.propertyType}\n`;
+            }
+            
+            if (hotel.amenities && hotel.amenities.length > 0) {
+              response += `**Amenities:** ${hotel.amenities.slice(0, 4).join(', ')}\n`;
+            }
+            
+            const perks = [];
+            if (hotel.freeCancellation) perks.push('Free cancellation');
+            if (hotel.breakfastIncluded) perks.push('Breakfast included');
+            if (perks.length > 0) {
+              response += `**Perks:** ${perks.join(' • ')}\n`;
+            }
+            
+            response += '\n';
+          });
           
-          response += `${idx + 1}. **${hotel.name}**\n`;
-          response += `   • Price: $${pricePerNight}/night`;
-          if (totalPrice) response += ` (Total: $${totalPrice})`;
-          response += '\n';
-          response += `   • Rating: ${rating}⭐`;
-          if (reviewCount) response += ` (${reviewCount} reviews)`;
-          response += '\n';
-          
-          if (hotel.distanceFromCenter) {
-            response += `   • Distance: ${hotel.distanceFromCenter}\n`;
+          if (result.hotels.length > 3) {
+            response += `_... and ${result.hotels.length - 3} more hotel(s) available_\n\n`;
           }
-          
-          if (hotel.amenities && hotel.amenities.length > 0) {
-            response += `   • Amenities: ${hotel.amenities.slice(0, 3).join(', ')}\n`;
-          }
-          
-          if (hotel.freeCancellation) {
-            response += `   • ✅ Free cancellation\n`;
-          }
-          
-          if (hotel.breakfastIncluded) {
-            response += `   • 🍳 Breakfast included\n`;
-          }
-          
-          response += '\n';
-        });
+        }
       }
 
-      if (toolName === 'calculate_trip_budget' && result.totalCost) {
-        const total = typeof result.totalCost === 'number' ? Math.round(result.totalCost) : result.totalCost;
-        response += `\n💰 **Estimated Budget: $${total}**\n\n`;
+      if (toolName === 'calculate_trip_budget' && result.total) {
+        const total = typeof result.total === 'number' ? Math.round(result.total) : result.total;
+        const perPerson = result.perPerson ? (typeof result.perPerson === 'number' ? Math.round(result.perPerson) : result.perPerson) : null;
+        
+        response += '---\n\n## Trip Budget Estimate\n\n';
+        response += `**Total Cost:** $${total} ${result.currency || 'USD'}\n`;
+        if (perPerson) response += `**Per Person:** $${perPerson}\n`;
+        if (result.travelStyle) response += `**Travel Style:** ${result.travelStyle}\n`;
+        
         if (result.breakdown) {
-          response += '**Breakdown:**\n';
+          response += '\n**Breakdown:**\n';
+          const icons = {
+            flights: '•',
+            accommodation: '•',
+            hotel: '•',
+            hotels: '•',
+            dailyExpenses: '•',
+            food: '•',
+            activities: '•',
+            transport: '•',
+            subtotal: '•'
+          };
+          
           for (const [category, amount] of Object.entries(result.breakdown)) {
             const formattedAmount = typeof amount === 'number' ? Math.round(amount) : amount;
-            const capitalizedCategory = category.charAt(0).toUpperCase() + category.slice(1);
-            response += `• ${capitalizedCategory}: $${formattedAmount}\n`;
+            const capitalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).replace(/([A-Z])/g, ' $1');
+            const icon = icons[category] || '•';
+            response += `  ${icon} **${capitalizedCategory}:** $${formattedAmount}\n`;
           }
         }
         response += '\n';
       }
     }
 
-    response += '\nWould you like me to:\n';
-    response += '• Get more details about any option?\n';
-    response += '• Search for hotels or accommodations?\n';
-    response += '• Create a complete itinerary?\n';
+    response += '---\n\n## Next Steps\n\n';
+    response += 'I can help you with:\n\n';
+    response += '• Get more details about specific options\n';
+    response += '• Search for hotels or accommodations\n';
+    response += '• Create a detailed day-by-day itinerary\n';
+    response += '• Check visa requirements\n';
+    response += '• Get weather forecasts\n';
+    response += '• View travel alerts and safety info\n\n';
+    response += '_What would you like to explore next?_\n';
 
-    return response;
+    return this.formatResponse(response);
   }
 
   /**
@@ -1589,3 +1911,4 @@ Please try again in a few seconds! I apologize for the inconvenience.`,
 }
 
 module.exports = BedrockAgentCore;
+

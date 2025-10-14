@@ -17,6 +17,7 @@ import { useDarkMode } from '../contexts/DarkModeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { tripTrackingService } from '../services/trip-tracking';
 import { BookingConfirmationModal } from './BookingConfirmationModal';
+import Swal from 'sweetalert2';
 
 // Add CSS animation for spinner
 const spinKeyframes = `
@@ -105,7 +106,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<'price-asc' | 'price-desc' | 'duration-asc' | 'duration-desc' | 'departure-asc' | 'recommended'>('recommended');
-  const [useRealData, setUseRealData] = useState(false);
+  const [useRealData, setUseRealData] = useState(true); // Always use real data
   const [kiwiApiService] = useState(() => new KiwiApiService());
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -130,6 +131,19 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   // Trip tracking confirmation state
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [pendingBookingData, setPendingBookingData] = useState<any>(null);
+
+  // Helper function to generate Google Flights URL with pre-filled search
+  const generateGoogleFlightsUrl = (flight: FlightOption): string => {
+    // Use the most reliable Google Flights format that works consistently
+    const origin = flight.departure.airport;
+    const destination = flight.arrival.airport;
+    const date = flight.departure.date;
+    
+    // Format: /travel/flights with query parameter
+    // This is the most reliable format that actually works
+    const query = `${origin} to ${destination} ${date}`;
+    return `https://www.google.com/travel/flights?q=${encodeURIComponent(query)}`;
+  };
 
   // Helper function to generate airline booking URLs with specific flight details
   const getAirlineBookingUrl = (flight: FlightOption): string => {
@@ -579,6 +593,25 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
             request.returnDate // Pass return date for round-trip searches
           );
           console.log('Kiwi API Response:', kiwiResponse);
+
+          // Check if Google Flights fallback was used (returns null)
+          if (kiwiResponse === null) {
+            console.log('🌐 Google Flights fallback was triggered');
+            Swal.fire({
+              title: 'Opening Google Flights',
+              html: `
+                <p>We couldn't find flights in our database for this route.</p>
+                <p><strong>We've opened Google Flights in a new tab</strong> with your search details pre-filled.</p>
+                <p>Route: ${request.origin} → ${request.destination}</p>
+                <p>Date: ${request.departureDate}${request.returnDate ? ` - ${request.returnDate}` : ''}</p>
+              `,
+              icon: 'info',
+              confirmButtonText: 'OK',
+              timer: 6000
+            });
+            setLoading(false);
+            return;
+          }
 
           if (kiwiResponse.itineraries && kiwiResponse.itineraries.length > 0) {
             const realFlights = kiwiResponse.itineraries
@@ -1843,77 +1876,27 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
           )}
         </button>
 
-        {/* Real-Time Data Toggle */}
+        {/* Real-Time Data Indicator (always enabled) */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '16px',
-          background: useRealData ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : '#f8f9fa',
+          justifyContent: 'center',
+          padding: '12px 16px',
+          background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
           borderRadius: '12px',
           marginTop: '20px',
-          border: useRealData ? '2px solid #28a745' : '2px solid #e1e5e9',
+          border: '2px solid #28a745',
           transition: 'all 0.3s ease'
         }}>
-          <div style={{ flex: 1 }}>
-            <div style={{
-              fontWeight: '600',
-              color: useRealData ? 'white' : '#495057',
-              marginBottom: '4px',
-              fontSize: '16px'
-            }}>
-              {useRealData ? '🌐 Real-Time Flight Data' : '📝 Mock Flight Data'}
-            </div>
-            <div style={{
-              fontSize: '13px',
-              color: useRealData ? 'rgba(255,255,255,0.9)' : '#6c757d',
-              lineHeight: '1.4'
-            }}>
-              {useRealData 
-                ? 'Searching live flights from Kiwi.com API with real pricing and availability'
-                : 'Using simulated flight data for testing purposes'}
-            </div>
-          </div>
-          <button
-            onClick={handleRealDataToggle}
-            style={{
-              padding: '10px 20px',
-              background: useRealData ? (isDarkMode ? '#252d3d' : 'white') : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: useRealData ? (isDarkMode ? '#10b981' : '#28a745') : 'white',
-              border: isDarkMode && useRealData ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.6)' : '0 2px 8px rgba(0,0,0,0.15)',
-              whiteSpace: 'nowrap'
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLElement).style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLElement).style.transform = 'scale(1)';
-            }}
-          >
-            {useRealData ? '📝 Use Mock Data' : '🌐 Use Real Data'}
-          </button>
-        </div>
-
-        {useRealData && (
           <div style={{
-            padding: '12px 16px',
-            background: isDarkMode ? 'rgba(251, 191, 36, 0.15)' : '#fff3cd',
-            border: isDarkMode ? '1px solid rgba(251, 191, 36, 0.3)' : '1px solid #ffc107',
-            borderRadius: '8px',
-            marginTop: '15px',
-            fontSize: '13px',
-            color: isDarkMode ? '#fbbf24' : '#856404'
+            fontWeight: '600',
+            color: 'white',
+            fontSize: '14px',
+            textAlign: 'center'
           }}>
-            ⚠️ <strong>Note:</strong> Real-time data requires a valid RapidAPI key for Kiwi.com API. 
-            {!process.env.NEXT_PUBLIC_RAPIDAPI_KEY && ' (API key not configured)'}
+            🌐 Real-Time Flight Data • Live pricing and availability
           </div>
-        )}
+        </div>
       </div>
 
       {showFilters && (
@@ -2849,7 +2832,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                     </div>
                   </div>
                   
-                  <div style={{ marginLeft: '20px' }}>
+                  <div style={{ marginLeft: '20px', display: 'flex', gap: '10px', flexDirection: 'column' }}>
                     <button 
                       onClick={() => handleBookFlight(flight)}
                       style={{
@@ -2861,7 +2844,8 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                         fontWeight: '600',
                         cursor: 'pointer',
                         fontSize: '14px',
-                        transition: 'all 0.2s ease'
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap'
                       }}
                       onMouseEnter={(e) => {
                         (e.target as HTMLElement).style.transform = 'translateY(-2px)';
@@ -2873,6 +2857,31 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                       }}
                     >
                       🎫 Book Flight
+                    </button>
+                    <button 
+                      onClick={() => window.open(generateGoogleFlightsUrl(flight), '_blank', 'noopener,noreferrer')}
+                      style={{
+                        background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'white',
+                        color: isDarkMode ? 'white' : '#667eea',
+                        border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.2)' : '2px solid #667eea',
+                        padding: '10px 16px',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap'
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.target as HTMLElement).style.transform = 'translateY(-2px)';
+                        (e.target as HTMLElement).style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.target as HTMLElement).style.transform = 'translateY(0)';
+                        (e.target as HTMLElement).style.boxShadow = 'none';
+                      }}
+                    >
+                      🔍 Google Flights
                     </button>
                   </div>
                 </div>
@@ -2893,6 +2902,84 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                     </span>
                     {flight.refundable && <span style={{ marginRight: '15px' }}>💰 Refundable</span>}
                     {flight.changeable && <span>🔄 Changeable</span>}
+                  </div>
+                )}
+                
+                {/* Grouped Dates Display */}
+                {flight.availableDates && flight.availableDates.length > 1 && (
+                  <div style={{ 
+                    marginTop: '15px', 
+                    padding: '15px', 
+                    background: isDarkMode ? 'rgba(102, 126, 234, 0.08)' : 'rgba(102, 126, 234, 0.05)', 
+                    borderRadius: '10px',
+                    border: isDarkMode ? '1px solid rgba(102, 126, 234, 0.2)' : '1px solid rgba(102, 126, 234, 0.15)'
+                  }}>
+                    <div style={{ 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      color: isDarkMode ? '#8b9cff' : '#667eea',
+                      marginBottom: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      📅 Multiple Dates Available
+                      {flight.priceRange && (
+                        <span style={{ 
+                          fontSize: '11px', 
+                          fontWeight: '500', 
+                          color: isDarkMode ? '#9ca3af' : '#6c757d',
+                          marginLeft: 'auto'
+                        }}>
+                          ${flight.priceRange.min} - ${flight.priceRange.max}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
+                      gap: '8px'
+                    }}>
+                      {flight.availableDates.map((dateOption: any, idx: number) => (
+                        <div key={idx} style={{ 
+                          padding: '8px 10px', 
+                          background: idx === 0 
+                            ? (isDarkMode ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
+                            : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'white'),
+                          borderRadius: '6px',
+                          border: idx === 0 
+                            ? '1px solid #10b981'
+                            : (isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e9ecef'),
+                          fontSize: '11px',
+                          position: 'relative'
+                        }}>
+                          {idx === 0 && (
+                            <div style={{ 
+                              position: 'absolute', 
+                              top: '-6px', 
+                              right: '4px', 
+                              background: '#10b981', 
+                              color: 'white',
+                              fontSize: '9px',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontWeight: '600'
+                            }}>
+                              BEST
+                            </div>
+                          )}
+                          <div style={{ color: isDarkMode ? '#e8eaed' : '#495057', fontWeight: '600' }}>
+                            {new Date(dateOption.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </div>
+                          <div style={{ color: isDarkMode ? '#9ca3af' : '#6c757d', marginTop: '2px' }}>
+                            {dateOption.time} • {dateOption.duration}
+                          </div>
+                          <div style={{ color: '#10b981', fontWeight: '700', marginTop: '4px' }}>
+                            ${dateOption.price}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

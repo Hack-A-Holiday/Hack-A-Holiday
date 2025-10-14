@@ -1,24 +1,34 @@
 const express = require('express');
 const router = express.Router();
-const ComprehensiveAIAgent = require('../services/ComprehensiveAIAgent');
+const IntegratedAITravelAgent = require('../services/IntegratedAITravelAgent');
 
-// Initialize the comprehensive AI agent
-const aiAgent = new ComprehensiveAIAgent();
+// Initialize the integrated AI travel agent
+const aiAgent = new IntegratedAITravelAgent();
 
 /**
- * Enhanced AI Agent Chat Endpoint
+ * Enhanced AI Agent Chat Endpoint with Full Integration
  * POST /ai-agent/chat
+ * 
+ * Features:
+ * - Bedrock (Nova Pro) for all responses
+ * - Real-time flight API integration
+ * - Real-time hotel API integration
+ * - Conversation history storage and context
+ * - User preferences tracking and application
+ * - Intelligent intent detection
  */
 router.post('/chat', async (req, res) => {
   try {
-    console.log('🤖 AI Agent request:', req.body);
+    console.log('\n🤖 ═══════════════════════════════════════');
+    console.log('🤖 AI Travel Agent - New Message');
+    console.log('🤖 ═══════════════════════════════════════');
 
     const {
       messages = [],
       userContext = {},
       aiModel = 'bedrock',
       userId,
-      sessionId = `session_${Date.now()}`
+      sessionId
     } = req.body;
 
     // Validate required fields
@@ -29,15 +39,16 @@ router.post('/chat', async (req, res) => {
       });
     }
 
-    // Process message through comprehensive AI agent
-    const response = await aiAgent.processUserMessage({
+    // Process message through integrated AI agent
+    const response = await aiAgent.processMessage({
       messages,
       userContext,
-      aiModel,
-      requestType: 'chat',
       userId: userId || userContext.userId,
       sessionId: sessionId || userContext.sessionId
     });
+
+    console.log('✅ Response generated successfully');
+    console.log('═══════════════════════════════════════\n');
 
     res.json({
       success: true,
@@ -46,7 +57,7 @@ router.post('/chat', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('AI Agent chat error:', error);
+    console.error('❌ AI Agent chat error:', error);
     res.status(500).json({
       success: false,
       error: 'AI service temporarily unavailable',
@@ -61,46 +72,96 @@ router.post('/chat', async (req, res) => {
 });
 
 /**
- * Get Personalized Travel Recommendations
- * POST /ai-agent/recommendations
+ * Get User Preferences
+ * GET /ai-agent/preferences/:userId
  */
-router.post('/recommendations', async (req, res) => {
+router.get('/preferences/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const preferences = await aiAgent.loadUserPreferences(userId);
+
+    res.json({
+      success: true,
+      userId,
+      preferences,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Get preferences error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error retrieving preferences',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Update User Preferences
+ * POST /ai-agent/preferences
+ */
+router.post('/preferences', async (req, res) => {
   try {
     const {
-      userContext = {},
-      chatHistory = [],
-      preferences = {},
-      destination = null,
-      budget = null,
-      sessionId = `session_${Date.now()}`
+      userId,
+      preferences = {}
     } = req.body;
 
-    console.log('🎯 Generating recommendations for session:', sessionId);
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'userId is required'
+      });
+    }
 
-    // Generate comprehensive recommendations
-    const response = await aiAgent.processUserMessage({
-      messages: chatHistory,
-      userContext: {
-        ...userContext,
-        preferences,
-        destination,
-        budget
-      },
-      requestType: 'recommendation',
-      sessionId
+    await aiAgent.saveUserPreferences(userId, {
+      ...preferences,
+      lastUpdated: new Date().toISOString()
     });
 
     res.json({
       success: true,
-      ...response,
-      generated: new Date().toISOString()
+      message: 'Preferences updated successfully',
+      userId,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('Recommendations error:', error);
+    console.error('Update preferences error:', error);
     res.status(500).json({
       success: false,
-      error: 'Error generating recommendations',
+      error: 'Error updating preferences',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Get Conversation History
+ * GET /ai-agent/history/:sessionId
+ */
+router.get('/history/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { limit = 20 } = req.query;
+
+    const history = await aiAgent.loadConversationHistory(sessionId);
+
+    res.json({
+      success: true,
+      sessionId,
+      history: history.slice(-parseInt(limit)),
+      totalTurns: history.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('History retrieval error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error retrieving conversation history',
       message: error.message
     });
   }
@@ -307,34 +368,63 @@ router.post('/flight-search', async (req, res) => {
 });
 
 /**
+ * Clear Conversation History
+ * DELETE /ai-agent/history/:sessionId
+ */
+router.delete('/history/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    // Clear from in-memory storage
+    aiAgent.conversations.delete(sessionId);
+
+    res.json({
+      success: true,
+      message: 'Conversation history cleared',
+      sessionId,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Clear history error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error clearing conversation history',
+      message: error.message
+    });
+  }
+});
+
+/**
  * Health check endpoint
  */
 router.get('/health', (req, res) => {
   res.json({
     success: true,
-    service: 'AI Agent Service',
+    service: 'Integrated AI Travel Agent',
     status: 'healthy',
     timestamp: new Date().toISOString(),
+    features: {
+      aiModel: 'AWS Bedrock Nova Pro',
+      flightIntegration: true,
+      hotelIntegration: true,
+      conversationHistory: true,
+      userPreferences: true,
+      intelligentIntentDetection: true,
+      realTimeDataFetching: true
+    },
     capabilities: [
-      'chat',
-      'recommendations',
-      'analysis',
-      'smart-suggestions',
-      'flight-integration'
+      'Natural language conversation',
+      'Flight search and recommendations',
+      'Hotel search and recommendations',
+      'Destination suggestions',
+      'Budget planning',
+      'Personalized recommendations based on preferences',
+      'Context-aware responses using conversation history',
+      'Automatic preference learning',
+      'Real-time API data integration'
     ]
   });
 });
-
-// Helper function to search flights (would use your flight service)
-async function searchFlights(searchRequest) {
-  // This would call your flight service
-  // For now, return a mock response
-  return {
-    flights: [],
-    totalResults: 0,
-    searchId: `ai-search-${Date.now()}`,
-    provider: 'ai-enhanced'
-  };
-}
 
 module.exports = router;
