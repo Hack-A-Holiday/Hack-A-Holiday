@@ -3401,34 +3401,32 @@ Return ONLY the JSON array:`;
         }
         
         // 🧹 NUCLEAR OPTION: Remove EVERYTHING after Google Flights button marker (Nova Pro keeps ignoring instructions)
-        const buttonMarkerEnd = responseText.indexOf('[/GOOGLE_FLIGHTS_BUTTON]');
-        if (buttonMarkerEnd !== -1) {
-          console.log('   🎯 Found button marker at position', buttonMarkerEnd);
-          
-          // Get everything after the closing button marker
-          const afterButton = responseText.substring(buttonMarkerEnd + '[/GOOGLE_FLIGHTS_BUTTON]'.length);
-          
-          console.log(`   🔍 DEBUG: Text after button marker (${afterButton.length} chars):`);
-          console.log(`   📋 Content: "${afterButton.substring(0, 300).replace(/\n/g, '\\n')}"`);
-          
-          // NUCLEAR OPTION: Just cut everything after the button marker
-          // Nova Pro keeps adding standalone numbers despite clear instructions
-          const beforeButton = responseText.substring(0, buttonMarkerEnd + '[/GOOGLE_FLIGHTS_BUTTON]'.length);
-          const afterButtonTrimmed = afterButton.trim();
-          
-          if (afterButtonTrimmed.length > 0) {
-            console.log(`   ☢️ NUCLEAR CLEANUP: Removing ${afterButtonTrimmed.length} characters after button marker`);
-            console.log(`   🗑️ Content being removed: "${afterButtonTrimmed.substring(0, 100)}..."`);
-            responseText = beforeButton.trim();
-            console.log(`   ✅ Response now ends at button marker (removed all trailing content)`);
+        // IMPORTANT: preserve ALL GOOGLE_FLIGHTS_BUTTON markers. Use lastIndexOf to keep
+        // the full block of markers (multiple destinations) and only trim content after
+        // the final closing marker. Previously we used indexOf which dropped later markers.
+        // Keep all GOOGLE_FLIGHTS_BUTTON markers. Trim only after the LAST closing marker.
+        const lastClose = responseText.lastIndexOf('[/GOOGLE_FLIGHTS_BUTTON]');
+        if (lastClose !== -1) {
+          console.log('   🎯 Found last button marker at position', lastClose);
+          const after = responseText.substring(lastClose + '[/GOOGLE_FLIGHTS_BUTTON]'.length);
+          console.log(`   🔍 DEBUG: Text after final button marker (${after.length} chars):`);
+          console.log(`   📋 Content: "${after.substring(0, 300).replace(/\n/g, '\\n')}"`);
+
+          // If anything meaningful exists after the final marker, remove it.
+          if (after.trim().length > 0) {
+            console.log(`   ☢️ NUCLEAR CLEANUP: Removing ${after.trim().length} characters after final button marker`);
           } else {
-            console.log('   ✅ No content found after button marker (already clean)');
+            console.log('   ✅ No content found after final button marker (already clean)');
           }
+
+          // Preserve the full block up to the last closing marker
+          responseText = responseText.substring(0, lastClose + '[/GOOGLE_FLIGHTS_BUTTON]'.length).trim();
+          console.log('   ✅ Response now ends at final button marker (preserved all markers)');
         }
         
         // Also check for old format (plain google.com/travel/flights URL without marker)
-        const googleFlightsIndex = responseText.lastIndexOf('google.com/travel/flights');
-        if (googleFlightsIndex !== -1 && buttonMarkerEnd === -1) {
+  const googleFlightsIndex = responseText.lastIndexOf('google.com/travel/flights');
+  if (googleFlightsIndex !== -1 && lastClose === -1) {
           console.log('   🔍 Found plain Google Flights URL (old format), checking for numbers...');
           
           // Find the end of the URL line

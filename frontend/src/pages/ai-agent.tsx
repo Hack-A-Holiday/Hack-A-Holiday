@@ -178,19 +178,42 @@ const renderFormattedText = (text: string | any) => {
   // If button marker NOT found, try other patterns as fallback
   if (googleFlightsButtons.length === 0) {
     console.log('🔍 No button marker found, trying text-based patterns...');
-  
-    // Pattern 1: Single link after "Need more options?"
+
+    // New: Pattern A - Markdown single link: "Search on Google Flights: [Click here](https://www.google.com/travel/flights...)"
+    const markdownSinglePattern = /Search on Google Flights:\s*\[.*?\]\((https:\/\/www\.google\.com\/travel\/flights[^)]+)\)/i;
+    const mdSingleMatch = text.match(markdownSinglePattern);
+    if (mdSingleMatch) {
+      console.log('✅ Found markdown-style Google Flights link:', mdSingleMatch[1]);
+      googleFlightsButtons.push({ city: 'Search on Google Flights', url: mdSingleMatch[1] });
+      textWithoutGoogleFlights = textWithoutGoogleFlights.replace(mdSingleMatch[0], '').trim();
+    }
+
+    // New: Pattern B - Multiple markdown links under a list, e.g. "Search more options:\n- Barcelona: [Click here](https://...)"
+    const markdownMultiPattern = /(?:Search more options:|Need more options\?)?\s*\n((?:\s*-\s*[^:]+:\s*\[.*?\]\(https:\/\/www\.google\.com\/travel\/flights[^)]+\)\n?)+)/i;
+    const mdMultiMatch = text.match(markdownMultiPattern);
+    if (mdMultiMatch && !mdSingleMatch) {
+      console.log('✅ Found multiple markdown Google Flights links block');
+      const cityMdPattern = /-\s*([^:]+):\s*\[.*?\]\((https:\/\/www\.google\.com\/travel\/flights[^)]+)\)/gi;
+      let cityMd;
+      while ((cityMd = cityMdPattern.exec(mdMultiMatch[1])) !== null) {
+        console.log(`   - ${cityMd[1].trim()}: ${cityMd[2]}`);
+        googleFlightsButtons.push({ city: cityMd[1].trim(), url: cityMd[2] });
+      }
+      textWithoutGoogleFlights = textWithoutGoogleFlights.replace(mdMultiMatch[0], '').trim();
+    }
+
+    // Pattern 1: Single link after "Need more options?" (legacy plain-URL format)
     const singleLinkPattern = /Need more options\?\s*Search on Google Flights:\s*(https:\/\/www\.google\.com\/travel\/flights[^\s]+)/i;
     const singleMatch = text.match(singleLinkPattern);
-  
-  if (singleMatch) {
-    console.log('✅ Found single Google Flights link:', singleMatch[1]);
-    googleFlightsButtons.push({ 
-      city: 'Search on Google Flights', 
-      url: singleMatch[1] 
-    });
-    textWithoutGoogleFlights = text.replace(singleLinkPattern, '').trim();
-  }
+
+    if (singleMatch && googleFlightsButtons.length === 0) {
+      console.log('✅ Found single Google Flights link:', singleMatch[1]);
+      googleFlightsButtons.push({ 
+        city: 'Search on Google Flights', 
+        url: singleMatch[1] 
+      });
+      textWithoutGoogleFlights = textWithoutGoogleFlights.replace(singleLinkPattern, '').trim();
+    }
   
   // Pattern 2: Multiple links with city names (more flexible)
   // Matches "Search more options:" OR just lines starting with "- City: URL"

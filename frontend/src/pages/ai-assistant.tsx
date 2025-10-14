@@ -21,46 +21,188 @@ const renderInlineBold = (text: string) => {
 const renderFormattedText = (text: string | any) => {
   if (typeof text !== 'string') return text;
   
-  const lines = text.split('\n');
+  // First, detect and extract Google Flights links for button rendering
+  // Patterns to match:
+  // 0. [GOOGLE_FLIGHTS_BUTTON]url[/GOOGLE_FLIGHTS_BUTTON] - New button marker
+  // 1. "Need more options? Search on Google Flights: https://..."
+  // 2. "Search more options:\n- Barcelona: https://...\n- Madrid: https://..."
+  const googleFlightsButtons: Array<{city: string; url: string}> = [];
+  let textWithoutGoogleFlights = text;
+  
+  // Pattern 0: Button marker from backend (HIGHEST PRIORITY)
+  // Match: - Barcelona: [GOOGLE_FLIGHTS_BUTTON]https://....[/GOOGLE_FLIGHTS_BUTTON]
+  const buttonMarkerWithCityPattern = /-\s*([^:]+):\s*\[GOOGLE_FLIGHTS_BUTTON\](https?:\/\/[^^\]]+)\[\/GOOGLE_FLIGHTS_BUTTON\]/gi;
+  let cityMarkerMatch;
+  
+  // First try to match with city labels (multi-destination format)
+  while ((cityMarkerMatch = buttonMarkerWithCityPattern.exec(text)) !== null) {
+    googleFlightsButtons.push({
+      city: cityMarkerMatch[1].trim(),
+      url: cityMarkerMatch[2]
+    });
+    textWithoutGoogleFlights = textWithoutGoogleFlights.replace(cityMarkerMatch[0], '').trim();
+  }
+  
+  // If no city-labeled buttons found, try simple format (single destination)
+  if (googleFlightsButtons.length === 0) {
+    // More permissive pattern - allow any characters in URL including +, =, etc.
+    const simpleButtonPattern = /\[GOOGLE_FLIGHTS_BUTTON\](https?:\/\/[^\]]+)\[\/GOOGLE_FLIGHTS_BUTTON\]/gi;
+    let simpleMatch;
+    while ((simpleMatch = simpleButtonPattern.exec(text)) !== null) {
+      googleFlightsButtons.push({
+        city: 'Search on Google Flights',
+        url: simpleMatch[1]
+      });
+      textWithoutGoogleFlights = textWithoutGoogleFlights.replace(simpleMatch[0], '').trim();
+    }
+  }
+
+  // If button marker NOT found, try other patterns as fallback
+  if (googleFlightsButtons.length === 0) {
+    // New: Pattern A - Markdown single link: "Search on Google Flights: [Click here](https://www.google.com/travel/flights...)"
+    const markdownSinglePattern = /Search on Google Flights:\s*\[.*?\]\((https:\/\/www\.google\.com\/travel\/flights[^)]+)\)/i;
+    const mdSingleMatch = text.match(markdownSinglePattern);
+    if (mdSingleMatch) {
+      googleFlightsButtons.push({ city: 'Search on Google Flights', url: mdSingleMatch[1] });
+      textWithoutGoogleFlights = textWithoutGoogleFlights.replace(mdSingleMatch[0], '').trim();
+    }
+
+    // New: Pattern B - Multiple markdown links under a list
+    const markdownMultiPattern = /(?:Search more options:|Need more options\?)?\s*\n((?:\s*-\s*[^:]+:\s*\[.*?\]\(https:\/\/www\.google\.com\/travel\/flights[^)]+\)\n?)+)/i;
+    const mdMultiMatch = text.match(markdownMultiPattern);
+    if (mdMultiMatch && !mdSingleMatch) {
+      const cityMdPattern = /-\s*([^:]+):\s*\[.*?\]\((https:\/\/www\.google\.com\/travel\/flights[^)]+)\)/gi;
+      let cityMd;
+      while ((cityMd = cityMdPattern.exec(mdMultiMatch[1])) !== null) {
+        googleFlightsButtons.push({ city: cityMd[1].trim(), url: cityMd[2] });
+      }
+      textWithoutGoogleFlights = textWithoutGoogleFlights.replace(mdMultiMatch[0], '').trim();
+    }
+
+    // Pattern 1: Single link after "Need more options?"
+    const singleLinkPattern = /Need more options\?\s*Search on Google Flights:\s*(https:\/\/www\.google\.com\/travel\/flights[^\s]+)/i;
+    const singleMatch = text.match(singleLinkPattern);
+    if (singleMatch && googleFlightsButtons.length === 0) {
+      googleFlightsButtons.push({ city: 'Search on Google Flights', url: singleMatch[1] });
+      textWithoutGoogleFlights = textWithoutGoogleFlights.replace(singleLinkPattern, '').trim();
+    }
+
+    // Pattern 2: Multiple links with city names (flexible list format)
+    const multiLinkPattern = /(?:Search more options:|Need more options\?)?\s*\n((?:\s*-\s*[^:]+:\s*https:\/\/www\.google\.com\/travel\/flights[^\n]+\n?)+)/i;
+    const multiMatch = text.match(multiLinkPattern);
+    if (multiMatch && !singleMatch) {
+      const cityUrlPattern = /-\s*([^:]+):\s*(https:\/\/www\.google\.com\/travel\/flights[^\s\n]+)/gi;
+      let cityMatch;
+      while ((cityMatch = cityUrlPattern.exec(multiMatch[1])) !== null) {
+        googleFlightsButtons.push({ city: cityMatch[1].trim(), url: cityMatch[2] });
+      }
+      textWithoutGoogleFlights = text.replace(multiMatch[0], '').trim();
+    }
+  }
+
+  // Pattern 3: Fallback - catch ANY line with city and Google Flights URL
+  if (googleFlightsButtons.length === 0) {
+    const fallbackPattern = /-\s*([^:]+):\s*(https:\/\/www\.google\.com\/travel\/flights[^\s\n]+)/gi;
+    let fallbackMatch;
+    while ((fallbackMatch = fallbackPattern.exec(text)) !== null) {
+      googleFlightsButtons.push({ city: fallbackMatch[1].trim(), url: fallbackMatch[2] });
+      textWithoutGoogleFlights = textWithoutGoogleFlights.replace(fallbackMatch[0], '').trim();
+    }
+  }
+
+  // Split by markdown links [text](url) and ** for bold
+  const parts = textWithoutGoogleFlights.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/g);
+  
   return (
-    <div className="space-y-2">
-      {lines.map((line, lineIdx) => {
-        // Handle markdown headers (#### Header)
-        const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
-        if (headerMatch) {
-          const level = headerMatch[1].length;
-          const headerText = headerMatch[2];
-          
-          // Map header levels to styles
-          const headerStyles: { [key: number]: string } = {
-            1: 'text-2xl font-bold mt-6 mb-3 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400',
-            2: 'text-xl font-bold mt-5 mb-2 text-indigo-300',
-            3: 'text-lg font-bold mt-4 mb-2 text-indigo-200',
-            4: 'text-base font-semibold mt-3 mb-1 text-indigo-100',
-            5: 'text-sm font-semibold mt-2 mb-1 text-gray-200',
-            6: 'text-sm font-medium mt-2 mb-1 text-gray-300'
-          };
-          
+    <>
+      {parts.map((part, idx) => {
+        // Markdown link
+        const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
+        if (linkMatch) {
           return (
-            <div key={lineIdx} className={headerStyles[level] || headerStyles[4]}>
-              {renderInlineBold(headerText)}
-            </div>
+            <a 
+              key={idx} 
+              href={linkMatch[2]} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{
+                color: '#667eea',
+                textDecoration: 'underline',
+                fontWeight: '600'
+              }}
+            >
+              {linkMatch[1]}
+            </a>
           );
         }
         
-        // Regular line with bold support
-        if (line.trim()) {
-          return (
-            <div key={lineIdx} className="leading-relaxed">
-              {renderInlineBold(line)}
-            </div>
-          );
+        // Bold text
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return <strong key={idx}>{part.slice(2, -2)}</strong>;
         }
-        
-        // Empty line
-        return <div key={lineIdx} className="h-2" />;
+        return <span key={idx}>{part}</span>;
       })}
-    </div>
+      
+      {/* Render Google Flights buttons */}
+      {googleFlightsButtons.length > 0 && (
+        <div style={{ 
+          marginTop: '20px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '10px',
+          borderTop: '2px solid rgba(102, 126, 234, 0.2)',
+          paddingTop: '16px'
+        }}>
+          <div style={{ 
+            fontSize: '0.9rem', 
+            fontWeight: '600', 
+            color: '#667eea',
+            marginBottom: '4px'
+          }}>
+            🔍 Search More Options
+          </div>
+          {googleFlightsButtons.map((btn, idx) => (
+            <a
+              key={idx}
+              href={btn.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '12px 24px',
+                background: 'linear-gradient(135deg, #4285f4 0%, #357ae8 100%)',
+                color: 'white',
+                borderRadius: '12px',
+                textDecoration: 'none',
+                fontWeight: '600',
+                fontSize: '1rem',
+                boxShadow: '0 4px 16px rgba(66, 133, 244, 0.35)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 24px rgba(66, 133, 244, 0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(66, 133, 244, 0.35)';
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 16V8C21 7.45 20.55 7 20 7H13L11 5H4C3.45 5 3 5.45 3 6V18C3 18.55 3.45 19 4 19H20C20.55 19 21 18.55 21 18V16ZM8 13L10.5 15.5L14.5 10L18.5 15H5.5L8 13Z" fill="white"/>
+              </svg>
+              ✈️ View {btn.city} on Google Flights
+            </a>
+          ))}
+        </div>
+      )}
+    </>
   );
 };
 
