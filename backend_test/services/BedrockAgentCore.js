@@ -23,6 +23,8 @@ const { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand } = require
 const axios = require('axios');
 const FlightService = require('./FlightService');
 const HotelService = require('./HotelService');
+const TripAdvisorRapidAPIService = require('./TripAdvisorRapidAPIService');
+const GoogleFlightsLinkGenerator = require('./GoogleFlightsLinkGenerator');
 
 class BedrockAgentCore {
   constructor() {
@@ -47,12 +49,18 @@ class BedrockAgentCore {
       amadeuApiSecret: process.env.AMADEUS_API_SECRET
     });
 
+    // Initialize Google Flights link generator
+    this.googleFlights = new GoogleFlightsLinkGenerator();
+
     // Initialize HotelService with real API credentials
     this.hotelService = new HotelService({
       bookingApiKey: process.env.BOOKING_API_KEY,
       bookingApiHost: process.env.BOOKING_API_HOST,
       rapidApiKey: process.env.RAPIDAPI_KEY
     });
+
+    // Initialize TripAdvisor RapidAPI Service
+    this.tripAdvisorService = new TripAdvisorRapidAPIService();
 
     // Rate limiting
     this.lastApiCall = 0;
@@ -83,6 +91,56 @@ class BedrockAgentCore {
     console.log('   • Nova Lite: Fast responses for simple queries ✅');
     console.log('   • 100% AWS Native - No Claude models used');
     console.log('');
+  }
+
+  /**
+   * Invoke model with automatic fallback mechanism
+   */
+  async invokeModelWithFallback(modelId, messages, systemPrompt = null, toolConfig = null, inferenceConfig = null) {
+    const primaryModel = modelId || this.reasoningModel;
+    const fallbackModel = this.reasoningModelFallback;
+    
+    try {
+      console.log(`🤖 Invoking primary model: ${primaryModel}`);
+      
+      const command = new ConverseCommand({
+        modelId: primaryModel,
+        messages: messages,
+        inferenceConfig: inferenceConfig || { maxTokens: 4000, temperature: 0.7 }
+      });
+      
+      if (systemPrompt) command.system = systemPrompt;
+      if (toolConfig) command.toolConfig = toolConfig;
+      
+      const response = await this.bedrockRuntime.send(command);
+      console.log(`✅ Primary model ${primaryModel} successful`);
+      return response;
+    } catch (error) {
+      if (error.name === 'AccessDeniedException' || error.message.includes('access') || error.message.includes('403')) {
+        console.log(`⚠️ Primary model ${primaryModel} access denied, trying fallback: ${fallbackModel}`);
+        
+        try {
+          const fallbackCommand = new ConverseCommand({
+            modelId: fallbackModel,
+            messages: messages,
+            inferenceConfig: inferenceConfig || { maxTokens: 4000, temperature: 0.7 }
+          });
+          
+          if (systemPrompt) fallbackCommand.system = systemPrompt;
+          if (toolConfig) fallbackCommand.toolConfig = toolConfig;
+          
+          const fallbackResponse = await this.bedrockRuntime.send(fallbackCommand);
+          console.log(`✅ Fallback model ${fallbackModel} successful`);
+          return fallbackResponse;
+        } catch (fallbackError) {
+          console.error(`❌ Both models failed. Primary: ${primaryModel}, Fallback: ${fallbackModel}`);
+          throw fallbackError;
+        }
+      } else {
+        console.error(`❌ Error invoking model ${primaryModel}:`, error.message);
+        throw error;
+      }
+    }
   }
 
   /**
@@ -232,6 +290,52 @@ class BedrockAgentCore {
             }
           },
           required: ['optionType', 'options']
+        }
+      },
+      {
+        name: 'search_attractions',
+        description: 'Search for attractions and points of interest near a location using TripAdvisor data.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            location: { type: 'string', description: 'City or location name' },
+            limit: { type: 'number', description: 'Maximum number of attractions to return (default: 5)' }
+          },
+          required: ['location']
+        }
+      },
+      {
+        name: 'search_restaurants',
+        description: 'Search for restaurants near a location using TripAdvisor data.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            location: { type: 'string', description: 'City or location name' },
+            limit: { type: 'number', description: 'Maximum number of restaurants to return (default: 5)' }
+          },
+          required: ['location']
+        }
+      },
+      {
+        name: 'get_attraction_details',
+        description: 'Get detailed information about a specific attraction including reviews and media.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            contentId: { type: 'string', description: 'TripAdvisor content ID of the attraction' }
+          },
+          required: ['contentId']
+        }
+      },
+      {
+        name: 'get_restaurant_details',
+        description: 'Get detailed information about a specific restaurant including reviews and media.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            contentId: { type: 'string', description: 'TripAdvisor content ID of the restaurant' }
+          },
+          required: ['contentId']
         }
       }
     ];
@@ -478,6 +582,18 @@ Respond in JSON format with:
         case 'compare_options':
           return await this.compareOptions(input);
         
+        case 'search_attractions':
+          return await this.searchAttractions(input);
+        
+        case 'search_restaurants':
+          return await this.searchRestaurants(input);
+        
+        case 'get_attraction_details':
+          return await this.getAttractionDetails(input);
+        
+        case 'get_restaurant_details':
+          return await this.getRestaurantDetails(input);
+        
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
@@ -519,32 +635,47 @@ Respond in JSON format with:
       
       if (results.success && results.flights && results.flights.length > 0) {
         // Format flights for agent response
-        const formattedFlights = results.flights.slice(0, 5).map(flight => ({
-          id: flight.id,
-          airline: flight.airline || flight.marketingAirline,
-          airlines: flight.airline || flight.marketingAirline,
-          flightNumber: flight.flightNumber,
-          price: Math.round(flight.price),
-          currency: flight.currency,
-          duration: flight.duration,
-          durationFormatted: flight.duration,
-          durationMinutes: flight.durationMinutes,
-          stops: flight.stops,
-          stopsText: flight.stops === 0 ? 'Direct' : `${flight.stops} stop(s)`,
-          origin: flight.origin,
-          destination: flight.destination,
-          departureTime: flight.departureTime,
-          arrivalTime: flight.arrivalTime,
-          route: `${flight.origin} → ${flight.destination}`,
-          cabinClass: flight.cabinClass,
-          baggage: flight.baggage,
-          amenities: {
-            wifi: flight.wifiAvailable,
-            power: flight.powerOutlets,
-            entertainment: flight.entertainment,
-            meal: flight.mealIncluded
-          }
-        }));
+        const formattedFlights = results.flights.slice(0, 5).map(flight => {
+          // Generate Google Flights link for this specific flight
+          const googleFlightsUrl = this.googleFlights.generateFromFlightResult(flight);
+          
+          return {
+            id: flight.id,
+            airline: flight.airline || flight.marketingAirline,
+            airlines: flight.airline || flight.marketingAirline,
+            flightNumber: flight.flightNumber,
+            price: Math.round(flight.price),
+            currency: flight.currency,
+            duration: flight.duration,
+            durationFormatted: flight.duration,
+            durationMinutes: flight.durationMinutes,
+            stops: flight.stops,
+            stopsText: flight.stops === 0 ? 'Direct' : `${flight.stops} stop(s)`,
+            origin: flight.origin,
+            destination: flight.destination,
+            departureTime: flight.departureTime,
+            arrivalTime: flight.arrivalTime,
+            route: `${flight.origin} → ${flight.destination}`,
+            cabinClass: flight.cabinClass,
+            baggage: flight.baggage,
+            amenities: {
+              wifi: flight.wifiAvailable,
+              power: flight.powerOutlets,
+              entertainment: flight.entertainment,
+              meal: flight.mealIncluded
+            },
+            googleFlightsUrl: googleFlightsUrl  // Add Google Flights link
+          };
+        });
+
+        // Also generate a general search URL for the route
+        const generalSearchUrl = this.googleFlights.generateSearchUrl({
+          from: params.origin,
+          to: params.destination,
+          departDate: params.departDate,
+          returnDate: params.returnDate,
+          adults: params.passengers || 1
+        });
 
         return {
           success: true,
@@ -553,7 +684,8 @@ Respond in JSON format with:
           provider: results.provider,
           recommendations: results.recommendations,
           searchId: results.searchId,
-          currency: results.currency
+          currency: results.currency,
+          googleFlightsSearchUrl: generalSearchUrl  // General search URL
         };
       }
 
@@ -871,6 +1003,108 @@ Format as JSON with structure:
     };
 
     return comparison;
+  }
+
+  async searchAttractions(params) {
+    console.log('🏛️ Searching attractions using TripAdvisor:', params);
+    
+    try {
+      const limit = params.limit || 5;
+      const attractions = await this.tripAdvisorService.getAttractionsNearby(params.location, limit);
+      
+      return {
+        success: true,
+        location: params.location,
+        attractions: attractions,
+        count: attractions.length,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error searching attractions:', error);
+      return {
+        success: false,
+        error: error.message,
+        location: params.location,
+        attractions: []
+      };
+    }
+  }
+
+  async searchRestaurants(params) {
+    console.log('🍽️ Searching restaurants using TripAdvisor:', params);
+    
+    try {
+      const limit = params.limit || 5;
+      const restaurants = await this.tripAdvisorService.getRestaurantsNearby(params.location, limit);
+      
+      return {
+        success: true,
+        location: params.location,
+        restaurants: restaurants,
+        count: restaurants.length,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error searching restaurants:', error);
+      return {
+        success: false,
+        error: error.message,
+        location: params.location,
+        restaurants: []
+      };
+    }
+  }
+
+  async getAttractionDetails(params) {
+    console.log('🏛️ Getting attraction details:', params);
+    
+    try {
+      const details = await this.tripAdvisorService.getAttractionDetails(params.contentId);
+      const reviews = await this.tripAdvisorService.getAttractionReviews(params.contentId);
+      const media = await this.tripAdvisorService.getAttractionMedia(params.contentId);
+      
+      return {
+        success: true,
+        contentId: params.contentId,
+        details: details,
+        reviews: reviews,
+        media: media,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error getting attraction details:', error);
+      return {
+        success: false,
+        error: error.message,
+        contentId: params.contentId
+      };
+    }
+  }
+
+  async getRestaurantDetails(params) {
+    console.log('🍽️ Getting restaurant details:', params);
+    
+    try {
+      const details = await this.tripAdvisorService.getRestaurantDetails(params.contentId);
+      const reviews = await this.tripAdvisorService.getRestaurantReviews(params.contentId);
+      const media = await this.tripAdvisorService.getRestaurantMedia(params.contentId);
+      
+      return {
+        success: true,
+        contentId: params.contentId,
+        details: details,
+        reviews: reviews,
+        media: media,
+        source: 'TripAdvisor RapidAPI'
+      };
+    } catch (error) {
+      console.error('Error getting restaurant details:', error);
+      return {
+        success: false,
+        error: error.message,
+        contentId: params.contentId
+      };
+    }
   }
 
   /**
@@ -1284,17 +1518,13 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
       
       this.lastApiCall = Date.now();
       
-      const initialResponse = await this.bedrockRuntime.send(new ConverseCommand({
-        modelId: this.reasoningModel,
-        messages: messages,
-        system: systemPrompt,
-        toolConfig: { tools },
-        inferenceConfig: {
-          maxTokens: 4000,
-          temperature: 0.7,
-          topP: 0.9
-        }
-      }));
+      const initialResponse = await this.invokeModelWithFallback(
+        this.reasoningModel,
+        messages,
+        systemPrompt,
+        { tools },
+        { maxTokens: 4000, temperature: 0.7, topP: 0.9 }
+      );
 
       let responseMessage = initialResponse.output.message;
       let agentResponse = '';
@@ -1364,17 +1594,13 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
         
         this.lastApiCall = Date.now();
         
-        const finalResponse = await this.bedrockRuntime.send(new ConverseCommand({
-          modelId: this.reasoningModel,
-          messages: messages,
-          system: systemPrompt,
-          toolConfig: { tools },
-          inferenceConfig: {
-            maxTokens: 4000,
-            temperature: 0.7,
-            topP: 0.9
-          }
-        }));
+        const finalResponse = await this.invokeModelWithFallback(
+          this.reasoningModel,
+          messages,
+          systemPrompt,
+          { tools },
+          { maxTokens: 4000, temperature: 0.7, topP: 0.9 }
+        );
 
         // Extract final text response
         agentResponse = ''; // Reset to ensure clean extraction

@@ -11,6 +11,17 @@ interface Message {
   content: string | Record<string, any>;
   timestamp: number;
   id: string;
+  googleFlightsButton?: {
+    text: string;
+    url: string;
+    type: string;
+    searchParams?: {
+      origin: string;
+      destination: string;
+      departureDate: string;
+      returnDate?: string;
+    };
+  };
 }
 
 interface LocalUserContext {
@@ -22,22 +33,303 @@ interface LocalUserContext {
   messageCount?: number;
 }
 
-// Render text with markdown formatting (bold, italic, etc.)
+// Parse multi-destination flight price comparison
+const parseFlightPriceComparison = (text: string): { destinations: Array<{ name: string; price: string; badge?: string; currency?: string; }>; title: string; origin?: string; currency?: string; } | null => {
+  if (!text.includes('Real-time flight price comparison') && !text.includes('CHEAPEST:') && !text.includes('MOST EXPENSIVE:')) {
+    return null;
+  }
+
+  const destinations = [];
+  const lines = text.split('\n');
+  let origin = '';
+  let title = 'Flight Prices';
+
+  // Extract origin if available (e.g., "from Mumbai:")
+  const originMatch = text.match(/from\s+([^:]+):/i);
+  if (originMatch) {
+    origin = originMatch[1].trim();
+    title = `Flights from ${origin}`;
+  }
+
+  // Extract currency symbol if present
+  let currencySymbol = '$';
+  const currencyMatch = text.match(/([₹$€£¥])[\d,]+/);
+  if (currencyMatch) {
+    currencySymbol = currencyMatch[1];
+  }
+
+  for (const line of lines) {
+    // Match patterns like "1. CHEAPEST: Thailand - ₹189" or "2. Bali - $293"
+    // Now supports any currency symbol
+    const match = line.match(/^\d+\.\s*(?:(CHEAPEST|MOST EXPENSIVE):\s*)?([^-]+)\s*-\s*([₹$€£¥])?[\s]*([\d,]+)/i);
+    if (match) {
+      const badge = match[1];
+      const name = match[2].trim();
+      const detectedCurrency = match[3] || currencySymbol;
+      const price = match[4];
+      destinations.push({ 
+        name, 
+        price, 
+        badge,
+        currency: detectedCurrency 
+      });
+    }
+  }
+
+  return destinations.length > 0 ? { destinations, title, origin, currency: currencySymbol } : null;
+};
+
+// Parse numbered flight options list
+const parseFlightOptionsList = (text: string): Array<{ number: number; price: string; currency: string; duration: string; departure: string; arrival: string; stops: string; reason: string; airline: string; }> | null => {
+  const flights = [];
+  
+  // Match patterns like:
+  // Option 1:
+  // - Airline: Etihad Airways (EY201)
+  // - Price: 44966 INR (or USD, EUR, etc.)
+  // - Departure: 2025-12-13 at 11:05
+  // - Arrival: 18:35
+  // - Duration: 12h 0m
+  // - Stops: 1 stop via AUH
+  // - Why Choose: Cheapest option
+  const optionRegex = /Option\s+(\d+):?\s*\n\s*-\s*Airline:\s*([^\n]+)\n\s*-\s*Price:\s*([\d,]+(?:\.[\d]+)?)\s*([A-Z₹$€£¥]+)\s*\n\s*-\s*(?:Route:\s*[^\n]+\n\s*-\s*)?Departure:\s*([^\n]+?)\s+at\s+([^\n]+)\n\s*-\s*Arrival:\s*([^\n]+)\n\s*-\s*Duration:\s*([^\n]+)\n\s*-\s*Stops:\s*([^\n]+)\n\s*-\s*Why\s*(?:Choose|it'?s a good choice):\s*([^\n]+)/gi;
+  
+  let match;
+  while ((match = optionRegex.exec(text)) !== null) {
+    // Remove commas from price and round to integer
+    const rawPrice = match[3].replace(/,/g, '');
+    const roundedPrice = Math.round(parseFloat(rawPrice) || 0);
+    
+    flights.push({
+      number: parseInt(match[1]),
+      airline: match[2].trim(),
+      price: roundedPrice.toString(),
+      currency: match[4].trim(),
+      departure: `${match[5].trim()} ${match[6].trim()}`,  // Combine date and time
+      arrival: match[7].trim(),
+      duration: match[8].trim(),
+      stops: match[9].trim(),
+      reason: match[10] ? match[10].trim() : ''
+    });
+  }
+
+  return flights.length > 0 ? flights : null;
+};
+
+// Render text with markdown formatting (bold, italic, links) and Google Flights buttons
 const renderFormattedText = (text: string | any) => {
   if (typeof text !== 'string') return text;
   
-  // Split by ** for bold
-  const parts = text.split(/(\*\*.*?\*\*)/g);
+  // First, detect and extract Google Flights links for button rendering
+  // Patterns to match:
+  // 0. [GOOGLE_FLIGHTS_BUTTON]url[/GOOGLE_FLIGHTS_BUTTON] - New button marker
+  // 1. "Need more options? Search on Google Flights: https://..."
+  // 2. "Search more options:\n- Barcelona: https://...\n- Madrid: https://..."
+  const googleFlightsButtons: Array<{city: string; url: string}> = [];
+  let textWithoutGoogleFlights = text;
+  
+  // Pattern 0: Button marker from backend (HIGHEST PRIORITY)
+  // Match: - Barcelona: [GOOGLE_FLIGHTS_BUTTON]https://....[/GOOGLE_FLIGHTS_BUTTON]
+  const buttonMarkerWithCityPattern = /-\s*([^:]+):\s*\[GOOGLE_FLIGHTS_BUTTON\](https?:\/\/[^\]]+)\[\/GOOGLE_FLIGHTS_BUTTON\]/gi;
+  let cityMarkerMatch;
+  
+  console.log('🔍 Looking for button markers in text...');
+  console.log('📋 Text length:', text.length);
+  console.log('📋 Text preview:', text.substring(0, 300));
+  console.log('📋 Contains button marker:', text.includes('[GOOGLE_FLIGHTS_BUTTON]'));
+  
+  // First try to match with city labels (multi-destination format)
+  while ((cityMarkerMatch = buttonMarkerWithCityPattern.exec(text)) !== null) {
+    console.log(`✅ Found button marker for ${cityMarkerMatch[1]}: ${cityMarkerMatch[2]}`);
+    googleFlightsButtons.push({
+      city: cityMarkerMatch[1].trim(),
+      url: cityMarkerMatch[2]
+    });
+    textWithoutGoogleFlights = textWithoutGoogleFlights.replace(cityMarkerMatch[0], '').trim();
+  }
+  
+  // If no city-labeled buttons found, try simple format (single destination)
+  if (googleFlightsButtons.length === 0) {
+    // More permissive pattern - allow any characters in URL including +, =, etc.
+    const simpleButtonPattern = /\[GOOGLE_FLIGHTS_BUTTON\](https?:\/\/[^\]]+)\[\/GOOGLE_FLIGHTS_BUTTON\]/gi;
+    let simpleMatch;
+    
+    console.log('🔍 Trying simple button pattern on text length:', text.length);
+    
+    while ((simpleMatch = simpleButtonPattern.exec(text)) !== null) {
+      console.log('✅ Found simple button marker:', simpleMatch[1]);
+      googleFlightsButtons.push({
+        city: 'Search on Google Flights',
+        url: simpleMatch[1]
+      });
+      textWithoutGoogleFlights = textWithoutGoogleFlights.replace(simpleMatch[0], '').trim();
+    }
+    
+    if (googleFlightsButtons.length === 0) {
+      console.log('❌ Simple button pattern did not match');
+      console.log('📋 Text sample around "GOOGLE":', text.substring(text.indexOf('GOOGLE') - 50, text.indexOf('GOOGLE') + 150));
+    }
+  }
+  
+  if (googleFlightsButtons.length > 0) {
+    console.log(`✅ Total button markers found: ${googleFlightsButtons.length}`);
+  }
+  
+  // If button marker NOT found, try other patterns as fallback
+  if (googleFlightsButtons.length === 0) {
+    console.log('🔍 No button marker found, trying text-based patterns...');
+  
+    // Pattern 1: Single link after "Need more options?"
+    const singleLinkPattern = /Need more options\?\s*Search on Google Flights:\s*(https:\/\/www\.google\.com\/travel\/flights[^\s]+)/i;
+    const singleMatch = text.match(singleLinkPattern);
+  
+  if (singleMatch) {
+    console.log('✅ Found single Google Flights link:', singleMatch[1]);
+    googleFlightsButtons.push({ 
+      city: 'Search on Google Flights', 
+      url: singleMatch[1] 
+    });
+    textWithoutGoogleFlights = text.replace(singleLinkPattern, '').trim();
+  }
+  
+  // Pattern 2: Multiple links with city names (more flexible)
+  // Matches "Search more options:" OR just lines starting with "- City: URL"
+  const multiLinkPattern = /(?:Search more options:|Need more options\?)?\s*\n((?:\s*-\s*[^:]+:\s*https:\/\/www\.google\.com\/travel\/flights[^\n]+\n?)+)/i;
+  const multiMatch = text.match(multiLinkPattern);
+  
+  if (multiMatch && !singleMatch) {  // Don't double-process if single link already found
+    console.log('✅ Found multiple Google Flights links:', multiMatch[0]);
+    // Extract each city and URL
+    const cityUrlPattern = /-\s*([^:]+):\s*(https:\/\/www\.google\.com\/travel\/flights[^\s\n]+)/gi;
+    let cityMatch;
+    
+    while ((cityMatch = cityUrlPattern.exec(multiMatch[1])) !== null) {
+      console.log(`   - ${cityMatch[1].trim()}: ${cityMatch[2]}`);
+      googleFlightsButtons.push({
+        city: cityMatch[1].trim(),
+        url: cityMatch[2]
+      });
+    }
+    
+    textWithoutGoogleFlights = text.replace(multiMatch[0], '').trim();
+  }
+  
+  console.log(`🔍 Google Flights buttons found: ${googleFlightsButtons.length}`, googleFlightsButtons);
+  
+  // Pattern 3: Fallback - catch ANY line with city and Google Flights URL
+  if (googleFlightsButtons.length === 0) {
+    console.log('🔍 No buttons found via patterns 1-2, trying fallback pattern...');
+    const fallbackPattern = /-\s*([^:]+):\s*(https:\/\/www\.google\.com\/travel\/flights[^\s\n]+)/gi;
+    let fallbackMatch;
+    
+    while ((fallbackMatch = fallbackPattern.exec(text)) !== null) {
+      console.log(`   ✅ Fallback found: ${fallbackMatch[1].trim()}: ${fallbackMatch[2]}`);
+      googleFlightsButtons.push({
+        city: fallbackMatch[1].trim(),
+        url: fallbackMatch[2]
+      });
+      
+      // Remove this line from text
+      const lineToRemove = fallbackMatch[0];
+      textWithoutGoogleFlights = textWithoutGoogleFlights.replace(lineToRemove, '').trim();
+    }
+    
+    console.log(`🔍 After fallback, total buttons: ${googleFlightsButtons.length}`);
+    }
+  } // Close the if (googleFlightsButtons.length === 0) block
+  
+  // Split by markdown links [text](url) and ** for bold
+  const parts = textWithoutGoogleFlights.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/g);
   
   return (
     <>
       {parts.map((part, idx) => {
+        // Markdown link
+        const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
+        if (linkMatch) {
+          return (
+            <a 
+              key={idx} 
+              href={linkMatch[2]} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{
+                color: '#667eea',
+                textDecoration: 'underline',
+                fontWeight: '600'
+              }}
+            >
+              {linkMatch[1]}
+            </a>
+          );
+        }
+        
         // Bold text
         if (part.startsWith('**') && part.endsWith('**')) {
           return <strong key={idx}>{part.slice(2, -2)}</strong>;
         }
         return <span key={idx}>{part}</span>;
       })}
+      
+      {/* Render Google Flights buttons */}
+      {googleFlightsButtons.length > 0 && (
+        <div style={{ 
+          marginTop: '20px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '10px',
+          borderTop: '2px solid rgba(102, 126, 234, 0.2)',
+          paddingTop: '16px'
+        }}>
+          <div style={{ 
+            fontSize: '0.9rem', 
+            fontWeight: '600', 
+            color: '#667eea',
+            marginBottom: '4px'
+          }}>
+            🔍 Search More Options
+          </div>
+          {googleFlightsButtons.map((btn, idx) => (
+            <a
+              key={idx}
+              href={btn.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '12px 24px',
+                background: 'linear-gradient(135deg, #4285f4 0%, #357ae8 100%)',
+                color: 'white',
+                borderRadius: '12px',
+                textDecoration: 'none',
+                fontWeight: '600',
+                fontSize: '1rem',
+                boxShadow: '0 4px 16px rgba(66, 133, 244, 0.35)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 24px rgba(66, 133, 244, 0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(66, 133, 244, 0.35)';
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 16V8C21 7.45 20.55 7 20 7H13L11 5H4C3.45 5 3 5.45 3 6V18C3 18.55 3.45 19 4 19H20C20.55 19 21 18.55 21 18V16ZM8 13L10.5 15.5L14.5 10L18.5 15H5.5L8 13Z" fill="white"/>
+              </svg>
+              ✈️ View {btn.city} on Google Flights
+            </a>
+          ))}
+        </div>
+      )}
     </>
   );
 };
@@ -93,6 +385,379 @@ const parseTextItinerary = (text: string): any[] | null => {
   return days.length > 0 ? days : null;
 };
 
+// Parse flight details from Best Deal section
+const parseFlightDetails = (text: string, destination: string): { airline?: string; flightType?: string; duration?: string; } | null => {
+  // Look for "Best Deal: {destination}" section
+  const bestDealRegex = new RegExp(`Best Deal:\\s*${destination}[^.]*\\.(.*?)(?=\\n\\n|All prices|$)`, 'is');
+  const match = text.match(bestDealRegex);
+  
+  if (!match) return null;
+  
+  const detailsText = match[1];
+  const details: any = {};
+  
+  // Extract airline (e.g., "Thai Vietjet")
+  const airlineMatch = detailsText.match(/([A-Za-z\s]+),\s*(?:Direct|[\d\s]+stop)/);
+  if (airlineMatch) {
+    details.airline = airlineMatch[1].trim();
+  }
+  
+  // Extract flight type (Direct or stops)
+  if (detailsText.includes('Direct')) {
+    details.flightType = 'Direct';
+  } else {
+    const stopsMatch = detailsText.match(/([\d]+)\s*stop/);
+    if (stopsMatch) {
+      details.flightType = `${stopsMatch[1]} stop${parseInt(stopsMatch[1]) > 1 ? 's' : ''}`;
+    }
+  }
+  
+  // Extract duration (e.g., "4h 25m")
+  const durationMatch = detailsText.match(/([\d]+h\s*[\d]+m)/);
+  if (durationMatch) {
+    details.duration = durationMatch[1];
+  }
+  
+  return Object.keys(details).length > 0 ? details : null;
+};
+
+// Helper function to generate Google Flights URL
+const generateGoogleFlightsUrl = (from: string, to: string, departDate?: string, returnDate?: string) => {
+  // Default dates if not provided (30 days from now and 7 days later)
+  const defaultDepartDate = departDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const defaultReturnDate = returnDate || new Date(Date.now() + 37 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  
+  // Build query string for Google Flights
+  let query = '';
+  if (returnDate || !departDate) {
+    // Round trip
+    query = `Flights from ${from} to ${to} on ${defaultDepartDate} return ${defaultReturnDate}`;
+  } else {
+    // One way
+    query = `Flights from ${from} to ${to} on ${defaultDepartDate}`;
+  }
+  
+  // Return Google Flights URL with pre-filled search using query parameter
+  return `https://www.google.com/travel/flights?q=${encodeURIComponent(query)}`;
+};
+
+// Flight Price Comparison Component with Full Details
+const FlightPriceComparison: React.FC<{ data: ReturnType<typeof parseFlightPriceComparison>; fullText?: string; isDarkMode?: boolean }> = ({ data, fullText, isDarkMode = false }) => {
+  if (!data) return null;
+  
+  // Create a descriptive title with all destinations
+  const destinationNames = data.destinations.map(d => d.name).join(', ');
+  const title = data.origin 
+    ? `✈️ ${data.origin} → ${destinationNames}`
+    : `✈️ Flights to ${destinationNames}`;
+  
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{ 
+        fontSize: '1.2rem', 
+        fontWeight: '700', 
+        marginBottom: '8px',
+        color: isDarkMode ? '#e0e0e0' : '#333'
+      }}>
+        {title}
+      </div>
+      <div style={{
+        fontSize: '0.9rem',
+        color: isDarkMode ? '#aaa' : '#666',
+        marginBottom: '15px'
+      }}>
+        Comparing prices across {data.destinations.length} destinations
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {data.destinations.map((dest, idx) => {
+          // Try to extract flight details from the full text
+          const details = fullText ? parseFlightDetails(fullText, dest.name) : null;
+          
+          return (
+            <div 
+              key={idx}
+              style={{
+                background: dest.badge === 'CHEAPEST' 
+                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                  : dest.badge === 'MOST EXPENSIVE'
+                  ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                  : isDarkMode 
+                  ? 'rgba(255,255,255,0.1)' 
+                  : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                borderRadius: '15px',
+                padding: '20px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: details ? '12px' : '0' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1 }}>
+                  <div style={{ 
+                    fontSize: '1.5rem', 
+                    fontWeight: '700',
+                    background: 'rgba(255,255,255,0.2)',
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    {idx + 1}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '1.3rem', fontWeight: '700', marginBottom: '4px' }}>
+                      {dest.name}
+                    </div>
+                    {details?.airline && (
+                      <div style={{ fontSize: '0.95rem', opacity: 0.9, marginBottom: '2px' }}>
+                        ✈️ {details.airline}
+                      </div>
+                    )}
+                    {dest.badge && (
+                      <div style={{ 
+                        fontSize: '0.75rem', 
+                        fontWeight: '600',
+                        background: 'rgba(255,255,255,0.3)',
+                        display: 'inline-block',
+                        padding: '3px 10px',
+                        borderRadius: '12px',
+                        marginTop: '6px'
+                      }}>
+                        {dest.badge}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ 
+                  fontSize: '1.8rem', 
+                  fontWeight: '700',
+                  textAlign: 'right',
+                  flexShrink: 0
+                }}>
+                  {dest.currency || data.currency || '$'}{parseInt(dest.price.replace(/,/g, '')).toLocaleString()}
+                </div>
+              </div>
+              
+              {/* Flight Details Row */}
+              {details && (details.duration || details.flightType) && (
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '16px', 
+                  fontSize: '0.9rem',
+                  marginLeft: '52px',
+                  opacity: 0.95,
+                  flexWrap: 'wrap'
+                }}>
+                  {details.duration && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>⏱️</span>
+                      <span>{details.duration}</span>
+                    </div>
+                  )}
+                  {details.flightType && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>{details.flightType === 'Direct' ? '✈️' : '🛬'}</span>
+                      <span>{details.flightType}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Google Flights Button */}
+              {data.origin && (
+                <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center' }}>
+                  <a
+                    href={generateGoogleFlightsUrl(data.origin, dest.name)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'rgba(255,255,255,0.25)',
+                      color: 'white',
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      textDecoration: 'none',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      transition: 'all 0.2s ease',
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.35)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.25)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <span style={{ fontSize: '1.2rem' }}>🔍</span>
+                    <span>View on Google Flights</span>
+                  </a>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Flight Options List Component
+const FlightOptionsList: React.FC<{ flights: ReturnType<typeof parseFlightOptionsList>; isDarkMode?: boolean }> = ({ flights, isDarkMode = false }) => {
+  if (!flights || flights.length === 0) return null;
+  
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{ 
+        fontSize: '1.2rem', 
+        fontWeight: '700', 
+        marginBottom: '15px',
+        color: isDarkMode ? '#e0e0e0' : '#333'
+      }}>
+        ✈️ Available Flight Options
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {flights.map((flight, idx) => (
+          <div 
+            key={idx}
+            style={{
+              background: isDarkMode ? 'rgba(255,255,255,0.05)' : 'white',
+              border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0',
+              borderRadius: '12px',
+              padding: '16px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: '700',
+                  fontSize: '1rem'
+                }}>
+                  {flight.number}
+                </div>
+                <div style={{ fontWeight: '600', fontSize: '1rem', color: isDarkMode ? '#e0e0e0' : '#333' }}>
+                  Option {flight.number}
+                </div>
+              </div>
+              <div style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                padding: '6px 14px',
+                borderRadius: '20px',
+                fontWeight: '700',
+                fontSize: '1.1rem'
+              }}>
+                {flight.currency || '$'}{parseInt(flight.price).toLocaleString()}
+              </div>
+            </div>
+            
+            {flight.airline && (
+              <div style={{ 
+                fontSize: '0.9rem', 
+                color: isDarkMode ? '#ccc' : '#555', 
+                marginBottom: '12px',
+                fontWeight: '500'
+              }}>
+                ✈️ {flight.airline}
+              </div>
+            )}
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '10px' }}>
+              <div>
+                <div style={{ fontSize: '0.8rem', color: isDarkMode ? '#aaa' : '#666', marginBottom: '2px' }}>Departure</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: '600', color: isDarkMode ? '#e0e0e0' : '#333' }}>
+                  🛫 {flight.departure || 'N/A'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.8rem', color: isDarkMode ? '#aaa' : '#666', marginBottom: '2px' }}>Arrival</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: '600', color: isDarkMode ? '#e0e0e0' : '#333' }}>
+                  🛬 {flight.arrival || 'N/A'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.8rem', color: isDarkMode ? '#aaa' : '#666', marginBottom: '2px' }}>Duration</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: '600', color: isDarkMode ? '#e0e0e0' : '#333' }}>⏱️ {flight.duration}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.8rem', color: isDarkMode ? '#aaa' : '#666', marginBottom: '2px' }}>Stops</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: '600', color: isDarkMode ? '#e0e0e0' : '#333' }}>🔄 {flight.stops}</div>
+              </div>
+            </div>
+            
+            {flight.reason && (
+              <div style={{ 
+                fontSize: '0.85rem', 
+                color: isDarkMode ? '#aaa' : '#666',
+                marginTop: '8px',
+                paddingTop: '8px',
+                borderTop: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0',
+                background: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(102,126,234,0.05)',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                marginBottom: '10px'
+              }}>
+                <span style={{ fontWeight: '600' }}>💡 Why this flight:</span> {flight.reason}
+              </div>
+            )}
+            
+            {/* Google Flights Button - Opens general search for user to customize */}
+            <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}>
+              <a
+                href={`https://www.google.com/travel/flights?curr=USD&hl=en&date=${flight.departure.split('T')[0]}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 6px rgba(102,126,234,0.3)',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(102,126,234,0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 6px rgba(102,126,234,0.3)';
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>🔍</span>
+                <span>Compare on Google Flights</span>
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // Message Component to reduce complexity
 const MessageItem: React.FC<{ 
   msg: Message;
@@ -101,6 +766,46 @@ const MessageItem: React.FC<{
   const content = msg.content;
   const isItinerary = typeof content === 'object' && content !== null && 
     ((content as any).dailyItinerary || (content as any).dailyPlans || (content as any).aiResponse);
+  
+  // Parse flight data if text content
+  let flightComparison = null;
+  let flightOptions = null;
+  let cleanedContent = content;
+  
+  if (typeof content === 'string') {
+    flightComparison = parseFlightPriceComparison(content);
+    flightOptions = parseFlightOptionsList(content);
+    
+    // If we found structured data, remove it from text to avoid duplication
+    if (flightComparison || flightOptions) {
+      cleanedContent = content;
+      
+      // Remove price comparison section
+      if (flightComparison) {
+        cleanedContent = cleanedContent
+          .replace(/Real-time flight price comparison from [^:]+:[\s\S]*?(?=Best Deal:|Here are|$)/i, '')
+          .replace(/Best Deal:[^\n]*\n(?:\s*-[^\n]*\n)*/gi, '');
+      }
+      
+      // Remove flight options section
+      if (flightOptions) {
+        cleanedContent = cleanedContent
+          .replace(/Here are the top \d+ best flight options[^\n]*:\n/i, '')
+          .replace(/Here are the top flight options[^\n]*:\n/i, '')
+          .replace(/Option\s+\d+:?\s*\n(?:\s*-[^\n]*\n)*/gi, '');
+      }
+      
+      // Clean up extra newlines, standalone numbers, and trailing prices
+      cleanedContent = cleanedContent
+        .replace(/^\d+(\.\d+)?\s*$/gm, '') // Remove lines with ONLY numbers
+        .replace(/\n\d+(\.\d+)?\s*$/gm, '') // Remove trailing numbers after newline
+        .replace(/\n+\d+(\.\d+)?\n+/g, '\n\n') // Remove standalone numbers between newlines
+        .replace(/\n{3,}/g, '\n\n') // Collapse multiple newlines
+        .replace(/(\d{5,})\s*$/gm, '') // Remove trailing large numbers (prices)
+        .replace(/^\s*\d{5,}\s*$/gm, '') // Remove lines with only large numbers
+        .trim();
+    }
+  }
   
   return (
     <div style={{
@@ -147,7 +852,78 @@ const MessageItem: React.FC<{
           <ItineraryContent content={content as any} role={msg.role} isDarkMode={isDarkMode} />
         ) : (
           <div>
-            {typeof content === 'string' ? renderFormattedText(content) : renderFormattedText(content.message || JSON.stringify(content, null, 2))}
+            {/* Render flight price comparison if found */}
+            {flightComparison && (
+              <FlightPriceComparison 
+                data={flightComparison} 
+                fullText={typeof content === 'string' ? content : ''}
+                isDarkMode={isDarkMode} 
+              />
+            )}
+            
+            {/* Render flight options list if found */}
+            {flightOptions && (
+              <FlightOptionsList flights={flightOptions} isDarkMode={isDarkMode} />
+            )}
+            
+            {/* Render remaining text */}
+            {cleanedContent && typeof cleanedContent === 'string' && cleanedContent.trim() && (
+              <div style={{ marginTop: (flightComparison || flightOptions) ? '15px' : '0' }}>
+                {renderFormattedText(cleanedContent)}
+              </div>
+            )}
+            
+            {/* Fallback for non-string content */}
+            {typeof cleanedContent !== 'string' && !flightComparison && !flightOptions && (
+              <div>
+                {renderFormattedText((cleanedContent as any).message || JSON.stringify(cleanedContent, null, 2))}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Google Flights Button - Shows when no flight results found */}
+        {msg.googleFlightsButton && (
+          <div style={{ 
+            marginTop: '20px', 
+            display: 'flex', 
+            justifyContent: 'center',
+            paddingTop: '15px',
+            borderTop: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0'
+          }}>
+            <a
+              href={msg.googleFlightsButton.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: 'linear-gradient(135deg, #4285f4 0%, #34a853 50%, #fbbc05 100%)',
+                color: 'white',
+                padding: '14px 28px',
+                borderRadius: '12px',
+                textDecoration: 'none',
+                fontSize: '1rem',
+                fontWeight: '600',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 4px 12px rgba(66, 133, 244, 0.4)',
+                cursor: 'pointer',
+                border: 'none'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(66, 133, 244, 0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(66, 133, 244, 0.4)';
+              }}
+            >
+              <span style={{ fontSize: '1.3rem' }}>✈️</span>
+              <span>{msg.googleFlightsButton.text}</span>
+              <span style={{ fontSize: '1.1rem' }}>→</span>
+            </a>
           </div>
         )}
         
@@ -1012,6 +1788,13 @@ const AiAgentPage: React.FC = () => {
       }
       
       const aiMessage = createMessage('ai', aiContent);
+      
+      // Add Google Flights button if provided by backend
+      if (response.data.data?.googleFlightsButton) {
+        aiMessage.googleFlightsButton = response.data.data.googleFlightsButton;
+        console.log('🔘 Google Flights button added to message:', response.data.data.googleFlightsButton);
+      }
+      
       setMessages((prev) => [...prev, aiMessage]);
 
       // Update context with learned preferences from backend

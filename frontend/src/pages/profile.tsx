@@ -430,6 +430,10 @@ export default function ProfilePage() {
     email: state.user?.email ?? ''
   });
 
+  // Home city state
+  const [homeCity, setHomeCity] = useState((state.user as any)?.homeCity || '');
+  const [isEditingHomeCity, setIsEditingHomeCity] = useState(false);
+
   // Initialize travel preferences from user data or defaults
   const [travelPreferences, setTravelPreferences] = useState<TravelPreferences>(() => {
     const userPrefs = state.user?.preferences as any;
@@ -497,6 +501,41 @@ export default function ProfilePage() {
 
   const handlePreferenceChange = (updates: Partial<TravelPreferences>) => {
     setTravelPreferences(prev => PreferencesUtils.mergePreferences(prev, updates));
+  };
+
+  const handleSaveHomeCity = async () => {
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const response = await fetch(`${API_URL}/user/profile/home-city`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ homeCity: homeCity.trim() })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save home city');
+      }
+
+      await Swal.fire({
+        icon: 'success',
+        title: 'Home City Saved!',
+        text: `Your home city has been set to ${homeCity}. The AI will use this as your default origin for flight searches.`,
+        timer: 3000,
+        showConfirmButton: false
+      });
+
+      setIsEditingHomeCity(false);
+    } catch (error) {
+      console.error('Error saving home city:', error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Save Failed',
+        text: 'Failed to save home city. Please try again.',
+      });
+    }
   };
 
   const handleSavePreferences = async () => {
@@ -684,6 +723,118 @@ export default function ProfilePage() {
                     </div>
                   )}
                 </>
+              )}
+            </div>
+
+            {/* Home City */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              borderRadius: '20px',
+              padding: '40px',
+              marginBottom: '30px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)'
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '25px',
+              }}>
+                <div>
+                  <h2 style={{ margin: 0, color: '#333', fontSize: '1.5rem' }}>🏠 Home City</h2>
+                  <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '0.9rem' }}>
+                    Set your default origin city for flight searches
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsEditingHomeCity(!isEditingHomeCity)}
+                  style={{
+                    background: isEditingHomeCity ? '#6c757d' : '#667eea',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '500',
+                  }}
+                >
+                  {isEditingHomeCity ? 'Cancel' : 'Edit Home City'}
+                </button>
+              </div>
+
+              {!isEditingHomeCity ? (
+                <div style={{
+                  padding: '20px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  borderRadius: '15px',
+                  color: 'white'
+                }}>
+                  <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '8px' }}>
+                    Your Home City
+                  </div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>
+                    {homeCity || 'Not set'}
+                  </div>
+                  {homeCity && (
+                    <div style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: '10px' }}>
+                      ✅ AI will use {homeCity} as your default origin when you search for flights
+                    </div>
+                  )}
+                  {!homeCity && (
+                    <div style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: '10px' }}>
+                      ℹ️ Click "Edit Home City" to set your default origin city
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <div style={{ background: '#e3f2fd', borderRadius: '10px', padding: '15px', marginBottom: '20px' }}>
+                    <p style={{ margin: 0, color: '#1976d2', fontSize: '0.9rem' }}>
+                      💡 <strong>Tip:</strong> Once you set your home city, the AI will remember it and use it as your default origin for flight searches. Just say "find flights to Paris" and the AI will know you're flying from {homeCity || 'your home city'}!
+                    </p>
+                  </div>
+                  
+                  <label style={{ display: 'block', marginBottom: '10px', fontWeight: '600', color: '#333' }}>
+                    Enter your home city
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Mumbai, New York, London"
+                    value={homeCity}
+                    onChange={(e) => setHomeCity(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: '2px solid #667eea',
+                      borderRadius: '10px',
+                      fontSize: '1rem',
+                      outline: 'none',
+                      transition: 'border-color 0.3s',
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#764ba2'}
+                    onBlur={(e) => e.target.style.borderColor = '#667eea'}
+                  />
+                  
+                  <button
+                    onClick={handleSaveHomeCity}
+                    disabled={!homeCity.trim()}
+                    style={{
+                      background: homeCity.trim() ? '#28a745' : '#6c757d',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 25px',
+                      borderRadius: '10px',
+                      cursor: homeCity.trim() ? 'pointer' : 'not-allowed',
+                      fontSize: '0.9rem',
+                      fontWeight: '500',
+                      marginTop: '15px',
+                      width: '100%'
+                    }}
+                  >
+                    Save Home City
+                  </button>
+                </div>
               )}
             </div>
 

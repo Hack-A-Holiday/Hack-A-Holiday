@@ -132,6 +132,19 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [pendingBookingData, setPendingBookingData] = useState<any>(null);
 
+  // Helper function to generate Google Flights URL with pre-filled search
+  const generateGoogleFlightsUrl = (flight: FlightOption): string => {
+    // Use the most reliable Google Flights format that works consistently
+    const origin = flight.departure.airport;
+    const destination = flight.arrival.airport;
+    const date = flight.departure.date;
+    
+    // Format: /travel/flights with query parameter
+    // This is the most reliable format that actually works
+    const query = `${origin} to ${destination} ${date}`;
+    return `https://www.google.com/travel/flights?q=${encodeURIComponent(query)}`;
+  };
+
   // Helper function to generate airline booking URLs with specific flight details
   const getAirlineBookingUrl = (flight: FlightOption): string => {
     // PRIORITY 1: If flight has a direct booking URL from the API, use that FIRST
@@ -2819,7 +2832,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                     </div>
                   </div>
                   
-                  <div style={{ marginLeft: '20px' }}>
+                  <div style={{ marginLeft: '20px', display: 'flex', gap: '10px', flexDirection: 'column' }}>
                     <button 
                       onClick={() => handleBookFlight(flight)}
                       style={{
@@ -2831,7 +2844,8 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                         fontWeight: '600',
                         cursor: 'pointer',
                         fontSize: '14px',
-                        transition: 'all 0.2s ease'
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap'
                       }}
                       onMouseEnter={(e) => {
                         (e.target as HTMLElement).style.transform = 'translateY(-2px)';
@@ -2843,6 +2857,31 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                       }}
                     >
                       🎫 Book Flight
+                    </button>
+                    <button 
+                      onClick={() => window.open(generateGoogleFlightsUrl(flight), '_blank', 'noopener,noreferrer')}
+                      style={{
+                        background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'white',
+                        color: isDarkMode ? 'white' : '#667eea',
+                        border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.2)' : '2px solid #667eea',
+                        padding: '10px 16px',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap'
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.target as HTMLElement).style.transform = 'translateY(-2px)';
+                        (e.target as HTMLElement).style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.target as HTMLElement).style.transform = 'translateY(0)';
+                        (e.target as HTMLElement).style.boxShadow = 'none';
+                      }}
+                    >
+                      🔍 Google Flights
                     </button>
                   </div>
                 </div>
@@ -2863,6 +2902,84 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
                     </span>
                     {flight.refundable && <span style={{ marginRight: '15px' }}>💰 Refundable</span>}
                     {flight.changeable && <span>🔄 Changeable</span>}
+                  </div>
+                )}
+                
+                {/* Grouped Dates Display */}
+                {flight.availableDates && flight.availableDates.length > 1 && (
+                  <div style={{ 
+                    marginTop: '15px', 
+                    padding: '15px', 
+                    background: isDarkMode ? 'rgba(102, 126, 234, 0.08)' : 'rgba(102, 126, 234, 0.05)', 
+                    borderRadius: '10px',
+                    border: isDarkMode ? '1px solid rgba(102, 126, 234, 0.2)' : '1px solid rgba(102, 126, 234, 0.15)'
+                  }}>
+                    <div style={{ 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      color: isDarkMode ? '#8b9cff' : '#667eea',
+                      marginBottom: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      📅 Multiple Dates Available
+                      {flight.priceRange && (
+                        <span style={{ 
+                          fontSize: '11px', 
+                          fontWeight: '500', 
+                          color: isDarkMode ? '#9ca3af' : '#6c757d',
+                          marginLeft: 'auto'
+                        }}>
+                          ${flight.priceRange.min} - ${flight.priceRange.max}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
+                      gap: '8px'
+                    }}>
+                      {flight.availableDates.map((dateOption: any, idx: number) => (
+                        <div key={idx} style={{ 
+                          padding: '8px 10px', 
+                          background: idx === 0 
+                            ? (isDarkMode ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
+                            : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'white'),
+                          borderRadius: '6px',
+                          border: idx === 0 
+                            ? '1px solid #10b981'
+                            : (isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e9ecef'),
+                          fontSize: '11px',
+                          position: 'relative'
+                        }}>
+                          {idx === 0 && (
+                            <div style={{ 
+                              position: 'absolute', 
+                              top: '-6px', 
+                              right: '4px', 
+                              background: '#10b981', 
+                              color: 'white',
+                              fontSize: '9px',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontWeight: '600'
+                            }}>
+                              BEST
+                            </div>
+                          )}
+                          <div style={{ color: isDarkMode ? '#e8eaed' : '#495057', fontWeight: '600' }}>
+                            {new Date(dateOption.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </div>
+                          <div style={{ color: isDarkMode ? '#9ca3af' : '#6c757d', marginTop: '2px' }}>
+                            {dateOption.time} • {dateOption.duration}
+                          </div>
+                          <div style={{ color: '#10b981', fontWeight: '700', marginTop: '4px' }}>
+                            ${dateOption.price}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

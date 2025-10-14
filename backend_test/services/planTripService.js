@@ -1,54 +1,101 @@
 // Bedrock direct integration using AWS Nova Pro (JavaScript)
 const { BedrockRuntimeClient, ConverseCommand } = require('@aws-sdk/client-bedrock-runtime');
+const TripAdvisorService = require('./TripAdvisorService');
 
 // You may want to move these to environment variables
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-pro-v1:0'; // Using Nova Pro
 
 const client = new BedrockRuntimeClient({ region: REGION });
+const tripAdvisorService = new TripAdvisorService();
 
-function buildTripPlanningPrompt(preferences, userContext = null) {
-  // Build user profile context
-  let contextSection = '';
+// Build trip planning prompt with BOTH user context AND TripAdvisor data
+async function buildTripPlanningPrompt(preferences, userContext = null, tripAdvisorData = null) {
+  let prompt = `You are an intelligent AI travel agent that learns and adapts to user preferences. Plan a comprehensive, personalized trip.\n\n`;
+  
+  // Add USER CONTEXT section (from YOUR work)
   if (userContext) {
-    contextSection = '\n--- USER CONTEXT & LEARNING ---\n';
+    prompt += '--- USER CONTEXT & LEARNING ---\n';
     
     if (userContext.preferences?.homeCity) {
-      contextSection += `🏠 User's home city: ${userContext.preferences.homeCity}\n`;
+      prompt += `🏠 User's home city: ${userContext.preferences.homeCity}\n`;
     }
     
     if (userContext.preferences?.travelStyle) {
-      contextSection += `✈️ Preferred travel style: ${userContext.preferences.travelStyle}\n`;
+      prompt += `✈️ Preferred travel style: ${userContext.preferences.travelStyle}\n`;
     }
     
     if (userContext.preferences?.interests?.length > 0) {
-      contextSection += `❤️ Interests: ${userContext.preferences.interests.join(', ')}\n`;
+      prompt += `❤️ Interests: ${userContext.preferences.interests.join(', ')}\n`;
     }
     
     if (userContext.preferences?.budget) {
-      contextSection += `💰 Typical budget: $${userContext.preferences.budget}\n`;
+      prompt += `💰 Typical budget: $${userContext.preferences.budget}\n`;
     }
     
     if (userContext.searchHistory?.length > 0) {
       const recentSearches = userContext.searchHistory.slice(-3);
-      contextSection += `📍 Recent searches:\n`;
+      prompt += `📍 Recent searches:\n`;
       recentSearches.forEach(search => {
-        contextSection += `  - ${search.origin || '?'} → ${search.destination || '?'} (${search.type})\n`;
+        prompt += `  - ${search.origin || '?'} → ${search.destination || '?'} (${search.type})\n`;
       });
     }
     
     if (userContext.tripHistory?.length > 0) {
-      contextSection += `🗺️ Previous trips: ${userContext.tripHistory.length} trips planned\n`;
+      prompt += `🗺️ Previous trips: ${userContext.tripHistory.length} trips planned\n`;
     }
     
-    contextSection += '\nUSE THIS CONTEXT to personalize the trip plan! Consider their home location, past preferences, and interests.\n\n';
+    prompt += '\nUSE THIS CONTEXT to personalize the trip plan! Consider their home location, past preferences, and interests.\n\n';
   }
-  
-  return `You are an intelligent AI travel agent that learns and adapts to user preferences. Plan a comprehensive, personalized trip.
-${contextSection}
-Current Trip Request: ${JSON.stringify(preferences, null, 2)}
 
-IMPORTANT: Return ONLY a valid JSON object with this EXACT structure (no markdown, no code blocks, just pure JSON):
+  // Add current trip preferences
+  prompt += `Current Trip Request: ${JSON.stringify(preferences, null, 2)}\n\n`;
+
+  // Add TRIPADVISOR DATA section (from TEAMMATE'S work)
+  if (tripAdvisorData) {
+    prompt += `Real-time travel data from TripAdvisor:\n`;
+    
+    if (tripAdvisorData.location) {
+      prompt += `Destination: ${tripAdvisorData.location.name}\n`;
+      prompt += `Description: ${tripAdvisorData.location.description}\n`;
+      prompt += `Overall Rating: ${tripAdvisorData.location.rating}/5 (${tripAdvisorData.location.review_count} reviews)\n\n`;
+    }
+
+    if (tripAdvisorData.attractions && tripAdvisorData.attractions.length > 0) {
+      prompt += `Top Attractions:\n`;
+      tripAdvisorData.attractions.forEach((attraction, index) => {
+        prompt += `${index + 1}. ${attraction.name} - ${attraction.rating}/5 (${attraction.review_count} reviews)\n`;
+        if (attraction.description) prompt += `   ${attraction.description}\n`;
+        if (attraction.price_level) prompt += `   Price Level: ${attraction.price_level}\n`;
+      });
+      prompt += `\n`;
+    }
+
+    if (tripAdvisorData.restaurants && tripAdvisorData.restaurants.length > 0) {
+      prompt += `Top Restaurants:\n`;
+      tripAdvisorData.restaurants.forEach((restaurant, index) => {
+        prompt += `${index + 1}. ${restaurant.name} - ${restaurant.rating}/5 (${restaurant.review_count} reviews)\n`;
+        if (restaurant.cuisine) prompt += `   Cuisine: ${restaurant.cuisine.join(', ')}\n`;
+        if (restaurant.price_level) prompt += `   Price Level: ${restaurant.price_level}\n`;
+        if (restaurant.description) prompt += `   ${restaurant.description}\n`;
+      });
+      prompt += `\n`;
+    }
+
+    if (tripAdvisorData.hotels && tripAdvisorData.hotels.length > 0) {
+      prompt += `Top Hotels:\n`;
+      tripAdvisorData.hotels.forEach((hotel, index) => {
+        prompt += `${index + 1}. ${hotel.name} - ${hotel.rating}/5 (${hotel.review_count} reviews)\n`;
+        if (hotel.amenities) prompt += `   Amenities: ${hotel.amenities.join(', ')}\n`;
+        if (hotel.price_level) prompt += `   Price Level: ${hotel.price_level}\n`;
+        if (hotel.description) prompt += `   ${hotel.description}\n`;
+      });
+      prompt += `\n`;
+    }
+  }
+
+  // JSON structure instructions
+  prompt += `IMPORTANT: Return ONLY a valid JSON object with this EXACT structure (no markdown, no code blocks, just pure JSON):
 
 {
   "destination": "City, Country",
@@ -62,39 +109,63 @@ IMPORTANT: Return ONLY a valid JSON object with this EXACT structure (no markdow
       "activities": [
         {
           "time": "HH:MM",
-          "activity": "Activity description",
-          "location": "Location name",
-          "duration": "Duration string",
-          "cost": number
+          "activity": "activity name",
+          "description": "detailed description",
+          "location": "specific location",
+          "duration": "duration string",
+          "cost": estimated cost,
+          "rating": "rating if available from TripAdvisor",
+          "reviewCount": "number of reviews if available"
         }
       ],
       "meals": {
-        "breakfast": "Restaurant name and details",
-        "lunch": "Restaurant name and details",
-        "dinner": "Restaurant name and details"
+        "breakfast": "Restaurant name and details (use TripAdvisor data)",
+        "lunch": "Restaurant name and details (use TripAdvisor data)",
+        "dinner": "Restaurant name and details (use TripAdvisor data)"
       },
-      "accommodation": "Hotel name and details"
+      "accommodation": "Hotel name and details (use TripAdvisor data)",
+      "totalCost": estimated daily cost
     }
   ],
   "budgetBreakdown": {
-    "accommodation": number,
-    "transportation": number,
-    "food": number,
-    "activities": number,
-    "other": number
+    "accommodation": estimated cost,
+    "transportation": estimated cost,
+    "food": estimated cost,
+    "activities": estimated cost,
+    "miscellaneous": estimated cost
   },
   "totalBudget": number,
   "transportation": "Transportation details",
-  "tips": ["Tip 1", "Tip 2"]
+  "tips": ["Tip 1", "Tip 2"],
+  "travelTips": ["travel tip1", "travel tip2"],
+  "culturalHighlights": ["cultural highlight1", "cultural highlight2"],
+  "foodExperiences": ["food experience1", "food experience2"]
 }
 
+Use the real TripAdvisor data above to create specific, accurate recommendations with actual ratings and review counts.
 Return only the JSON, no other text.`;
+
+  return prompt;
 }
 
+// Main planTrip function - integrates BOTH features
 exports.planTrip = async (userId, preferences, token, userContext = null) => {
-  const prompt = buildTripPlanningPrompt(preferences, userContext);
+  console.log('   🧠 Building AI-personalized trip plan with user context AND TripAdvisor data');
   
-  console.log('   🧠 Building AI-personalized trip plan with user context');
+  // Get TripAdvisor data for the destination (TEAMMATE'S work)
+  let tripAdvisorData = null;
+  if (preferences.destination) {
+    try {
+      tripAdvisorData = await tripAdvisorService.getTravelDataForAI(preferences.destination, preferences);
+      console.log('✅ TripAdvisor data retrieved for destination:', preferences.destination);
+    } catch (error) {
+      console.error('⚠️ TripAdvisor data retrieval failed:', error.message);
+      // Continue without TripAdvisor data
+    }
+  }
+
+  // Build prompt with BOTH user context AND TripAdvisor data
+  const prompt = await buildTripPlanningPrompt(preferences, userContext, tripAdvisorData);
   
   // Use Converse API (recommended for Nova models)
   const input = {
@@ -117,7 +188,7 @@ exports.planTrip = async (userId, preferences, token, userContext = null) => {
     const command = new ConverseCommand(input);
     const response = await client.send(command);
     
-    // Extract text from Converse API response
+    // Extract text from Converse API response (Nova Pro format)
     if (response.output && response.output.message && response.output.message.content) {
       for (const content of response.output.message.content) {
         if (content.text) {
@@ -347,3 +418,4 @@ exports.planTrip = async (userId, preferences, token, userContext = null) => {
     throw err;
   }
 };
+

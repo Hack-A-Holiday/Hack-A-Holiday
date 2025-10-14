@@ -97,37 +97,44 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
 
   // Utility functions for consistent cookie and token storage
   const setCookie = (name: string, value: string, days: number = 7) => {
+    if (typeof window === 'undefined') return;
     const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
     document.cookie = `${name}=${value}; expires=${expires}; path=/; secure; samesite=strict`;
   };
 
   const getCookie = (name: string): string | null => {
+    if (typeof window === 'undefined') return null;
     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
     return match ? match[2] : null;
   };
 
   const removeCookie = (name: string) => {
+    if (typeof window === 'undefined') return;
     document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
   };
 
   const setToken = (token: string) => {
+    if (typeof window === 'undefined') return;
     // Store in both localStorage and cookie for consistency
     localStorage.setItem('auth_token', token);
     setCookie('authToken', token, 7);
   };
 
   const setUserSession = (user: User) => {
+    if (typeof window === 'undefined') return;
     // Store user data in both localStorage and cookie
     localStorage.setItem('user_session', JSON.stringify(user));
     setCookie('userSession', JSON.stringify(user), 7);
   };
 
   const getToken = (): string | null => {
+    if (typeof window === 'undefined') return null;
     // Try cookie first, then localStorage for backward compatibility
     return getCookie('authToken') || localStorage.getItem('auth_token');
   };
 
   const removeToken = () => {
+    if (typeof window === 'undefined') return;
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_session');
     removeCookie('authToken');

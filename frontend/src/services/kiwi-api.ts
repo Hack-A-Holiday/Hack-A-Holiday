@@ -72,8 +72,9 @@ export interface KiwiApiResponse {
 }
 
 export class KiwiApiService {
-  private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '8ba82f8f69mshfc586479dacb57dp17b668jsnd41a5fc70e20';
-  private readonly baseUrl = 'https://kiwi-com-cheap-flights.p.rapidapi.com';
+  private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '';
+  private readonly host = process.env.NEXT_PUBLIC_RAPIDAPI_HOST || '';
+  private readonly baseUrl = this.host ? `https://${this.host}` : '';
 
   /**
    * Search flights with automatic Google Flights fallback
@@ -128,7 +129,7 @@ export class KiwiApiService {
         const response = await fetch(url, {
           method: 'GET',
           headers: {
-            'x-rapidapi-host': 'kiwi-com-cheap-flights.p.rapidapi.com',
+            'x-rapidapi-host': this.host,
             'x-rapidapi-key': this.apiKey
           }
         });

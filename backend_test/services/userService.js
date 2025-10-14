@@ -83,3 +83,42 @@ exports.storeGoogleUser = async ({ uid, email, displayName, photoURL }) => {
   const { password: pwd, ...userNoPass } = user;
   return userNoPass;
 };
+
+/**
+ * Update user profile with any fields
+ * @param {string} userId - User ID
+ * @param {object} updates - Fields to update (e.g., { homeCity: "Mumbai", travelStyle: "budget" })
+ */
+exports.updateUserProfile = async (userId, updates) => {
+  const user = await userModel.getUserById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+  
+  // Merge updates into user object
+  const updatedUser = {
+    ...user,
+    ...updates,
+    updatedAt: new Date().toISOString()
+  };
+  
+  // If updating preferences specifically, merge those too
+  if (updates.preferences) {
+    updatedUser.preferences = {
+      ...user.preferences,
+      ...updates.preferences
+    };
+  }
+  
+  // If homeCity is provided, also store it in preferences for AI agent
+  if (updates.homeCity) {
+    updatedUser.preferences = updatedUser.preferences || {};
+    updatedUser.preferences.homeCity = updates.homeCity;
+  }
+  
+  await userModel.updateUser(updatedUser);
+  
+  // Remove password before returning
+  const { password, ...userNoPass } = updatedUser;
+  return userNoPass;
+};

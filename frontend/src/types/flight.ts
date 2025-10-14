@@ -52,6 +52,17 @@ export interface FlightOption {
     availability: number;
     priceHistory?: number[];
   };
+  // Grouped flight options (when multiple dates/times available)
+  availableDates?: Array<{
+    date: string;
+    time: string;
+    price: number;
+    duration: string;
+  }>;
+  priceRange?: {
+    min: number;
+    max: number;
+  };
 }
 
 export interface FlightSearchRequest {
