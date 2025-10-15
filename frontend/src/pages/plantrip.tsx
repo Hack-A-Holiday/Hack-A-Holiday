@@ -704,9 +704,26 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 				<main style={{ padding: getContainerPadding(), fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
 					<div style={{ maxWidth: '800px', margin: '0 auto' }}>
 						<div style={{ textAlign: 'center', marginBottom: isMobile ? '30px' : '40px', color: 'white' }}>
-							<h1 style={{ fontSize: getTitleFontSize(), marginBottom: '10px', lineHeight: '1.2' }}>
-								🌍 Hack-A-Holiday
-							</h1>
+							<div style={{ 
+								display: 'flex', 
+								alignItems: 'center', 
+								justifyContent: 'center', 
+								gap: isMobile ? '10px' : '15px',
+								marginBottom: '10px'
+							}}>
+								<img 
+									src="/globe-logo.jpg" 
+									alt="Hack-A-Holiday Globe Logo" 
+									style={{
+										width: isMobile ? '50px' : '60px',
+										height: isMobile ? '50px' : '60px',
+										objectFit: 'contain'
+									}}
+								/>
+								<h1 style={{ fontSize: getTitleFontSize(), margin: 0, lineHeight: '1.2' }}>
+									Hack-A-Holiday
+								</h1>
+							</div>
 							<p style={{ fontSize: getTitleFontSize(), opacity: 0.9, lineHeight: '1.4' }}>
 								Your intelligent travel planning assistant
 							</p>
