@@ -95,14 +95,28 @@ export default function HomePage() {
         <div className="auth-content">
           {/* Header */}
           <div className="auth-header">
-            <div className="auth-logo">
-              <span>✈️</span>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: '15px',
+              marginBottom: '10px'
+            }}>
+              <img 
+                src="/globe-logo.jpg" 
+                alt="Hack-A-Holiday Globe Logo" 
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  objectFit: 'contain'
+                }}
+              />
+              <h1 className="auth-title" style={{ margin: 0 }}>
+                Hack-A-Holiday
+              </h1>
             </div>
-            <h1 className="auth-title">
-              Hack-A-Holiday
-            </h1>
             <p className="auth-subtitle">
-              Your AI-powered travel planning assistant
+              Your intelligent travel planning assistant
             </p>
           </div>
 

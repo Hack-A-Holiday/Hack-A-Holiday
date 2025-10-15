@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -33,6 +33,7 @@ app.use(cookieParser());
 app.use('/auth', authRoutes);
 app.use('/auth', googleAuthRoutes);
 app.use('/trip', tripRoutes);
+app.use('/api/trip', tripRoutes); // Also mount at /api/trip for consistency
 app.use('/booking', bookingRoutes);
 app.use('/user', userRoutes);
 app.use('/flights', flightRoutes);

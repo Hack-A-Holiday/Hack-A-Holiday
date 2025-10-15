@@ -1,3 +1,8 @@
+const ddbDocClient = require('../config/dynamo');
+const { GetCommand, PutCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+
+const USERS_TABLE = process.env.USERS_TABLE || 'HackAHolidayUsers';
+
 exports.updateUser = async (user) => {
   const params = {
     TableName: USERS_TABLE,
@@ -6,10 +11,6 @@ exports.updateUser = async (user) => {
   await ddbDocClient.send(new PutCommand(params));
   return user;
 };
-const ddbDocClient = require('../config/dynamo');
-const { GetCommand, PutCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
-
-const USERS_TABLE = process.env.USERS_TABLE || 'HackAHolidayUsers';
 
 exports.getUserByEmail = async (email) => {
   const params = {
@@ -42,4 +43,67 @@ exports.createUser = async (user) => {
   };
   await ddbDocClient.send(new PutCommand(params));
   return user;
+};
+
+/**
+ * Soft delete user - marks as deleted with 30-day TTL
+ */
+exports.softDeleteUser = async (userId) => {
+  console.log(`🔍 Model: Attempting to get user ${userId}`);
+  const user = await exports.getUserById(userId);
+  
+  if (!user) {
+    console.error(`❌ Model: User ${userId} not found`);
+    throw new Error('User not found');
+  }
+
+  console.log(`✅ Model: Found user ${userId}, email: ${user.email}`);
+
+  // Calculate TTL: 30 days from now
+  const ttl = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60);
+  
+  const updatedUser = {
+    ...user,
+    isDeleted: true,
+    deletedAt: new Date().toISOString(),
+    ttl: ttl // DynamoDB will auto-delete after 30 days
+  };
+
+  console.log(`🔍 Model: Writing to DynamoDB table: ${USERS_TABLE}`);
+  const params = {
+    TableName: USERS_TABLE,
+    Item: updatedUser,
+  };
+  
+  try {
+    await ddbDocClient.send(new PutCommand(params));
+    console.log(`🗑️ User ${userId} soft deleted. Will be permanently deleted after 30 days.`);
+    return updatedUser;
+  } catch (dbError) {
+    console.error(`❌ Model: DynamoDB error:`, dbError);
+    throw dbError;
+  }
+};
+
+/**
+ * Restore deleted user account
+ */
+exports.restoreUser = async (userId) => {
+  const user = await exports.getUserById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Remove deletion flags and TTL
+  const { isDeleted, deletedAt, ttl, ...restoredUser } = user;
+  restoredUser.restoredAt = new Date().toISOString();
+
+  const params = {
+    TableName: USERS_TABLE,
+    Item: restoredUser,
+  };
+  
+  await ddbDocClient.send(new PutCommand(params));
+  console.log(`♻️ User ${userId} account restored`);
+  return restoredUser;
 };

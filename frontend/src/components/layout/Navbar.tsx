@@ -58,12 +58,17 @@ export default function Navbar() {
     setIsUserMenuOpen(!isUserMenuOpen);
   };
 
-  const getLinkStyle = (path: string) => ({
-    textDecoration: 'none',
-    color: router.pathname === path ? '#667eea' : (isDarkMode ? '#e0e0e0' : '#666'),
-    fontWeight: router.pathname === path ? '600' : '400',
-    transition: 'color 0.2s ease'
-  });
+  const getLinkStyle = (path: string) => {
+    // Special case: /ai-agent should highlight Plan Trip since users get redirected there after planning
+    const isActive = router.pathname === path || (path === '/plantrip' && router.pathname === '/ai-agent');
+    
+    return {
+      textDecoration: 'none',
+      color: isActive ? '#667eea' : (isDarkMode ? '#e0e0e0' : '#666'),
+      fontWeight: isActive ? '600' : '400',
+      transition: 'color 0.2s ease'
+    };
+  };
 
   return (
     <nav style={{
@@ -92,9 +97,18 @@ export default function Navbar() {
           alignItems: 'center',
           color: '#667eea',
           fontWeight: 'bold',
-          fontSize: isMobile ? '1.2rem' : '1.5rem'
+          fontSize: isMobile ? '1.2rem' : '1.5rem',
+          gap: '10px'
         }}>
-          <span style={{ marginRight: '8px' }}>🌍</span>
+          <img 
+            src="/globe-logo.jpg" 
+            alt="Hack-A-Holiday Globe" 
+            style={{
+              width: isMobile ? '32px' : '40px',
+              height: isMobile ? '32px' : '40px',
+              objectFit: 'contain'
+            }}
+          />
           {isMobile ? 'HAH' : 'Hack-A-Holiday'}
         </Link>
 
@@ -103,16 +117,44 @@ export default function Navbar() {
           <button
             onClick={toggleMobileMenu}
             style={{
-              display: isMobile ? 'block' : 'none',
+              display: isMobile ? 'flex' : 'none',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '4px',
               background: 'none',
               border: 'none',
-              fontSize: '1.5rem',
+              width: '30px',
+              height: '30px',
               cursor: 'pointer',
-              color: '#667eea'
+              padding: 0
             }}
             aria-label="Toggle mobile menu"
           >
-            {isMobileMenuOpen ? '✕' : '☰'}
+            <span style={{
+              display: 'block',
+              width: '24px',
+              height: '2px',
+              background: '#667eea',
+              transition: 'transform 0.3s ease',
+              transform: isMobileMenuOpen ? 'rotate(45deg) translateY(8px)' : 'none'
+            }} />
+            <span style={{
+              display: 'block',
+              width: '24px',
+              height: '2px',
+              background: '#667eea',
+              opacity: isMobileMenuOpen ? 0 : 1,
+              transition: 'opacity 0.3s ease'
+            }} />
+            <span style={{
+              display: 'block',
+              width: '24px',
+              height: '2px',
+              background: '#667eea',
+              transition: 'transform 0.3s ease',
+              transform: isMobileMenuOpen ? 'rotate(-45deg) translateY(-8px)' : 'none'
+            }} />
           </button>
         )}
 

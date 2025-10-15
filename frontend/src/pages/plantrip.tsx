@@ -704,9 +704,26 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 				<main style={{ padding: getContainerPadding(), fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
 					<div style={{ maxWidth: '800px', margin: '0 auto' }}>
 						<div style={{ textAlign: 'center', marginBottom: isMobile ? '30px' : '40px', color: 'white' }}>
-							<h1 style={{ fontSize: getTitleFontSize(), marginBottom: '10px', lineHeight: '1.2' }}>
-								🌍 Hack-A-Holiday
-							</h1>
+							<div style={{ 
+								display: 'flex', 
+								alignItems: 'center', 
+								justifyContent: 'center', 
+								gap: isMobile ? '10px' : '15px',
+								marginBottom: '10px'
+							}}>
+								<img 
+									src="/globe-logo.jpg" 
+									alt="Hack-A-Holiday Globe Logo" 
+									style={{
+										width: isMobile ? '50px' : '60px',
+										height: isMobile ? '50px' : '60px',
+										objectFit: 'contain'
+									}}
+								/>
+								<h1 style={{ fontSize: getTitleFontSize(), margin: 0, lineHeight: '1.2' }}>
+									Hack-A-Holiday
+								</h1>
+							</div>
 							<p style={{ fontSize: getTitleFontSize(), opacity: 0.9, lineHeight: '1.4' }}>
 								Your intelligent travel planning assistant
 							</p>
@@ -716,7 +733,9 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 							borderRadius: '15px', 
 							padding: getContainerPadding(), 
 							boxShadow: isDarkMode ? '0 20px 40px rgba(0,0,0,0.6)' : '0 20px 40px rgba(0,0,0,0.1)',
-							border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
+							border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
+							maxWidth: '1200px',
+							margin: '0 auto'
 						}}>
 							{/* Interactive Globe for Destination Selection - Always visible */}
 							<div style={{ marginBottom: '30px' }}>
@@ -782,10 +801,10 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 							</div>
 						</div>
 						
-						{/* Source and Destination Inputs */}
-						<div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+						{/* Source and Destination Inputs with Switch Button */}
+						<div style={{ display: 'flex', alignItems: 'flex-end', gap: '15px', marginBottom: '20px', flexDirection: isMobile ? 'column' : 'row' }}>
 							{/* Source City Input */}
-							<div>
+							<div style={{ flex: 1, width: isMobile ? '100%' : 'auto' }}>
 								<label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
 									🛫 Traveling From
 								</label>
@@ -819,8 +838,66 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 								/>
 							</div>
 							
+							{/* Switch Button */}
+							<button
+								type="button"
+								onClick={() => {
+									// Swap source and destination
+									const tempTypedSource = typedSource;
+									const tempTypedDestination = typedDestination;
+									const tempSourceDest = sourceDestination;
+									const tempDestLocation = destinationLocation;
+									
+									setTypedSource(tempTypedDestination);
+									setTypedDestination(tempTypedSource);
+									setSourceDestination(tempDestLocation);
+									setDestinationLocation(tempSourceDest);
+									
+									// Clear route to refresh
+									if (routeData) {
+										setRouteData(null);
+										// Re-fetch route with swapped locations if both are set
+										setTimeout(() => {
+											const newSource = tempDestLocation?.name || tempTypedDestination.trim();
+											const newDest = tempSourceDest?.name || tempTypedSource.trim();
+											if (newSource && newDest) {
+												fetchRouteCoordinates(newSource, newDest);
+											}
+										}, 100);
+									}
+								}}
+								style={{
+									padding: '14px 16px',
+									background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+									color: 'white',
+									border: 'none',
+									borderRadius: '12px',
+									fontSize: '20px',
+									cursor: 'pointer',
+									transition: 'all 0.3s',
+									boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+									minWidth: '52px',
+									height: '52px',
+									flexShrink: 0
+								}}
+								onMouseEnter={(e) => {
+									e.currentTarget.style.transform = 'scale(1.1) rotate(180deg)';
+									e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.5)';
+								}}
+								onMouseLeave={(e) => {
+									e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+									e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+								}}
+								title="Switch locations"
+							>
+								⇄
+							</button>
+							
 							{/* Destination Input */}
-							<div>
+							<div style={{ flex: 1, width: isMobile ? '100%' : 'auto' }}>
 								<label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
 									🛬 Traveling To
 								</label>

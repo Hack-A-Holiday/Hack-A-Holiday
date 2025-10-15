@@ -16,6 +16,7 @@ import { bookingApiService } from '../services/booking-api';
 import { useDarkMode } from '../contexts/DarkModeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { tripTrackingService } from '../services/trip-tracking';
+import { tripApiService } from '../services/trip-api';
 import { BookingConfirmationModal } from './BookingConfirmationModal';
 import Swal from 'sweetalert2';
 
@@ -366,24 +367,54 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
   };
 
   // Handle trip confirmation when user returns from booking tabs
-  const handleTripConfirmation = () => {
+  const handleTripConfirmation = async () => {
     if (!pendingBookingData) return;
 
-    // Get user ID from auth context or use email as fallback
-    const userId = state.user?.email || 'guest';
+    try {
+      // Get user ID from auth context or use email as fallback
+      const userId = state.user?.email || 'guest';
 
-    // Confirm the trip
-    tripTrackingService.confirmBooking(userId, pendingBookingData);
+      // Create trip in DynamoDB via API
+      await tripApiService.createTrip({
+        userId,
+        origin: pendingBookingData.origin,
+        destination: pendingBookingData.destination,
+        departureDate: pendingBookingData.departureDate,
+        returnDate: pendingBookingData.returnDate,
+        type: pendingBookingData.type,
+        details: pendingBookingData.details
+      });
 
-    // Close modal
-    setShowConfirmationModal(false);
-    setPendingBookingData(null);
+      // Clear localStorage pending booking (for backward compatibility)
+      tripTrackingService.clearPendingBooking();
 
-    // Show success notification using browser notification
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('🎉 Trip Confirmed!', {
-        body: 'Check your profile to see your upcoming trips.',
-        icon: '/favicon.ico'
+      // Close modal
+      setShowConfirmationModal(false);
+      setPendingBookingData(null);
+
+      // Show success notification
+      await Swal.fire({
+        icon: 'success',
+        title: '🎉 Trip Confirmed!',
+        text: 'Check your profile to see your upcoming trips.',
+        timer: 3000,
+        showConfirmButton: false
+      });
+
+      // Browser notification if permission granted
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('🎉 Trip Confirmed!', {
+          body: 'Check your profile to see your upcoming trips.',
+          icon: '/favicon.ico'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error confirming trip:', error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Failed to Confirm Trip',
+        text: 'Please try again later.',
+        confirmButtonText: 'OK'
       });
     }
   };

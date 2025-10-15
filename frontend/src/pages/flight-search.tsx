@@ -77,9 +77,16 @@ export default function FlightSearchPage() {
               fontWeight: '700',
               margin: '0 0 16px 0',
               textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              color: isDarkMode ? '#e8eaed' : 'white'
+              color: isDarkMode ? '#e8eaed' : 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '16px'
             }}>
-              ✈️ Flight Search
+              <svg width={isMobile ? '32' : '48'} height={isMobile ? '32' : '48'} viewBox="0 0 24 24" fill="white">
+                <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+              </svg>
+              <span>Flight Search</span>
             </h1>
             <p style={{
               fontSize: isMobile ? '1rem' : '1.2rem',

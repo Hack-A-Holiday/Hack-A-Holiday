@@ -1,4 +1,5 @@
 // Google OAuth User Controller
+const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
 
 exports.googleUser = async (req, res) => {
@@ -18,11 +19,29 @@ exports.googleUser = async (req, res) => {
       displayName: userName,
       photoURL: userPhoto
     });
-    // Always return a single user object, never an array
-    if (Array.isArray(user)) {
-      return res.status(201).json({ user: user[0] });
-    }
-    return res.status(201).json({ user });
+
+    // Normalize to single user object
+    const userObj = Array.isArray(user) ? user[0] : user;
+
+    // Create JWT token (same behavior as regular login)
+    const token = jwt.sign(
+      { userId: userObj.id || userObj.uid || userObj.userId, email: userObj.email },
+      process.env.JWT_SECRET || 'devsecret',
+      { expiresIn: '7d' }
+    );
+
+    // Cookie options: secure in production (sameSite none), lax in dev
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/'
+    });
+
+    // Return user and token (token also in cookie for compatibility)
+    return res.status(201).json({ user: userObj, token });
   } catch (err) {
     console.error('Error storing Google user:', err);
     return res.status(500).json({ error: err.message || 'Failed to store Google user' });
