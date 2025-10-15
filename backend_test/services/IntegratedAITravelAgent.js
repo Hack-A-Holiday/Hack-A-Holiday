@@ -16,14 +16,37 @@ const HotelService = require('./HotelService');
 
 class IntegratedAITravelAgent {
   constructor() {
+    // Verify AWS credentials are set
+    const region = process.env.AWS_REGION || 'us-east-1';
+    const hasAccessKey = !!process.env.AWS_ACCESS_KEY_ID;
+    const hasSecretKey = !!process.env.AWS_SECRET_ACCESS_KEY;
+    
+    console.log('🔑 AWS Configuration Check:');
+    console.log(`   Region: ${region}`);
+    console.log(`   Access Key: ${hasAccessKey ? '✅ Set' : '❌ Missing'}`);
+    console.log(`   Secret Key: ${hasSecretKey ? '✅ Set' : '❌ Missing'}`);
+    
+    if (!hasAccessKey || !hasSecretKey) {
+      console.error('⚠️  WARNING: AWS credentials not fully configured. Bedrock API calls will fail!');
+      console.error('   Please ensure AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are set in .env file');
+    }
+    
     // Initialize AWS Bedrock client
     this.bedrockClient = new BedrockRuntimeClient({
-      region: process.env.AWS_REGION || 'us-east-1'
+      region: region,
+      credentials: (hasAccessKey && hasSecretKey) ? {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+      } : undefined
     });
 
     // Initialize DynamoDB client for storing conversations and preferences
     this.dynamoClient = new DynamoDBClient({
-      region: process.env.AWS_REGION || 'us-east-1'
+      region: region,
+      credentials: (hasAccessKey && hasSecretKey) ? {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+      } : undefined
     });
 
     // Initialize Flight and Hotel services
@@ -1359,8 +1382,74 @@ JSON:`;
       needsFlightData: false,
       needsHotelData: false,
       extractedInfo: {},
-      multiDestination: false
+      multiDestination: false,
+      isBookingIntent: false  // NEW: Flag for booking flow
     };
+    
+    // NEW: Detect booking intent from quick action buttons
+    // When user clicks "Find flights" or "Hotel recommendations" after trip planning
+    if (lowerQuery === 'find flights' || lowerQuery === 'hotel recommendations') {
+      console.log('   🎯 BOOKING INTENT DETECTED:', lowerQuery);
+      
+      // Extract trip context from conversation history
+      const lastPlan = conversationHistory.slice().reverse().find(turn => 
+        turn.assistant && (turn.assistant.includes('### Day 1') || turn.assistant.includes('Day 1:'))
+      );
+      
+      if (lastPlan) {
+        console.log('   📋 Found trip plan in conversation');
+        
+        // Extract destination and dates from the itinerary
+        const destinationMatch = lastPlan.user?.match(/(?:to|destination:|visiting)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i) ||
+                                 lastPlan.assistant?.match(/trip to ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
+        const durationMatch = lastPlan.user?.match(/(\d+)\s*day/i) || 
+                             lastPlan.assistant?.match(/(\d+)-day/i);
+        
+        if (destinationMatch) {
+          intent.extractedInfo.destination = destinationMatch[1].trim();
+          console.log('   📍 Extracted destination from plan:', intent.extractedInfo.destination);
+        }
+        
+        if (durationMatch) {
+          const days = parseInt(durationMatch[1]);
+          // Set dates to today + duration
+          const today = new Date();
+          intent.extractedInfo.departureDate = today.toISOString().split('T')[0];
+          const returnDate = new Date(today);
+          returnDate.setDate(returnDate.getDate() + days);
+          intent.extractedInfo.returnDate = returnDate.toISOString().split('T')[0];
+          console.log(`   📅 Set dates based on ${days}-day duration:`, intent.extractedInfo.departureDate, '→', intent.extractedInfo.returnDate);
+        }
+        
+        // Check userContext for origin (from trip details or preferences)
+        if (userContext?.tripDetails?.origin) {
+          intent.extractedInfo.origin = userContext.tripDetails.origin;
+          console.log('   🏠 Using origin from trip details:', intent.extractedInfo.origin);
+        } else if (userContext?.preferences?.homeCity) {
+          intent.extractedInfo.origin = userContext.preferences.homeCity;
+          console.log('   🏠 Using origin from home city:', intent.extractedInfo.origin);
+        }
+        
+        // Set intent type based on button clicked
+        if (lowerQuery === 'find flights') {
+          intent.type = 'flight_search';
+          intent.needsFlightData = true;
+          intent.isBookingIntent = true;
+          console.log('   ✈️ Booking intent: FLIGHT SEARCH');
+        } else if (lowerQuery === 'hotel recommendations') {
+          intent.type = 'hotel_search';
+          intent.needsHotelData = true;
+          intent.isBookingIntent = true;
+          console.log('   🏨 Booking intent: HOTEL SEARCH');
+          
+          // For hotels, set check-in/check-out dates
+          if (intent.extractedInfo.departureDate) {
+            intent.extractedInfo.checkIn = intent.extractedInfo.departureDate;
+            intent.extractedInfo.checkOut = intent.extractedInfo.returnDate || intent.extractedInfo.departureDate;
+          }
+        }
+      }
+    }
     
     // Step 1: Create conversation summary using Nova Lite for better context
     let conversationSummary = null;
@@ -3247,6 +3336,26 @@ Return ONLY the JSON array:`;
       }
     }
     
+    // NEW: OFF-TOPIC DETECTION & REDIRECTION
+    contextPrompt += `\nCRITICAL INSTRUCTION - STAY ON TOPIC:\n`;
+    contextPrompt += `You are a TRAVEL ASSISTANT. Your ONLY purpose is helping with travel planning.\n\n`;
+    contextPrompt += `If the user asks about NON-TRAVEL topics:\n`;
+    contextPrompt += `1. Politely acknowledge their question\n`;
+    contextPrompt += `2. Gently redirect back to travel planning\n`;
+    contextPrompt += `3. Offer travel-related suggestions\n\n`;
+    contextPrompt += `Examples of OFF-TOPIC questions and how to handle them:\n`;
+    contextPrompt += `- "Tell me a joke" → "I'd love to help with your travel plans instead! Have you thought about where you'd like to go next?"\n`;
+    contextPrompt += `- "What's the weather?" → "I can help you plan a trip to places with great weather! Would you like destination recommendations?"\n`;
+    contextPrompt += `- "Who won the game?" → "I'm focused on travel planning! Let's find you an exciting destination. Any preferences?"\n`;
+    contextPrompt += `- "How do I cook pasta?" → "I specialize in travel! How about I help you plan a culinary trip to Italy instead?"\n`;
+    contextPrompt += `- "What's 2+2?" → "I'm your travel assistant! Can I help you plan a trip or answer travel-related questions?"\n\n`;
+    contextPrompt += `ALWAYS bring the conversation back to:\n`;
+    contextPrompt += `- Flight searches\n`;
+    contextPrompt += `- Hotel recommendations\n`;
+    contextPrompt += `- Trip planning\n`;
+    contextPrompt += `- Destination suggestions\n`;
+    contextPrompt += `- Travel advice\n\n`;
+    
     contextPrompt += `IMPORTANT RULES:\n`;
     contextPrompt += `- MATCH your response to the query type (${queryIntent.type})\n`;
     contextPrompt += `- If they ask for FLIGHTS, give ONLY flight recommendations\n`;
@@ -3256,7 +3365,8 @@ Return ONLY the JSON array:`;
     contextPrompt += `- Be specific and actionable\n`;
     contextPrompt += `- Be friendly and professional\n`;
     contextPrompt += `- DO NOT use emojis in your response - use plain text only\n`;
-    contextPrompt += `- Use clear formatting with headers, bullets, and numbers instead of emojis\n\n`;
+    contextPrompt += `- Use clear formatting with headers, bullets, and numbers instead of emojis\n`;
+    contextPrompt += `- ALWAYS redirect non-travel questions back to travel topics\n\n`;
 
     contextPrompt += `Respond naturally and conversationally:`;
 
@@ -3530,6 +3640,28 @@ Return ONLY the JSON array:`;
 
     } catch (error) {
       console.error('   ❌ Bedrock API error:', error);
+      console.error('   🔍 Error details:', {
+        name: error.name,
+        message: error.message,
+        code: error.$metadata?.httpStatusCode,
+        requestId: error.$metadata?.requestId
+      });
+      
+      // Check for specific AWS credential errors
+      if (error.name === 'CredentialsProviderError' || error.message?.includes('credentials')) {
+        console.error('   🚨 AWS CREDENTIALS ERROR: Please check AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION in .env file');
+      }
+      
+      // Check for region errors
+      if (error.message?.includes('Region') || error.message?.includes('region')) {
+        console.error('   🚨 AWS REGION ERROR: Current region:', this.region || process.env.AWS_REGION);
+      }
+      
+      // Check for model access errors
+      if (error.message?.includes('access') || error.$metadata?.httpStatusCode === 403) {
+        console.error('   🚨 MODEL ACCESS ERROR: Please verify your AWS account has access to Nova Pro model:', this.modelId);
+      }
+      
       return "I apologize, but I'm having trouble processing your request right now. I'm here to help you plan amazing trips! Could you please rephrase your question?";
     }
   }
