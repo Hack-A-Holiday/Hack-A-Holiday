@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useDarkMode } from '../contexts/DarkModeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
@@ -226,6 +227,7 @@ interface Recommendation {
 }
 
 export default function AIAssistant() {
+  const { isDarkMode } = useDarkMode();
   const { state } = useAuth();
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -644,22 +646,27 @@ What would you like to explore?`,
         <meta name="description" content="Get personalized travel recommendations powered by AI" />
       </Head>
 
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+  <div style={{ minHeight: '100vh', background: isDarkMode ? 'linear-gradient(135deg, #1a1f2e 0%, #16213e 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
         <Navbar />
 
         <main style={{
           maxWidth: '1200px',
           margin: '0 auto',
-          padding: isMobile ? '20px' : '40px 20px'
+          padding: isMobile ? '20px' : '40px 20px',
+          color: isDarkMode ? '#e0e0e0' : undefined
         }}>
           <div style={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            borderRadius: '20px',
+            background: isDarkMode ? '#252d3d' : 'white',
+            borderRadius: '15px',
             overflow: 'hidden',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            boxShadow: isDarkMode ? '0 20px 40px rgba(0,0,0,0.6)' : '0 20px 40px rgba(0,0,0,0.1)',
+            border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
             height: isMobile ? 'calc(100vh - 100px)' : '75vh',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            color: isDarkMode ? '#e0e0e0' : undefined,
+            maxWidth: '1200px',
+            margin: '0 auto'
           }}>
             {/* Header */}
             <div style={{
@@ -693,7 +700,8 @@ What would you like to explore?`,
               flex: 1,
               overflowY: 'auto',
               padding: '20px',
-              background: '#fafafa'
+              background: isDarkMode ? '#252d3d' : '#fafafa',
+              color: isDarkMode ? '#e0e0e0' : undefined
             }}>
               {messages.map(renderMessage)}
               {isLoading && (
@@ -735,8 +743,9 @@ What would you like to explore?`,
             {messages.length <= 1 && (
               <div style={{
                 padding: '16px 20px',
-                background: 'white',
-                borderTop: '1px solid #e0e0e0'
+                background: isDarkMode ? '#252d3d' : 'white',
+                borderTop: isDarkMode ? '1px solid #444' : '1px solid #e0e0e0',
+                color: isDarkMode ? '#e0e0e0' : '#666'
               }}>
                 <div style={{
                   fontSize: '0.85rem',
@@ -786,8 +795,8 @@ What would you like to explore?`,
             {/* Input Area */}
             <div style={{
               padding: '20px',
-              background: 'white',
-              borderTop: '1px solid #e0e0e0'
+              background: isDarkMode ? '#232526' : 'white',
+              borderTop: isDarkMode ? '1px solid #444' : '1px solid #e0e0e0'
             }}>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <input
@@ -801,14 +810,15 @@ What would you like to explore?`,
                     flex: 1,
                     padding: '14px 20px',
                     borderRadius: '25px',
-                    border: '2px solid #e0e0e0',
+                    border: isDarkMode ? '2px solid #444' : '2px solid #e0e0e0',
                     fontSize: '1rem',
                     outline: 'none',
                     transition: 'border-color 0.2s',
-                    backgroundColor: isLoading ? '#f5f5f5' : 'white'
+                    backgroundColor: isLoading ? (isDarkMode ? '#333' : '#f5f5f5') : (isDarkMode ? '#232526' : 'white'),
+                    color: isDarkMode ? '#e0e0e0' : undefined
                   }}
-                  onFocus={(e) => e.currentTarget.style.borderColor = '#667eea'}
-                  onBlur={(e) => e.currentTarget.style.borderColor = '#e0e0e0'}
+                  onFocus={(e) => e.currentTarget.style.borderColor = isDarkMode ? '#667eea' : '#667eea'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = isDarkMode ? '#444' : '#e0e0e0'}
                 />
                 <button
                   onClick={handleSendMessage}
@@ -816,8 +826,8 @@ What would you like to explore?`,
                   style={{
                     padding: '14px 28px',
                     background: inputMessage.trim() && !isLoading
-                      ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                      : '#ccc',
+                      ? (isDarkMode ? 'linear-gradient(135deg, #232526 0%, #414345 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)')
+                      : (isDarkMode ? '#444' : '#ccc'),
                     color: 'white',
                     border: 'none',
                     borderRadius: '25px',
@@ -825,7 +835,7 @@ What would you like to explore?`,
                     fontWeight: 'bold',
                     cursor: inputMessage.trim() && !isLoading ? 'pointer' : 'not-allowed',
                     transition: 'all 0.3s ease',
-                    boxShadow: inputMessage.trim() && !isLoading ? '0 4px 12px rgba(102, 126, 234, 0.3)' : 'none',
+                    boxShadow: inputMessage.trim() && !isLoading ? (isDarkMode ? '0 4px 12px rgba(30,30,30,0.5)' : '0 4px 12px rgba(102, 126, 234, 0.3)') : 'none',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
@@ -835,12 +845,12 @@ What would you like to explore?`,
                   onMouseEnter={(e) => {
                     if (inputMessage.trim() && !isLoading) {
                       e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.4)';
+                      e.currentTarget.style.boxShadow = isDarkMode ? '0 6px 16px rgba(30,30,30,0.7)' : '0 6px 16px rgba(102, 126, 234, 0.4)';
                     }
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = inputMessage.trim() && !isLoading ? '0 4px 12px rgba(102, 126, 234, 0.3)' : 'none';
+                    e.currentTarget.style.boxShadow = inputMessage.trim() && !isLoading ? (isDarkMode ? '0 4px 12px rgba(30,30,30,0.5)' : '0 4px 12px rgba(102, 126, 234, 0.3)') : 'none';
                   }}
                 >
                   {isLoading ? (
