@@ -5,7 +5,7 @@
  * node test-ai-personalization.js
  */
 
-const IntegratedAITravelAgent = require('./services/IntegratedAITravelAgent');
+const IntegratedAITravelAgent = require('../services/IntegratedAITravelAgent');
 
 async function testPersonalization() {
   console.log('🧪 Testing AI Personalization & Context Learning\n');

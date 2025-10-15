@@ -1,2438 +1,70 @@
-/**
- * Integrated AI Travel Agent
- * Fully functional travel agent that:
- * - Uses AWS Bedrock (Nova Pro) for all AI responses
- * - Integrates with flight and hotel APIs
- * - Maintains conversation history and context
- * - Stores and uses user preferences
- * - Makes intelligent API calls based on user queries
- */
-
-const { BedrockRuntimeClient, ConverseCommand, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
-const { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
-const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
-const FlightService = require('./FlightService');
-const HotelService = require('./HotelService');
-
 class IntegratedAITravelAgent {
-  constructor() {
-    // Initialize AWS Bedrock client
-    this.bedrockClient = new BedrockRuntimeClient({
-      region: process.env.AWS_REGION || 'us-east-1'
-    });
-
-    // Initialize DynamoDB client for storing conversations and preferences
-    this.dynamoClient = new DynamoDBClient({
-      region: process.env.AWS_REGION || 'us-east-1'
-    });
-
-    // Initialize Flight and Hotel services
-    this.flightService = new FlightService({
-      rapidApiKey: process.env.RAPIDAPI_KEY,
-      rapidApiHost: process.env.RAPIDAPI_HOST,
-      amadeuApiKey: process.env.AMADEUS_API_KEY,
-      amadeuApiSecret: process.env.AMADEUS_API_SECRET
-    });
-
-    this.hotelService = new HotelService({
-      bookingApiKey: process.env.BOOKING_API_KEY,
-      bookingApiHost: process.env.BOOKING_API_HOST,
-      rapidApiKey: process.env.RAPIDAPI_KEY
-    });
-
-    // Use AWS Nova Pro for all responses
-    this.modelId = 'us.amazon.nova-pro-v1:0';
-
-    // In-memory storage (fallback if DynamoDB not available)
-    this.conversations = new Map();
-    this.userPreferences = new Map();
-    this.userContexts = new Map(); // sessionId -> detailed context
-
-    console.log('🤖 Integrated AI Travel Agent initialized');
-    console.log(`   Model: ${this.modelId} (AWS Nova Pro)`);
-    console.log('   ✅ Flight API integration');
-    console.log('   ✅ Hotel API integration');
-    console.log('   ✅ Conversation history storage');
-    console.log('   ✅ User preferences tracking');
-    console.log('   ✅ Enhanced user context storage');
-  }
-
   /**
-   * Get or create detailed user context
+   * Process a user message and return AI response
    */
-  getUserContext(sessionId) {
-    if (!this.userContexts.has(sessionId)) {
-      this.userContexts.set(sessionId, {
-        sessionId,
-        preferences: {
-          // General Travel Preferences
-          budget: null, // Overall trip budget
-          travelStyle: null, // 'budget', 'mid-range', 'luxury'
-          interests: [],
-          destinations: [],
-          homeCity: null, // User's home/origin city
-          
-          // Flight Preferences
-          flightPreferences: {
-            preferredAirlines: [], // e.g., ['Emirates', 'Qatar Airways']
-            avoidAirlines: [], // Airlines to exclude
-            preferredCabinClass: 'economy', // 'economy', 'premium_economy', 'business', 'first'
-            maxStops: null, // null = any, 0 = direct only, 1 = max 1 stop, etc.
-            preferredDepartureTime: null, // 'morning', 'afternoon', 'evening', 'night'
-            preferredArrivalTime: null, // 'morning', 'afternoon', 'evening', 'night'
-            maxFlightDuration: null, // Max duration in hours
-            seatPreference: null, // 'window', 'aisle', 'middle'
-            mealPreference: null, // 'vegetarian', 'vegan', 'non-veg', 'kosher', 'halal'
-            baggageImportance: 'standard', // 'carry-on-only', 'standard', 'extra'
-            flexibleDates: false, // Willing to adjust dates for better prices
-            priceAlertEnabled: false, // Want price drop notifications
-            loyaltyPrograms: [] // Frequent flyer programs
-          },
-          
-          // Hotel Preferences
-          hotelPreferences: {
-            preferredChains: [], // e.g., ['Marriott', 'Hilton']
-            accommodationType: null, // 'hotel', 'resort', 'airbnb', 'hostel', 'villa', 'boutique'
-            minRating: null, // Minimum hotel rating (1-5 stars)
-            preferredAmenities: [], // 'wifi', 'pool', 'gym', 'spa', 'breakfast', 'parking', 'pet-friendly'
-            roomType: null, // 'single', 'double', 'suite', 'family'
-            locationPreference: null, // 'city-center', 'near-beach', 'near-airport', 'quiet-area'
-            viewPreference: null, // 'ocean-view', 'city-view', 'mountain-view', 'garden-view'
-            budgetPerNight: null // Max budget per night
-          },
-          
-          // Additional Preferences
-          dietaryRestrictions: [],
-          accessibilityNeeds: [], // 'wheelchair', 'hearing-impaired', 'visual-impaired'
-          travelingWith: null, // 'solo', 'couple', 'family', 'friends', 'business'
-          currency: 'USD', // Preferred currency for display
-          language: 'en' // Preferred language
-        },
-        searchHistory: [],
-        tripHistory: [],
-        conversationTopics: [],
-        lastInteraction: Date.now(),
-        totalInteractions: 0
-      });
+  async processMessage(userId, message) {
+    // Example: load context, extract preferences, and return a stub response
+    const context = await this.getUserContext(userId);
+    const preferences = this.extractPreferencesFromMessage(message, context.preferences);
+    // Stub intent extraction (replace with real logic)
+    let intent = null;
+    if (message && typeof message === 'string') {
+      if (message.toLowerCase().includes('flight')) intent = 'flight_search';
+      else if (message.toLowerCase().includes('hotel')) intent = 'hotel_search';
+      else if (message.toLowerCase().includes('plan')) intent = 'trip_planning';
+      else intent = 'general_query';
     }
-    return this.userContexts.get(sessionId);
-  }
-
-  /**
-   * Extract preferences from user message using NLP patterns
-   */
-  extractPreferencesFromMessage(message, context) {
-    const lowerMsg = message.toLowerCase();
-    const updates = {};
-    
-    // Budget detection - multiple patterns
-    const budgetPatterns = [
-      /budget\s+(?:of\s+|is\s+|around\s+)?\$?(\d+)/i,
-      /\$(\d+)\s+budget/i,
-      /under\s+\$?(\d+)/i,
-      /around\s+\$?(\d+)/i,
-      /about\s+\$?(\d+)/i,
-      /spend.*?\$?(\d+)/i,
-      /(\d+)\s*(?:dollars|usd)/i
-    ];
-    for (const pattern of budgetPatterns) {
-      const match = message.match(pattern);
-      if (match) {
-        updates.budget = parseInt(match[1]);
-        break;
-      }
-    }
-    
-    // Travel style detection
-    if (/luxury|premium|5.star|upscale|fancy|high.end|lavish|indulgent/i.test(lowerMsg)) {
-      updates.travelStyle = 'luxury';
-    } else if (/budget|cheap|affordable|backpack|hostel|economical|frugal|save\s+money/i.test(lowerMsg)) {
-      updates.travelStyle = 'budget';
-    } else if (/mid.range|moderate|comfortable|3.star|4.star|standard/i.test(lowerMsg)) {
-      updates.travelStyle = 'mid-range';
-    }
-    
-    // Interest detection
-    const newInterests = [];
-    if (/culture|museum|art|history|heritage|monuments?|ancient|archaeology/i.test(lowerMsg)) {
-      newInterests.push('culture');
-    }
-    if (/food|dining|culinary|restaurant|cuisine|eat|foodie|gastronomy/i.test(lowerMsg)) {
-      newInterests.push('food');
-    }
-    if (/adventure|hiking|trek|sports|active|outdoor|climbing|rafting/i.test(lowerMsg)) {
-      newInterests.push('adventure');
-    }
-    if (/beach|sea|ocean|coast|swim|snorkel|surf/i.test(lowerMsg)) {
-      newInterests.push('beach');
-    }
-    if (/shopping|mall|market|boutique|souvenirs/i.test(lowerMsg)) {
-      newInterests.push('shopping');
-    }
-    if (/nightlife|club|bar|party|entertainment/i.test(lowerMsg)) {
-      newInterests.push('nightlife');
-    }
-    if (/nature|wildlife|park|forest|mountain|safari/i.test(lowerMsg)) {
-      newInterests.push('nature');
-    }
-    if (/relax|spa|wellness|peaceful|quiet|zen|meditation/i.test(lowerMsg)) {
-      newInterests.push('relaxation');
-    }
-    if (/photography|photo|instagram|scenic|views/i.test(lowerMsg)) {
-      newInterests.push('photography');
-    }
-    if (/family|kids|children/i.test(lowerMsg)) {
-      newInterests.push('family-friendly');
-    }
-    
-    if (newInterests.length > 0) {
-      const existingInterests = context.preferences.interests || [];
-      updates.interests = [...new Set([...existingInterests, ...newInterests])];
-    }
-    
-    // Accommodation type
-    if (/\bhotel\b/i.test(lowerMsg)) updates.accommodationType = 'hotel';
-    if (/resort/i.test(lowerMsg)) updates.accommodationType = 'resort';
-    if (/airbnb|apartment|rental/i.test(lowerMsg)) updates.accommodationType = 'rental';
-    if (/hostel/i.test(lowerMsg)) updates.accommodationType = 'hostel';
-    if (/villa/i.test(lowerMsg)) updates.accommodationType = 'villa';
-    if (/boutique/i.test(lowerMsg)) updates.accommodationType = 'boutique';
-    
-    // Dietary restrictions
-    const newDietary = [];
-    if (/vegetarian/i.test(lowerMsg)) newDietary.push('vegetarian');
-    if (/vegan/i.test(lowerMsg)) newDietary.push('vegan');
-    if (/gluten.free|celiac/i.test(lowerMsg)) newDietary.push('gluten-free');
-    if (/halal/i.test(lowerMsg)) newDietary.push('halal');
-    if (/kosher/i.test(lowerMsg)) newDietary.push('kosher');
-    if (/dairy.free|lactose/i.test(lowerMsg)) newDietary.push('dairy-free');
-    if (/pescatarian/i.test(lowerMsg)) newDietary.push('pescatarian');
-    
-    if (newDietary.length > 0) {
-      const existing = context.preferences.dietaryRestrictions || [];
-      updates.dietaryRestrictions = [...new Set([...existing, ...newDietary])];
-    }
-    
-    // Trip pace preference
-    if (/slow.paced|leisurely|relaxed|easy.going|no.rush/i.test(lowerMsg)) {
-      updates.tripPace = 'relaxed';
-    } else if (/fast.paced|action.packed|busy|see.everything|maximize/i.test(lowerMsg)) {
-      updates.tripPace = 'fast-paced';
-    } else if (/moderate|balanced|mix/i.test(lowerMsg)) {
-      updates.tripPace = 'moderate';
-    }
-    
-    // Crowd preference
-    if (/avoid.crowds|less.crowded|off.the.beaten|quiet|peaceful|secluded/i.test(lowerMsg)) {
-      updates.crowdPreference = 'avoid-crowds';
-    } else if (/popular|touristy|main.attractions|iconic/i.test(lowerMsg)) {
-      updates.crowdPreference = 'popular-spots';
-    }
-    
-    // Climate preference
-    if (/warm|hot|tropical|sunny|beach.weather/i.test(lowerMsg)) {
-      updates.climatePreference = 'warm';
-    } else if (/cold|snow|winter|skiing|freezing/i.test(lowerMsg)) {
-      updates.climatePreference = 'cold';
-    } else if (/mild|moderate|spring|fall|autumn/i.test(lowerMsg)) {
-      updates.climatePreference = 'mild';
-    }
-    
-    // Trip duration preference
-    const durationMatch = message.match(/(\d+)\s*(?:day|night|week)/i);
-    if (durationMatch) {
-      updates.preferredTripDuration = durationMatch[0];
-    }
-    
-    // Travel companions
-    if (/solo|alone|by myself/i.test(lowerMsg)) {
-      updates.travelCompanions = 'solo';
-    } else if (/couple|partner|spouse|significant.other/i.test(lowerMsg)) {
-      updates.travelCompanions = 'couple';
-    } else if (/family|kids|children/i.test(lowerMsg)) {
-      updates.travelCompanions = 'family';
-    } else if (/friends|group/i.test(lowerMsg)) {
-      updates.travelCompanions = 'friends';
-    }
-    
-    // Accessibility needs
-    const newAccessibility = [];
-    if (/wheelchair|mobility|disabled|handicap/i.test(lowerMsg)) {
-      newAccessibility.push('wheelchair-accessible');
-    }
-    if (/elderly|senior|aged/i.test(lowerMsg)) {
-      newAccessibility.push('senior-friendly');
-    }
-    if (/hearing|deaf/i.test(lowerMsg)) {
-      newAccessibility.push('hearing-impaired');
-    }
-    if (/visual|blind|sight/i.test(lowerMsg)) {
-      newAccessibility.push('visually-impaired');
-    }
-    
-    if (newAccessibility.length > 0) {
-      const existing = context.preferences.accessibilityNeeds || [];
-      updates.accessibilityNeeds = [...new Set([...existing, ...newAccessibility])];
-    }
-    
-    // Language preferences
-    if (/english.speaking|speak.english/i.test(lowerMsg)) {
-      updates.languagePreference = 'english-speaking';
-    } else if (/language.barrier|don't.speak/i.test(lowerMsg)) {
-      updates.languagePreference = 'any';
-    }
-    
-    // Transport preferences
-    if (/public.transport|metro|subway|bus/i.test(lowerMsg)) {
-      updates.transportPreference = 'public-transport';
-    } else if (/rent.car|drive|car.rental/i.test(lowerMsg)) {
-      updates.transportPreference = 'rental-car';
-    } else if (/walking|walk|pedestrian/i.test(lowerMsg)) {
-      updates.transportPreference = 'walking';
-    } else if (/bike|bicycle|cycling/i.test(lowerMsg)) {
-      updates.transportPreference = 'bike';
-    }
-    
-    // Visa preferences
-    if (/visa.free|no.visa|visa.on.arrival/i.test(lowerMsg)) {
-      updates.visaPreference = 'visa-free';
-    }
-    
-    // Safety concerns
-    if (/safe|safety|secure|low.crime/i.test(lowerMsg)) {
-      updates.prioritizeSafety = true;
-    }
-    
-    // Extract home/origin city (for remembering where user is from)
-    const cities = ['mumbai', 'delhi', 'bangalore', 'chennai', 'kolkata', 'hyderabad', 
-                   'pune', 'ahmedabad', 'jaipur', 'lucknow', 'surat', 'kanpur',
-                   'new york', 'london', 'paris', 'tokyo', 'dubai', 'singapore',
-                   'san francisco', 'los angeles', 'chicago', 'boston', 'seattle',
-                   'toronto', 'vancouver', 'sydney', 'melbourne', 'hong kong'];
-    
-    const fromPatterns = [
-      /(?:i'?m|i am|we'?re|we are)\s+from\s+([a-z\s]+)/i,
-      /(?:live|living|based|located)\s+in\s+([a-z\s]+)/i,
-      /my (?:home|city)\s+is\s+([a-z\s]+)/i,
-      /flying\s+(?:out\s+)?from\s+([a-z\s]+)/i,
-      /traveling\s+from\s+([a-z\s]+)/i,
-      /starting\s+from\s+([a-z\s]+)/i
-    ];
-    
-    for (const pattern of fromPatterns) {
-      const match = message.match(pattern);
-      if (match) {
-        const location = match[1].trim().toLowerCase();
-        // Check if it matches a known city
-        for (const city of cities) {
-          if (location.includes(city)) {
-            const cityName = city.charAt(0).toUpperCase() + city.slice(1);
-            updates.homeCity = cityName;
-            console.log('   🏠 Detected home city:', cityName);
-            break;
-          }
-        }
-        if (updates.homeCity) break;
-      }
-    }
-    
-    // ============ FLIGHT PREFERENCES ============
-    if (!updates.flightPreferences) updates.flightPreferences = {};
-    
-    // Cabin class detection
-    if (/business.class|business.seat/i.test(lowerMsg)) {
-      updates.flightPreferences.preferredCabinClass = 'business';
-    } else if (/first.class|first.seat/i.test(lowerMsg)) {
-      updates.flightPreferences.preferredCabinClass = 'first';
-    } else if (/premium.economy|premium.seat/i.test(lowerMsg)) {
-      updates.flightPreferences.preferredCabinClass = 'premium_economy';
-    } else if (/economy|coach/i.test(lowerMsg)) {
-      updates.flightPreferences.preferredCabinClass = 'economy';
-    }
-    
-    // Airline preferences
-    const airlines = [
-      'Emirates', 'Qatar Airways', 'Singapore Airlines', 'Etihad', 'Lufthansa',
-      'British Airways', 'Air India', 'IndiGo', 'Vistara', 'SpiceJet',
-      'United', 'Delta', 'American Airlines', 'Southwest', 'JetBlue',
-      'Air France', 'KLM', 'Turkish Airlines', 'Thai Airways', 'Cathay Pacific'
-    ];
-    
-    const preferredAirlines = [];
-    const avoidAirlines = [];
-    
-    for (const airline of airlines) {
-      if (new RegExp(`(prefer|like|love|want).*${airline}`, 'i').test(message)) {
-        preferredAirlines.push(airline);
-      } else if (new RegExp(`(avoid|don't like|hate|not).*${airline}`, 'i').test(message)) {
-        avoidAirlines.push(airline);
-      }
-    }
-    
-    if (preferredAirlines.length > 0) {
-      const existing = context.preferences.flightPreferences?.preferredAirlines || [];
-      updates.flightPreferences.preferredAirlines = [...new Set([...existing, ...preferredAirlines])];
-    }
-    
-    if (avoidAirlines.length > 0) {
-      const existing = context.preferences.flightPreferences?.avoidAirlines || [];
-      updates.flightPreferences.avoidAirlines = [...new Set([...existing, ...avoidAirlines])];
-    }
-    
-    // Stop preferences
-    if (/direct.flight|non.stop|no.stops/i.test(lowerMsg)) {
-      updates.flightPreferences.maxStops = 0;
-    } else if (/one.stop|1.stop|single.stop/i.test(lowerMsg)) {
-      updates.flightPreferences.maxStops = 1;
-    } else if (/any.stops|multiple.stops|don't.care.stops/i.test(lowerMsg)) {
-      updates.flightPreferences.maxStops = null;
-    }
-    
-    // Departure time preferences
-    if (/morning.flight|early.flight|depart.*morning/i.test(lowerMsg)) {
-      updates.flightPreferences.preferredDepartureTime = 'morning';
-    } else if (/afternoon.flight|depart.*afternoon/i.test(lowerMsg)) {
-      updates.flightPreferences.preferredDepartureTime = 'afternoon';
-    } else if (/evening.flight|depart.*evening/i.test(lowerMsg)) {
-      updates.flightPreferences.preferredDepartureTime = 'evening';
-    } else if (/night.flight|red.eye|overnight|depart.*night/i.test(lowerMsg)) {
-      updates.flightPreferences.preferredDepartureTime = 'night';
-    }
-    
-    // Seat preferences
-    if (/window.seat/i.test(lowerMsg)) {
-      updates.flightPreferences.seatPreference = 'window';
-    } else if (/aisle.seat/i.test(lowerMsg)) {
-      updates.flightPreferences.seatPreference = 'aisle';
-    }
-    
-    // Meal preferences (for flights)
-    if (/vegetarian.meal|veg.meal/i.test(lowerMsg)) {
-      updates.flightPreferences.mealPreference = 'vegetarian';
-    } else if (/vegan.meal/i.test(lowerMsg)) {
-      updates.flightPreferences.mealPreference = 'vegan';
-    } else if (/halal.meal/i.test(lowerMsg)) {
-      updates.flightPreferences.mealPreference = 'halal';
-    } else if (/kosher.meal/i.test(lowerMsg)) {
-      updates.flightPreferences.mealPreference = 'kosher';
-    }
-    
-    // Baggage preferences
-    if (/carry.on.only|hand.luggage.only|no.checked/i.test(lowerMsg)) {
-      updates.flightPreferences.baggageImportance = 'carry-on-only';
-    } else if (/extra.baggage|more.luggage|heavy.bags/i.test(lowerMsg)) {
-      updates.flightPreferences.baggageImportance = 'extra';
-    }
-    
-    // Flexible dates
-    if (/flexible.dates|any.dates|date.flexible/i.test(lowerMsg)) {
-      updates.flightPreferences.flexibleDates = true;
-    }
-    
-    // ============ HOTEL PREFERENCES ============
-    if (!updates.hotelPreferences) updates.hotelPreferences = {};
-    
-    // Hotel chains
-    const hotelChains = [
-      'Marriott', 'Hilton', 'Hyatt', 'IHG', 'Radisson', 'Sheraton',
-      'Taj', 'Oberoi', 'Accor', 'Four Seasons', 'Ritz-Carlton'
-    ];
-    
-    const preferredChains = [];
-    for (const chain of hotelChains) {
-      if (new RegExp(`(prefer|like|stay.*at).*${chain}`, 'i').test(message)) {
-        preferredChains.push(chain);
-      }
-    }
-    
-    if (preferredChains.length > 0) {
-      const existing = context.preferences.hotelPreferences?.preferredChains || [];
-      updates.hotelPreferences.preferredChains = [...new Set([...existing, ...preferredChains])];
-    }
-    
-    // Hotel rating
-    const ratingMatch = message.match(/(\d)\s*star|minimum.*(\d)\s*star|at least.*(\d)\s*star/i);
-    if (ratingMatch) {
-      const rating = parseInt(ratingMatch[1] || ratingMatch[2] || ratingMatch[3]);
-      if (rating >= 1 && rating <= 5) {
-        updates.hotelPreferences.minRating = rating;
-      }
-    }
-    
-    // Amenities
-    const amenities = [];
-    if (/wifi|internet|wi-fi/i.test(lowerMsg)) amenities.push('wifi');
-    if (/pool|swimming/i.test(lowerMsg)) amenities.push('pool');
-    if (/gym|fitness|workout/i.test(lowerMsg)) amenities.push('gym');
-    if (/spa|massage/i.test(lowerMsg)) amenities.push('spa');
-    if (/breakfast|morning.meal/i.test(lowerMsg)) amenities.push('breakfast');
-    if (/parking|car.park/i.test(lowerMsg)) amenities.push('parking');
-    if (/pet.friendly|pets.allowed|bring.*pet/i.test(lowerMsg)) amenities.push('pet-friendly');
-    if (/airport.shuttle|airport.transfer/i.test(lowerMsg)) amenities.push('airport-shuttle');
-    if (/restaurant|dining/i.test(lowerMsg)) amenities.push('restaurant');
-    if (/bar|lounge/i.test(lowerMsg)) amenities.push('bar');
-    if (/conference|meeting.room|business.center/i.test(lowerMsg)) amenities.push('business-facilities');
-    
-    if (amenities.length > 0) {
-      const existing = context.preferences.hotelPreferences?.preferredAmenities || [];
-      updates.hotelPreferences.preferredAmenities = [...new Set([...existing, ...amenities])];
-    }
-    
-    // Room type
-    if (/suite|luxury.room/i.test(lowerMsg)) {
-      updates.hotelPreferences.roomType = 'suite';
-    } else if (/family.room|connecting.room/i.test(lowerMsg)) {
-      updates.hotelPreferences.roomType = 'family';
-    } else if (/double.room|queen|king/i.test(lowerMsg)) {
-      updates.hotelPreferences.roomType = 'double';
-    } else if (/single.room/i.test(lowerMsg)) {
-      updates.hotelPreferences.roomType = 'single';
-    }
-    
-    // Location preference
-    if (/city.center|downtown|central/i.test(lowerMsg)) {
-      updates.hotelPreferences.locationPreference = 'city-center';
-    } else if (/near.beach|beachfront|beach.side/i.test(lowerMsg)) {
-      updates.hotelPreferences.locationPreference = 'near-beach';
-    } else if (/near.airport|airport.area/i.test(lowerMsg)) {
-      updates.hotelPreferences.locationPreference = 'near-airport';
-    } else if (/quiet.area|peaceful|away.from.noise/i.test(lowerMsg)) {
-      updates.hotelPreferences.locationPreference = 'quiet-area';
-    }
-    
-    // View preference
-    if (/ocean.view|sea.view/i.test(lowerMsg)) {
-      updates.hotelPreferences.viewPreference = 'ocean-view';
-    } else if (/city.view|urban.view/i.test(lowerMsg)) {
-      updates.hotelPreferences.viewPreference = 'city-view';
-    } else if (/mountain.view/i.test(lowerMsg)) {
-      updates.hotelPreferences.viewPreference = 'mountain-view';
-    } else if (/garden.view/i.test(lowerMsg)) {
-      updates.hotelPreferences.viewPreference = 'garden-view';
-    }
-    
-    // Hotel budget per night
-    const hotelBudgetMatch = message.match(/\$?(\d+).*per.night|per.night.*\$?(\d+)|hotel.*budget.*\$?(\d+)/i);
-    if (hotelBudgetMatch) {
-      const budget = parseInt(hotelBudgetMatch[1] || hotelBudgetMatch[2] || hotelBudgetMatch[3]);
-      if (budget > 0) {
-        updates.hotelPreferences.budgetPerNight = budget;
-      }
-    }
-    
-    return updates;
-  }
-
-  /**
-   * Update user context with new information
-   */
-  updateUserContext(sessionId, updates) {
-    const context = this.getUserContext(sessionId);
-    
-    if (updates.preferences) {
-      // Deep merge for nested objects (flightPreferences, hotelPreferences)
-      context.preferences = {
-        ...context.preferences,
-        ...updates.preferences,
-        flightPreferences: {
-          ...context.preferences.flightPreferences,
-          ...updates.preferences.flightPreferences
-        },
-        hotelPreferences: {
-          ...context.preferences.hotelPreferences,
-          ...updates.preferences.hotelPreferences
-        }
+    // If missingInfo is present, ask user for required info
+    if (preferences.missingInfo) {
+      return {
+        reply: preferences.missingInfo,
+        context,
+        intent
       };
     }
-    
-    // Handle standalone flightPreferences updates
-    if (updates.flightPreferences) {
-      context.preferences.flightPreferences = {
-        ...context.preferences.flightPreferences,
-        ...updates.flightPreferences
-      };
-    }
-    
-    // Handle standalone hotelPreferences updates
-    if (updates.hotelPreferences) {
-      context.preferences.hotelPreferences = {
-        ...context.preferences.hotelPreferences,
-        ...updates.hotelPreferences
-      };
-    }
-    
-    if (updates.searchHistory) {
-      context.searchHistory.push({
-        ...updates.searchHistory,
-        timestamp: Date.now()
-      });
-      // Keep last 20 searches
-      if (context.searchHistory.length > 20) {
-        context.searchHistory = context.searchHistory.slice(-20);
-      }
-    }
-    
-    if (updates.tripHistory) {
-      context.tripHistory.push({
-        ...updates.tripHistory,
-        timestamp: Date.now()
-      });
-    }
-    
-    if (updates.conversationTopics) {
-      const topic = updates.conversationTopics;
-      if (!context.conversationTopics.includes(topic)) {
-        context.conversationTopics.push(topic);
-        // Keep last 10 topics
-        if (context.conversationTopics.length > 10) {
-          context.conversationTopics = context.conversationTopics.slice(-10);
-        }
-      }
-    }
-    
-    context.lastInteraction = Date.now();
-    context.totalInteractions++;
-    this.userContexts.set(sessionId, context);
-    
-    console.log(`   📝 Updated user context for session ${sessionId}:`, {
-      budget: context.preferences.budget,
-      style: context.preferences.travelStyle,
-      interests: context.preferences.interests,
-      searches: context.searchHistory.length
-    });
-    
-    return context;
-  }
-
-  /**
-   * Generate personalized user profile summary for AI
-   */
-  getUserProfileSummary(context) {
-    const prefs = context.preferences;
-    let summary = '\n=== 👤 USER PROFILE & LEARNED PREFERENCES ===\n';
-    
-    let hasPreferences = false;
-    
-    if (prefs.budget) {
-      summary += `💰 Budget: $${prefs.budget}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.travelStyle) {
-      const styleEmoji = {
-        'budget': '🎒 Budget-Friendly',
-        'mid-range': '🏨 Comfortable Mid-Range',
-        'luxury': '✨ Luxury Experience'
-      };
-      summary += `${styleEmoji[prefs.travelStyle]}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.interests && prefs.interests.length > 0) {
-      summary += `❤️ Interests: ${prefs.interests.join(', ')}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.accommodationType) {
-      summary += `🏠 Preferred Accommodation: ${prefs.accommodationType}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.dietaryRestrictions && prefs.dietaryRestrictions.length > 0) {
-      summary += `🍽️ Dietary: ${prefs.dietaryRestrictions.join(', ')}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.tripPace) {
-      const paceEmoji = {
-        'relaxed': '🐢 Relaxed & Leisurely',
-        'moderate': '🚶 Moderate Pace',
-        'fast-paced': '🏃 Fast-Paced & Action-Packed'
-      };
-      summary += `⏱️ Trip Pace: ${paceEmoji[prefs.tripPace]}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.crowdPreference) {
-      summary += `👥 Crowds: ${prefs.crowdPreference === 'avoid-crowds' ? 'Prefers Less Crowded' : 'Enjoys Popular Spots'}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.climatePreference) {
-      const climateEmoji = {
-        'warm': '☀️ Warm/Tropical',
-        'cold': '❄️ Cold/Winter',
-        'mild': '🌤️ Mild/Moderate'
-      };
-      summary += `🌡️ Climate: ${climateEmoji[prefs.climatePreference]}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.travelCompanions) {
-      const companionEmoji = {
-        'solo': '🧳 Solo Traveler',
-        'couple': '💑 Traveling as Couple',
-        'family': '👨‍👩‍👧‍👦 Family Trip',
-        'friends': '👥 Group of Friends'
-      };
-      summary += `${companionEmoji[prefs.travelCompanions]}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.transportPreference) {
-      const transportEmoji = {
-        'public-transport': '🚇 Prefers Public Transport',
-        'rental-car': '🚗 Prefers Rental Car',
-        'walking': '🚶 Prefers Walking',
-        'bike': '🚲 Prefers Biking'
-      };
-      summary += `${transportEmoji[prefs.transportPreference]}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.accessibilityNeeds && prefs.accessibilityNeeds.length > 0) {
-      summary += `♿ Accessibility: ${prefs.accessibilityNeeds.join(', ')}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.languagePreference) {
-      summary += `🗣️ Language: ${prefs.languagePreference === 'english-speaking' ? 'Prefers English-speaking destinations' : 'Open to any language'}\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.visaPreference === 'visa-free') {
-      summary += `🛂 Visa: Prefers visa-free destinations\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.prioritizeSafety) {
-      summary += `🛡️ Safety: High priority on safe destinations\n`;
-      hasPreferences = true;
-    }
-    
-    if (prefs.preferredTripDuration) {
-      summary += `📅 Typical Duration: ${prefs.preferredTripDuration}\n`;
-      hasPreferences = true;
-    }
-    
-    if (context.searchHistory && context.searchHistory.length > 0) {
-      const recentSearches = context.searchHistory.slice(-3);
-      const destinations = recentSearches.map(s => s.destination).filter(Boolean);
-      if (destinations.length > 0) {
-        summary += `📍 Recent Searches: ${destinations.join(', ')}\n`;
-        hasPreferences = true;
-      }
-    }
-    
-    if (context.tripHistory && context.tripHistory.length > 0) {
-      summary += `✈️ Past Trips: ${context.tripHistory.length} trip(s) planned\n`;
-      const favDestinations = context.tripHistory.map(t => t.destination).filter(Boolean).slice(-3);
-      if (favDestinations.length > 0) {
-        summary += `   Favorite Destinations: ${favDestinations.join(', ')}\n`;
-      }
-      hasPreferences = true;
-    }
-    
-    if (context.totalInteractions > 5) {
-      summary += `🗣️ Returning User: ${context.totalInteractions} interactions\n`;
-      hasPreferences = true;
-    }
-    
-    if (hasPreferences) {
-      summary += '\n🎯 PERSONALIZATION INSTRUCTIONS:\n';
-      summary += '- Use this profile to personalize ALL recommendations\n';
-      summary += '- Match budget to their preferences when showing prices\n';
-      summary += '- Suggest activities based on their interests\n';
-      summary += '- Respect dietary restrictions in food recommendations\n';
-      summary += '- Consider their travel style in hotel/flight suggestions\n';
-      summary += '- Reference their past trips if relevant ("You enjoyed Madrid...")\n';
-      summary += '- Be warm and personal ("I remember you prefer...")\n\n';
-    } else {
-      summary += 'No stored preferences yet. Learn from this conversation!\n\n';
-    }
-    
-    return summary;
-  }
-
-  /**
-   * Get user context summary for display/export
-   */
-  getContextSummary(sessionId) {
-    const context = this.getUserContext(sessionId);
+    // TODO: Add real AI logic here
     return {
-      preferences: context.preferences,
-      searchHistory: context.searchHistory.slice(-5),
-      tripHistory: context.tripHistory,
-      totalInteractions: context.totalInteractions,
-      lastInteraction: new Date(context.lastInteraction).toLocaleString()
+      reply: `Received your message: "${message}". Preferences: ${JSON.stringify(preferences)}`,
+      context,
+      intent
     };
   }
-
   /**
-   * Main entry point - Process user message with full context
+   * Extract user preferences from a message string
    */
-  async processMessage(messageData) {
-    try {
-      const {
-        messages = [],
-        userContext = {},
-        sessionId,
-        userId
-      } = messageData;
-
-      const effectiveSessionId = sessionId || userContext.sessionId || `session_${Date.now()}`;
-      const effectiveUserId = userId || userContext.userId || userContext.email || 'anonymous';
-
-      console.log(`\n🤖 Processing message for session: ${effectiveSessionId}`);
-
-      // 1. Get/create enhanced user context
-      const userContextData = this.getUserContext(effectiveSessionId);
-      
-      // 2. Extract preferences from current message
-      const userQuery = messages[messages.length - 1]?.content || '';
-      const extractedPrefs = this.extractPreferencesFromMessage(userQuery, userContextData);
-      
-      if (Object.keys(extractedPrefs).length > 0) {
-        this.updateUserContext(effectiveSessionId, { preferences: extractedPrefs });
-        console.log('   ✨ Extracted new preferences from message:', extractedPrefs);
-      }
-
-      // 3. Load conversation history
-      const conversationHistory = await this.loadConversationHistory(effectiveSessionId);
-
-      // 4. Load user preferences and merge with extracted + current request preferences
-      let userPreferences = await this.loadUserPreferences(effectiveUserId);
-      
-      // Merge with extracted preferences from context
-      if (userContextData.preferences) {
-        userPreferences = {
-          ...userPreferences,
-          ...userContextData.preferences,
-          budget: userContextData.preferences.budget || userPreferences.budget,
-          travelStyle: userContextData.preferences.travelStyle || userPreferences.travelStyle,
-          interests: [...new Set([
-            ...(userContextData.preferences.interests || []),
-            ...(userPreferences.interests || [])
-          ])]
-        };
-      }
-      
-      // Merge preferences from the current request (from trip planning form)
-      if (userContext.preferences) {
-        console.log('   📋 Merging trip preferences from request:', userContext.preferences);
-        userPreferences = {
-          ...userPreferences,
-          budget: userContext.preferences.budget || userPreferences.budget,
-          travelStyle: userContext.preferences.travelStyle || userPreferences.travelStyle,
-          interests: userContext.preferences.interests || userPreferences.interests,
-          travelers: userContext.preferences.travelers || userPreferences.travelers,
-          duration: userContext.preferences.duration || userPreferences.duration,
-          // Add trip details if available
-          ...(userContext.tripDetails && {
-            currentTripOrigin: userContext.tripDetails.origin,
-            currentTripDestination: userContext.tripDetails.destination,
-            currentTripStartDate: userContext.tripDetails.startDate,
-            currentTripDuration: userContext.tripDetails.duration
-          })
-        };
-      }
-
-      console.log('   👤 Final user preferences:', userPreferences);
-
-      // 5. Analyze user query for intent (pass context AND conversation history for smart extraction)
-      const queryIntent = await this.analyzeQueryIntent(userQuery, userContext, conversationHistory, effectiveSessionId);
-
-      console.log(`   Intent detected: ${queryIntent.type}`);
-      console.log(`   Needs flight data: ${queryIntent.needsFlightData}`);
-      console.log(`   Needs hotel data: ${queryIntent.needsHotelData}`);
-
-      // 4. Fetch real data if needed (flights/hotels)
-      let realData = null;
-      
-      // Handle multi-destination comparison
-      if (queryIntent.multiDestination && queryIntent.extractedInfo.destinations) {
-        console.log('   🔄 Fetching flight data for multiple destinations...');
-        const multiFlightData = [];
-        
-        for (const destination of queryIntent.extractedInfo.destinations) {
-          console.log(`   📞 Fetching flights to ${destination}...`);
-          const flightInfo = {
-            origin: queryIntent.extractedInfo.origin || userContext?.preferences?.homeCity,
-            destination: destination,
-            departureDate: queryIntent.extractedInfo.departureDate,
-            returnDate: queryIntent.extractedInfo.returnDate,
-            passengers: queryIntent.extractedInfo.passengers || 1
-          };
-          
-          const flightData = await this.fetchFlightData(flightInfo, userPreferences);
-          if (flightData && flightData.results && flightData.results.length > 0) {
-            multiFlightData.push({
-              destination,
-              cheapestPrice: Math.min(...flightData.results.map(f => f.price || Infinity)),
-              flightData
-            });
-          }
-        }
-        
-        if (multiFlightData.length > 0) {
-          // Get currency from first destination's flight data
-          const currency = multiFlightData[0]?.flightData?.currency || 'USD';
-          console.log(`   💰 DEBUG: First flight data currency: ${multiFlightData[0]?.flightData?.currency}`);
-          console.log(`   💰 DEBUG: Using currency: ${currency}`);
-          
-          realData = {
-            type: 'multi_destination_comparison',
-            destinations: multiFlightData,
-            totalDestinations: multiFlightData.length,
-            currency: currency  // Add currency to top level
-          };
-          console.log(`   ✅ Multi-destination data fetched (${currency}):`, multiFlightData.map(d => `${d.destination}: ${d.cheapestPrice}`).join(', '));
-        }
-      }
-      // For trip planning, fetch both flights and hotels
-      else if (queryIntent.needsFlightData && queryIntent.needsHotelData) {
-        console.log('   📞 Fetching both flight and hotel data from APIs...');
-        const flightData = await this.fetchFlightData(queryIntent.extractedInfo, userPreferences);
-        const hotelData = await this.fetchHotelData(queryIntent.extractedInfo, userPreferences);
-        
-        // Combine both if available
-        if (flightData && hotelData) {
-          realData = {
-            type: 'combined',
-            flights: flightData,
-            hotels: hotelData
-          };
-        } else if (flightData) {
-          realData = flightData;
-        } else if (hotelData) {
-          realData = hotelData;
-        }
-      } else if (queryIntent.needsFlightData) {
-        // Check if user searched for a country instead of a city for flights
-        const countriesRequiringSpecificCity = [
-          'japan', 'china', 'india', 'thailand', 'malaysia', 'indonesia', 'philippines',
-          'vietnam', 'south korea', 'korea', 'australia', 'united states', 'usa', 'america',
-          'canada', 'brazil', 'mexico', 'uk', 'united kingdom', 'france', 'germany', 'italy',
-          'spain', 'russia', 'saudi arabia', 'uae', 'egypt', 'south africa'
-        ];
-        
-        const destination = queryIntent.extractedInfo?.destination?.toLowerCase() || '';
-        const destinations = queryIntent.extractedInfo?.destinations?.map(d => d.toLowerCase()) || [];
-        const allDestinations = destination ? [destination, ...destinations] : destinations;
-        
-        // Check if any destination is a country that needs clarification
-        const countryDestinations = allDestinations.filter(dest => 
-          countriesRequiringSpecificCity.includes(dest)
-        );
-        
-        if (countryDestinations.length > 0) {
-          console.log(`   ⚠️ Country destination detected: ${countryDestinations.join(', ')} - asking for specific city`);
-          
-          // Build suggestion list based on country
-          const citySuggestions = {
-            'japan': ['Tokyo', 'Osaka', 'Kyoto', 'Nagoya', 'Sapporo', 'Fukuoka'],
-            'china': ['Beijing', 'Shanghai', 'Guangzhou', 'Shenzhen', 'Hong Kong'],
-            'india': ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'],
-            'thailand': ['Bangkok', 'Phuket', 'Chiang Mai', 'Krabi', 'Pattaya'],
-            'malaysia': ['Kuala Lumpur', 'Penang', 'Langkawi', 'Johor Bahru'],
-            'indonesia': ['Jakarta', 'Bali', 'Yogyakarta', 'Surabaya'],
-            'philippines': ['Manila', 'Cebu', 'Boracay', 'Palawan'],
-            'vietnam': ['Ho Chi Minh City', 'Hanoi', 'Da Nang', 'Nha Trang'],
-            'south korea': ['Seoul', 'Busan', 'Incheon', 'Jeju'],
-            'korea': ['Seoul', 'Busan', 'Incheon', 'Jeju'],
-            'australia': ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide'],
-            'united states': ['New York', 'Los Angeles', 'Chicago', 'San Francisco', 'Miami', 'Las Vegas'],
-            'usa': ['New York', 'Los Angeles', 'Chicago', 'San Francisco', 'Miami', 'Las Vegas'],
-            'america': ['New York', 'Los Angeles', 'Chicago', 'San Francisco', 'Miami', 'Las Vegas'],
-            'canada': ['Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa'],
-            'uk': ['London', 'Manchester', 'Edinburgh', 'Birmingham', 'Glasgow'],
-            'united kingdom': ['London', 'Manchester', 'Edinburgh', 'Birmingham', 'Glasgow'],
-            'france': ['Paris', 'Nice', 'Lyon', 'Marseille', 'Toulouse'],
-            'germany': ['Berlin', 'Munich', 'Frankfurt', 'Hamburg', 'Cologne'],
-            'italy': ['Rome', 'Milan', 'Venice', 'Florence', 'Naples'],
-            'spain': ['Madrid', 'Barcelona', 'Seville', 'Valencia', 'Málaga']
-          };
-          
-          // Don't call API - instead set realData to null and add special guidance
-          realData = {
-            type: 'country_clarification_needed',
-            country: countryDestinations[0],
-            suggestions: citySuggestions[countryDestinations[0]] || []
-          };
-          
-          console.log(`   💡 Will ask user to specify city in ${countryDestinations[0]}`);
-        } else {
-          console.log('   📞 Fetching flight data from API...');
-          realData = await this.fetchFlightData(queryIntent.extractedInfo, userPreferences);
-        }
-      } else if (queryIntent.needsHotelData) {
-        // Handle multi-destination hotel comparison
-        if (queryIntent.multiDestination && queryIntent.extractedInfo.destinations) {
-          console.log('   🔄 Fetching hotel data for multiple destinations...');
-          const multiHotelData = [];
-          
-          for (const destination of queryIntent.extractedInfo.destinations) {
-            console.log(`   📞 Fetching hotels in ${destination}...`);
-            const hotelInfo = {
-              destination: destination,
-              checkIn: queryIntent.extractedInfo.checkIn,
-              checkOut: queryIntent.extractedInfo.checkOut,
-              guests: queryIntent.extractedInfo.guests || 2,
-              priceRange: queryIntent.extractedInfo.priceRange
-            };
-            
-            const hotelData = await this.fetchHotelData(hotelInfo, userPreferences);
-            if (hotelData && hotelData.results && hotelData.results.length > 0) {
-              multiHotelData.push({
-                destination,
-                cheapestPrice: Math.min(...hotelData.results.map(h => h.price || Infinity)),
-                averagePrice: Math.round(hotelData.results.reduce((sum, h) => sum + (h.price || 0), 0) / hotelData.results.length),
-                hotelData
-              });
-            }
-          }
-          
-          if (multiHotelData.length > 0) {
-            realData = {
-              type: 'multi_destination_hotel_comparison',
-              destinations: multiHotelData,
-              totalDestinations: multiHotelData.length
-            };
-            console.log('   ✅ Multi-destination hotel data fetched:', multiHotelData.map(d => `${d.destination}: $${d.cheapestPrice}/night`).join(', '));
-          }
-        } else {
-          console.log('   📞 Fetching hotel data from API...');
-          realData = await this.fetchHotelData(queryIntent.extractedInfo, userPreferences);
-        }
-      }
-
-      // 6. Store search history if this was a search query
-      if (queryIntent.extractedInfo?.destination) {
-        this.updateUserContext(effectiveSessionId, {
-          searchHistory: {
-            type: queryIntent.type,
-            destination: queryIntent.extractedInfo.destination,
-            origin: queryIntent.extractedInfo.origin,
-            budget: userPreferences.budget
-          }
-        });
-      }
-
-      // 7. Build comprehensive context for Bedrock with user profile and conversation summary
-      const userProfileSummary = this.getUserProfileSummary(userContextData);
-      
-      // Get conversation summary from queryIntent analysis (already created in analyzeQueryIntent)
-      let conversationSummary = null;
-      if (conversationHistory && conversationHistory.length > 0) {
-        conversationSummary = await this.summarizeConversation(conversationHistory, userQuery);
-      }
-      
-      const contextPrompt = this.buildContextPrompt(
-        userQuery,
-        conversationHistory,
-        userPreferences,
-        realData,
-        queryIntent,
-        userProfileSummary,
-        conversationSummary  // Pass summary to context prompt
-      );
-
-      // 8. Call Bedrock with full context
-      let bedrockResponse = await this.callBedrock(
-        contextPrompt,
-        conversationHistory,
-        userQuery
-      );
-
-      // Remove emojis from response
-      bedrockResponse = this.removeEmojis(bedrockResponse);
-
-      // 7. Extract and update preferences from conversation
-      await this.updatePreferencesFromConversation(
-        effectiveUserId,
-        userQuery,
-        bedrockResponse,
-        userPreferences
-      );
-
-      // 9. Store trip history if this was trip planning with data
-      if (queryIntent.type === 'trip_planning' && realData && queryIntent.extractedInfo?.destination) {
-        this.updateUserContext(effectiveSessionId, {
-          tripHistory: {
-            destination: queryIntent.extractedInfo.destination,
-            origin: queryIntent.extractedInfo.origin,
-            budget: userPreferences.budget,
-            interests: userPreferences.interests,
-            travelStyle: userPreferences.travelStyle
-          },
-          conversationTopics: queryIntent.extractedInfo.destination
-        });
-      }
-
-      // 10. Save conversation to history
-      await this.saveConversation(effectiveSessionId, effectiveUserId, {
-        user: userQuery,
-        assistant: bedrockResponse,
-        intent: queryIntent.type,
-        timestamp: new Date().toISOString(),
-        dataFetched: !!realData
-      });
-
-      // 11. Prepare Google Flights button if no results found
-      let googleFlightsButton = null;
-      if (queryIntent.type === 'flight_search' && realData) {
-        // Check if we have no flight results but have search parameters
-        if ((realData.type === 'flight' && realData.totalResults === 0) || 
-            (realData.type === 'country_clarification_needed')) {
-          const origin = queryIntent.extractedInfo?.origin || '';
-          const destination = queryIntent.extractedInfo?.destination || '';
-          const depDate = queryIntent.extractedInfo?.departureDate || '';
-          const retDate = queryIntent.extractedInfo?.returnDate || '';
-          
-          if (origin && destination && realData.type !== 'country_clarification_needed') {
-            let googleFlightsUrl = 'https://www.google.com/travel/flights';
-            if (retDate) {
-              googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}%20returning%20${retDate}`;
-            } else if (depDate) {
-              googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}`;
-            } else {
-              googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}`;
-            }
-            
-            googleFlightsButton = {
-              text: '🔍 Search on Google Flights',
-              url: googleFlightsUrl,
-              type: 'primary',
-              searchParams: {
-                origin,
-                destination,
-                departureDate: depDate,
-                returnDate: retDate
-              }
-            };
-            
-            console.log('   🔘 Added Google Flights button:', googleFlightsUrl);
-          }
-        }
-      }
-      
-      // 12. Return comprehensive response with learned context
-      return {
-        role: 'ai',
-        content: bedrockResponse,
-        metadata: {
-          model: this.modelId,
-          sessionId: effectiveSessionId,
-          userId: effectiveUserId,
-          intent: queryIntent.type,
-          apiCallsMade: realData ? true : false,
-          dataSource: realData ? (queryIntent.needsFlightData ? 'flight-api' : 'hotel-api') : 'bedrock-only',
-          conversationTurn: conversationHistory.length + 1,
-          preferencesApplied: Object.keys(userPreferences).length > 0,
-          preferencesLearned: Object.keys(extractedPrefs).length,
-          timestamp: new Date().toISOString()
-        },
-        realData,
-        userPreferences,
-        googleFlightsButton,  // Add button data here
-        learnedContext: this.getContextSummary(effectiveSessionId),
-        conversationHistory: conversationHistory.slice(-5) // Last 5 turns
-      };
-
-    } catch (error) {
-      console.error('❌ AI Travel Agent Error:', error);
-      throw error;
+  extractPreferencesFromMessage(message) {
+    // If message is missing, use preferences from user object
+    if (!message || typeof message !== 'string') {
+      return { missingInfo: 'Please provide your travel details (destination, dates, etc.)' };
     }
+    // Simple keyword-based extraction (can be improved)
+    const preferences = {};
+    const lower = message.toLowerCase();
+    if (lower.includes('budget')) preferences.travelStyle = 'budget';
+    if (lower.includes('luxury')) preferences.travelStyle = 'luxury';
+    if (lower.includes('adventure')) preferences.interests = ['adventure'];
+    if (lower.includes('beach')) preferences.interests = ['beach'];
+    if (lower.match(/\d+\s*(days|nights)/)) preferences.duration = lower.match(/\d+/)[0];
+    // Add more extraction rules as needed
+    return preferences;
   }
-
   /**
-   * Use Nova Lite to intelligently analyze query - understand WHAT user wants and IF we need APIs
+   * Get user context for chat/AI agent
    */
-  /**
-   * Summarize conversation history using Nova Lite for better context awareness
-   */
-  async summarizeConversation(conversationHistory, currentQuery) {
-    try {
-      console.log('   📝 Creating conversation summary with Nova Lite...');
-      
-      // Format conversation history for Nova Lite
-      const conversationText = conversationHistory.map((turn, i) => {
-        return `Turn ${i + 1}:\nUser: ${turn.user}\nAssistant: ${turn.assistant?.slice(0, 300) || 'No response'}`;
-      }).join('\n\n');
-      
-      const summaryPrompt = `Summarize this travel conversation in 2-3 sentences. Focus on:
-1. What destination(s) the user is interested in
-2. What dates/duration they mentioned
-3. What they're looking for (flights, hotels, itinerary, etc.)
-4. Any preferences (budget, interests, origin city)
-
-Be concise and factual. Include specific details like city names and dates.
-
-Conversation:
-${conversationText}
-
-Current query: "${currentQuery}"
-
-Summary (2-3 sentences):`;
-
-      const params = {
-        modelId: 'us.amazon.nova-lite-v1:0',
-        contentType: 'application/json',
-        accept: 'application/json',
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: [{ text: summaryPrompt }] }],
-          inferenceConfig: {
-            maxTokens: 150,
-            temperature: 0.3,
-            topP: 0.9
-          }
-        })
-      };
-
-      const command = new InvokeModelCommand(params);
-      const response = await this.bedrockClient.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      const summary = responseBody.output?.message?.content?.[0]?.text?.trim() || 'No previous context';
-      
-      console.log('   ✅ Summary created:', summary);
-      return summary;
-    } catch (error) {
-      console.error('   ⚠️ Error creating conversation summary:', error.message);
-      return null;
-    }
+  async getUserContext(userId) {
+    // Load user preferences and recent conversation
+    const preferences = await this.loadUserPreferences(userId);
+    const conversation = this.conversations ? this.conversations.get(userId) : [];
+    return {
+      userId,
+      preferences,
+      conversation
+    };
   }
-
-  async analyzeQueryWithNovaLite(query, conversationContext = null) {
-    try {
-      const analysisPrompt = `You are a smart travel query analyzer. Analyze this query and return ONLY valid JSON.
-
-Analyze:
-1. What is the user REALLY asking for?
-2. Do we need to call flight/hotel APIs, or can we just answer conversationally?
-3. Extract ANY AND ALL destinations, dates, preferences, origin cities mentioned FROM BOTH CURRENT QUERY AND CONVERSATION SUMMARY
-4. Consider conversation context - is this a follow-up answer to a previous question?
-5. USE THE CONVERSATION SUMMARY to understand what the user is planning
-
-CRITICAL DESTINATION EXTRACTION RULES:
-- Extract ALL city/destination names mentioned, not just the first one
-- "barcelona, madrid, athens" = extractedDestinations: ["Barcelona", "Madrid", "Athens"]
-- "flights to paris, london, and rome" = extractedDestinations: ["Paris", "London", "Rome"]
-- "compare bali goa cebu" = extractedDestinations: ["Bali", "Goa", "Cebu"]
-- If CONVERSATION SUMMARY mentions destinations (e.g., "user asked about Barcelona, Madrid, Athens"), extract those too
-- List format like "barcelona,madrid,athens" or "barcelona, madrid, athens" = multiple destinations
-- ALWAYS return an ARRAY in extractedDestinations, even if only one destination
-
-CRITICAL INTENT RULES:
-- "What can I carry on flights?" = general question (NO API needed)
-- "Find flights to Paris" = flight_search (API needed)
-- "Tell me about Bali" = destination_info (NO API needed)
-- "Cheap hotels in Tokyo" = hotel_search (API needed)
-- "What's the best time to visit Europe?" = general (NO API needed)
-- "Compare flights to Bali, Goa, Cebu" = flight_search with multiple destinations (API needed)
-- If previous message asked "Where are you flying from?" and user replies "Mumbai", that's the ORIGIN city (extractOrigin: "Mumbai")
-- If user says "search flights from X to Y" with dates, extract EVERYTHING and set needsFlightAPI: true (DO NOT ask for confirmation)
-- If query contains "from [city] to [city]" with dates like "dec 13 to dec 21", extract origin, destination, and dates - ready to search (needsFlightAPI: true)
-
-CONVERSATION CONTEXT RULES:
-- If assistant previously asked "Which city would you like me to check flight prices for?" and user lists cities = flight_search (API needed)
-- If assistant previously asked "Where would you like to stay?" and user lists cities = hotel_search (API needed)
-- If conversation is about FLIGHTS (user said "find flights", "cheap flights", "search for flights") and user lists cities = flight_search (API needed), NOT hotel_search
-- If conversation is about HOTELS (user said "find hotels", "book hotel", "where to stay") and user lists cities = hotel_search (API needed)
-- A simple list of city names in FLIGHT context = user wants to search flight prices for those destinations
-- If user mentions "flights" or "fly" anywhere in conversation, listing cities = flight_search
-- If user asks for "more options" or "show more flights" or "other airlines" for a destination = flight_search (API needed, extract destination from query)
-- If assistant asked "Should I search from your home city" and user replies "yes" or "home city" or "sure" = user confirming to use home city (extractOrigin from previous context)
-- If assistant asked for travel dates and user provides dates = extract those dates even if not in ISO format
-- If conversation summary mentions dates (e.g., "December 24-31", "dec 24 to dec 31"), extract them as departureDate and returnDate
-- **CRITICAL**: If user just says "yes" or "yeah" or "sure" after being asked confirmation questions about flight search, AND conversation summary shows they already provided origin, destination, and dates, then set needsFlightAPI: true and extract all info from conversation summary (DO NOT ask more questions!)
-
-DATE EXTRACTION RULES:
-- "dec 24 to dec 31" → departureDate: "2025-12-24", returnDate: "2025-12-31"
-- "December 18 to 23" → departureDate: "2025-12-18", returnDate: "2025-12-23"
-- "october 20" → departureDate: "2025-10-20"
-- If only month/day provided, assume current year or next occurrence
-- Always convert to ISO format (YYYY-MM-DD)
-- Check BOTH current query AND conversation summary for date mentions
-
-Return JSON format:
-{
-  "intent": "flight_search|hotel_search|trip_planning|destination_recommendation|budget_inquiry|public_transport|general_question|destination_info|travel_advice|origin_provided",
-  "needsFlightAPI": true/false,
-  "needsHotelAPI": true/false,
-  "extractedDestinations": ["Paris", "London", "Rome"] (ALWAYS an array with ALL destinations found),
-  "extractedOrigin": "Mumbai" (string, if user is providing origin city),
-  "extractedDepartureDate": "2025-12-24" (ISO format, from current query OR conversation summary),
-  "extractedReturnDate": "2025-12-31" (ISO format, if mentioned),
-  "isComparison": true/false (true if multiple destinations for price comparison),
-  "isFollowUpAnswer": true/false (if answering a question from previous turn),
-  "queryType": "price_search|general_info|rules|recommendations|booking_help|providing_info",
-  "reasoning": "brief explanation including HOW MANY destinations found"
-}
-
-===== CONVERSATION SUMMARY =====
-${conversationContext?.conversationSummary || 'No previous conversation'}
-
-===== RECENT MESSAGES =====
-${conversationContext?.recentMessages?.map((msg, i) => `Turn ${i + 1}:\nUser: ${msg.user}\nAssistant: ${msg.assistant}`).join('\n\n') || 'None'}
-
-===== CURRENT QUERY =====
-"${query}"
-
-JSON:`;
-
-      const params = {
-        modelId: 'us.amazon.nova-lite-v1:0',
-        contentType: 'application/json',
-        accept: 'application/json',
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: [{ text: analysisPrompt }] }],
-          inferenceConfig: {
-            maxTokens: 300,
-            temperature: 0.2,
-            topP: 0.9
-          }
-        })
-      };
-
-      const command = new InvokeModelCommand(params);
-      const response = await this.bedrockClient.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      let analysisText = responseBody.output?.message?.content?.[0]?.text?.trim() || '{}';
-      
-      // Clean up response
-      analysisText = analysisText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      
-      try {
-        const analysis = JSON.parse(analysisText);
-        console.log('   🧠 Nova Lite Analysis:', {
-          intent: analysis.intent,
-          needsAPIs: { flight: analysis.needsFlightAPI, hotel: analysis.needsHotelAPI },
-          destinations: analysis.extractedDestinations,
-          origin: analysis.extractedOrigin,
-          departureDate: analysis.extractedDepartureDate,
-          returnDate: analysis.extractedReturnDate,
-          destinationCount: analysis.extractedDestinations?.length || 0,
-          isComparison: analysis.isComparison,
-          isFollowUp: analysis.isFollowUpAnswer,
-          reasoning: analysis.reasoning
-        });
-        
-        // Log warning if destinations found but count seems wrong
-        if (analysis.extractedDestinations && analysis.extractedDestinations.length === 1 && 
-            (analysis.reasoning?.includes('multiple') || analysis.reasoning?.includes('three') || analysis.reasoning?.includes('comparison'))) {
-          console.log('   ⚠️ WARNING: Nova Lite reasoning mentions multiple destinations but only extracted 1!');
-        }
-        
-        return analysis;
-      } catch (parseError) {
-        console.log('   ⚠️ Failed to parse Nova Lite analysis, using fallback');
-        return {
-          intent: 'general_question',
-          needsFlightAPI: false,
-          needsHotelAPI: false,
-          extractedDestinations: [],
-          isComparison: false,
-          queryType: 'general_info'
-        };
+      /**
+      // ...existing code for all methods inside the class...
       }
-    } catch (error) {
-      console.error('   ⚠️ Error in Nova Lite analysis:', error.message);
-      return {
-        intent: 'general_question',
-        needsFlightAPI: false,
-        needsHotelAPI: false,
-        extractedDestinations: [],
-        isComparison: false,
-        queryType: 'general_info'
-      };
-    }
-  }
-
-  /**
-   * Analyze user query to understand intent (now powered by Nova Lite intelligence)
-   */
-  async analyzeQueryIntent(query, userContext = null, conversationHistory = [], sessionId = null) {
-    const lowerQuery = query.toLowerCase();
-
-    const intent = {
-      type: 'general',
-      needsFlightData: false,
-      needsHotelData: false,
-      extractedInfo: {},
-      multiDestination: false
-    };
-    
-    // Step 1: Create conversation summary using Nova Lite for better context
-    let conversationSummary = null;
-    if (conversationHistory && conversationHistory.length > 0) {
-      conversationSummary = await this.summarizeConversation(conversationHistory, query);
-      console.log('   📝 Conversation Summary:', conversationSummary);
-    }
-    
-    // Step 2: Use Nova Lite for intelligent analysis with full conversation context
-    const contextForAnalysis = {
-      userContext,
-      conversationSummary,  // Include the summary
-      recentMessages: conversationHistory.slice(-3).map(msg => ({
-        user: msg.user,
-        assistant: msg.assistant?.slice(0, 200) // Show more context
-      }))
-    };
-    const novaAnalysis = await this.analyzeQueryWithNovaLite(query, contextForAnalysis);
-    
-    // Step 2: Use Nova Lite to extract destinations
-    console.log('   🤖 Using Nova Lite to extract destinations...');
-    let extractedDestinations = novaAnalysis.extractedDestinations || [];
-    
-    // Fallback: If Nova analysis didn't extract destinations, try dedicated extraction
-    if (extractedDestinations.length === 0 && (novaAnalysis.needsFlightAPI || novaAnalysis.needsHotelAPI)) {
-      extractedDestinations = await this.extractDestinationsWithBedrock(query);
-    }
-    
-    // Step 3: Check if user is providing missing info as follow-up (origin for flights, destination for hotels, etc.)
-    const lastConversation = conversationHistory[conversationHistory.length - 1];
-    const lastAssistant = lastConversation?.assistant?.toLowerCase() || '';
-    
-    // Special case: If assistant asked "which city for flight prices" and user lists cities with destinations extracted
-    if (extractedDestinations.length > 0 && 
-        (lastAssistant.includes('which city would you like me to check flight prices') ||
-         lastAssistant.includes('which city for flight') ||
-         lastAssistant.includes('compare multiple cities'))) {
-      console.log('   ✈️ User is providing destination choices after flight price question');
-      intent.needsFlightData = true;
-      intent.type = 'flight_search';
-      
-      // Check if we need origin - look for previous flight context
-      const previousFlightQuery = conversationHistory.slice(0, -1).reverse().find(msg => 
-        msg.user && (msg.user.toLowerCase().includes('flight') || msg.user.toLowerCase().includes('fly'))
-      );
-      
-      if (previousFlightQuery) {
-        console.log('   📍 Found previous flight query:', previousFlightQuery.user);
-        // We'll ask for origin in the response if not provided
-      }
-    }
-    
-    if (novaAnalysis.isFollowUpAnswer) {
-      // Case 1: User providing origin for flight search
-      if (novaAnalysis.extractedOrigin && lastAssistant.includes('where are you flying from')) {
-        console.log('   📍 User provided origin city:', novaAnalysis.extractedOrigin);
-        intent.extractedInfo.origin = novaAnalysis.extractedOrigin;
-        intent.needsFlightData = true;
-        intent.type = 'flight_search';
-        
-        // Save origin as homeCity for future searches
-        const context = this.getUserContext(sessionId);
-        if (!context.preferences.homeCity) {
-          context.preferences.homeCity = novaAnalysis.extractedOrigin;
-          console.log(`   🏠 Saved ${novaAnalysis.extractedOrigin} as home city for future searches`);
-        }
-        
-        console.log('   ✈️ Detected follow-up: origin provided for flight search');
-        console.log('   📜 Conversation history length:', conversationHistory.length);
-        console.log('   📜 Full conversation history structure:', JSON.stringify(conversationHistory.map((turn, i) => ({
-          index: i,
-          hasUser: !!turn.user,
-          userPreview: turn.user?.slice(0, 50),
-          hasAssistant: !!turn.assistant
-        })), null, 2));
-        
-        // Look back through conversation to find the most recent user query with destinations
-        // Skip the current query and look at previous user messages
-        for (let i = conversationHistory.length - 1; i >= 0; i--) {
-          const turn = conversationHistory[i];
-          if (turn && turn.user) {
-            console.log(`   🔍 Checking conversation turn ${i} for destinations:`, turn.user);
-            const prevDestinations = await this.extractDestinationsWithBedrock(turn.user);
-            console.log(`   📍 Extracted from turn ${i}:`, prevDestinations);
-            
-            if (prevDestinations && prevDestinations.length > 0) {
-              // Filter out regional/continent names that can't be used as destinations
-              const validDestinations = prevDestinations.filter(dest => {
-                const lower = dest.toLowerCase();
-                return !['europe', 'asia', 'africa', 'america', 'oceania', 'antarctica'].includes(lower);
-              });
-              
-              console.log(`   🔎 After filtering regional names:`, validDestinations);
-              
-              if (validDestinations.length > 0) {
-                extractedDestinations = validDestinations;
-                console.log('   ✅ Recovered valid destinations from previous turn:', validDestinations);
-                console.log('   ✅ extractedDestinations array now contains:', extractedDestinations);
-                break;
-              } else if (prevDestinations.length > 0) {
-                console.log('   ⚠️ Found regional destinations, continuing search:', prevDestinations);
-              }
-            }
-          } else {
-            console.log(`   ⏭️ Skipping turn ${i} - no user message`);
-          }
-        }
-        
-        console.log('   🎯 Final extractedDestinations after recovery:', extractedDestinations);
-      }
-      
-      // Case 2: User confirming to use home city
-      else if ((query.toLowerCase().includes('yes') || 
-                query.toLowerCase().includes('home city') || 
-                query.toLowerCase().includes('sure')) &&
-               lastAssistant.includes('Should I search from your home city')) {
-        const context = this.getUserContext(sessionId);
-        if (context.preferences.homeCity) {
-          console.log(`   🏠 User confirmed using home city: ${context.preferences.homeCity}`);
-          intent.extractedInfo.origin = context.preferences.homeCity;
-          intent.needsFlightData = true;
-          intent.type = 'flight_search';
-          
-          // Look back for destination from previous query
-          for (let i = conversationHistory.length - 1; i >= 0; i--) {
-            const turn = conversationHistory[i];
-            if (turn && turn.user) {
-              const prevDestinations = await this.extractDestinationsWithBedrock(turn.user);
-              if (prevDestinations && prevDestinations.length > 0) {
-                extractedDestinations = prevDestinations;
-                console.log('   ✅ Recovered destination from previous query:', extractedDestinations);
-                break;
-              }
-            }
-          }
-        }
-      }
-      
-      // Case 3: User providing destination after being asked to specify city (e.g., "Tokyo" after "Japan" clarification)
-      else if (extractedDestinations.length > 0 && 
-               (lastAssistant.includes('could you specify which city') || 
-                lastAssistant.includes('which city in') ||
-                lastAssistant.includes('popular destinations in'))) {
-        console.log('   ✈️ User provided specific city after country clarification:', extractedDestinations[0]);
-        intent.extractedInfo.destination = extractedDestinations[0];
-        intent.needsFlightData = true;
-        intent.type = 'flight_search';
-        console.log('   ✈️ Detected follow-up: city specified for flight search');
-        
-        // CRITICAL: Check if we have origin - if not, we need to ask for it
-        // Look back through conversation for origin
-        let foundOrigin = false;
-        for (let i = conversationHistory.length - 1; i >= 0; i--) {
-          const turn = conversationHistory[i];
-          if (turn && turn.user) {
-            // Check if this turn mentioned origin (contains "from")
-            if (turn.user.toLowerCase().includes(' from ')) {
-              const fromMatch = turn.user.match(/from\s+([a-z\s]+?)(?:\s+to|\s+for|$)/i);
-              if (fromMatch) {
-                const possibleOrigin = fromMatch[1].trim();
-                // Verify it's not a date or number
-                if (!/\d/.test(possibleOrigin) && possibleOrigin.length > 2) {
-                  intent.extractedInfo.origin = possibleOrigin;
-                  foundOrigin = true;
-                  console.log(`   📍 Recovered origin from conversation: ${possibleOrigin}`);
-                  break;
-                }
-              }
-            }
-          }
-        }
-        
-        // If no origin found, check user context for home city
-        if (!foundOrigin) {
-          const context = this.getUserContext(sessionId);
-          if (context.preferences.homeCity) {
-            // Don't auto-use home city - ask user first
-            console.log(`   🏠 Home city available (${context.preferences.homeCity}) but not auto-using - will ask user`);
-          } else {
-            console.log('   ⚠️ No origin found - will need to ask user');
-          }
-        }
-      }
-      
-      // Case 4: User providing destination for hotel search
-      else if (extractedDestinations.length > 0 && 
-               (lastAssistant.includes('which destination') || 
-                lastAssistant.includes('which city') || 
-                lastAssistant.includes('where would you like to stay'))) {
-        console.log('   🏨 User provided destination for hotel search:', extractedDestinations[0]);
-        intent.extractedInfo.destination = extractedDestinations[0];
-        intent.needsHotelData = true;
-        intent.type = 'hotel_search';
-        console.log('   🏨 Detected follow-up: destination provided for hotel search');
-      }
-      
-      // Case 5: User providing origin when asked "where are you flying from"
-      else if (novaAnalysis.extractedOrigin && 
-               (lastAssistant.includes('where are you flying from') || 
-                lastAssistant.includes('where you are flying from') ||
-                lastAssistant.includes('where are you traveling from'))) {
-        console.log('   📍 User provided origin in response to question:', novaAnalysis.extractedOrigin);
-        intent.extractedInfo.origin = novaAnalysis.extractedOrigin;
-        intent.needsFlightData = true;
-        intent.type = 'flight_search';
-        
-        // Try to recover destinations from previous query
-        console.log('   🔍 Looking for destinations in previous conversation...');
-        for (let i = conversationHistory.length - 1; i >= 0; i--) {
-          const turn = conversationHistory[i];
-          if (turn && turn.user && i < conversationHistory.length - 1) { // Don't check current query
-            const prevDestinations = await this.extractDestinationsWithBedrock(turn.user);
-            if (prevDestinations && prevDestinations.length > 0) {
-              extractedDestinations = prevDestinations;
-              console.log('   ✅ Recovered destinations from previous query:', extractedDestinations);
-              break;
-            }
-          }
-        }
-      }
-      
-      // Case 6: User providing any other follow-up info
-      else if (novaAnalysis.extractedOrigin) {
-        console.log('   📍 User provided origin city:', novaAnalysis.extractedOrigin);
-        intent.extractedInfo.origin = novaAnalysis.extractedOrigin;
-      }
-    }
-    
-    // Step 4: Set up destination info in intent
-    if (extractedDestinations && extractedDestinations.length > 0) {
-      console.log('   ✅ Extracted destinations:', extractedDestinations);
-      
-      // Check if we have multiple destinations (either from comparison or recovered from follow-up)
-      if (extractedDestinations.length > 1) {
-        intent.multiDestination = true;
-        intent.extractedInfo.destinations = extractedDestinations;
-        console.log('   🔄 Multi-destination comparison detected');
-      } else if (extractedDestinations.length === 1) {
-        intent.extractedInfo.destination = extractedDestinations[0];
-      }
-    }
-
-    // Step 5: Route based on Nova Lite's intelligent analysis
-    intent.needsFlightData = novaAnalysis.needsFlightAPI || intent.needsFlightData;
-    intent.needsHotelData = novaAnalysis.needsHotelAPI;
-    
-    // Map intent types
-    const intentMap = {
-      'flight_search': 'flight_search',
-      'hotel_search': 'hotel_search',
-      'trip_planning': 'trip_planning',
-      'destination_recommendation': 'destination_recommendation',
-      'budget_inquiry': 'budget_inquiry',
-      'public_transport': 'public_transport',
-      'general_question': 'general',
-      'destination_info': 'general',
-      'travel_advice': 'general',
-      'origin_provided': 'general'  // Default mapping for follow-up answers
-    };
-    
-    // Don't override intent type if it was set during follow-up detection
-    if (intent.type !== 'flight_search' && intent.type !== 'hotel_search') {
-      intent.type = intentMap[novaAnalysis.intent] || 'general';
-    } else {
-      console.log(`   ✅ Preserving intent type from follow-up detection: ${intent.type}`);
-    }
-    
-    // Extract dates AND origin from Nova Lite analysis if available
-    const infoFromNova = {};
-    if (novaAnalysis.extractedDepartureDate) {
-      infoFromNova.departureDate = novaAnalysis.extractedDepartureDate;
-      console.log('   📅 Nova Lite extracted departure date:', infoFromNova.departureDate);
-    }
-    if (novaAnalysis.extractedReturnDate) {
-      infoFromNova.returnDate = novaAnalysis.extractedReturnDate;
-      console.log('   📅 Nova Lite extracted return date:', infoFromNova.returnDate);
-    }
-    if (novaAnalysis.extractedOrigin) {
-      infoFromNova.origin = novaAnalysis.extractedOrigin;
-      console.log('   🏙️ Nova Lite extracted origin:', infoFromNova.origin);
-    }
-    
-    // Helper function to merge objects, only overwriting with non-null/non-undefined values
-    const smartMerge = (...objects) => {
-      const result = {};
-      for (const obj of objects) {
-        for (const [key, value] of Object.entries(obj || {})) {
-          if (value !== null && value !== undefined) {
-            result[key] = value;
-          } else if (!(key in result)) {
-            // Keep null/undefined if no previous value exists
-            result[key] = value;
-          }
-        }
-      }
-      return result;
-    };
-    
-    // Extract detailed info based on intent
-    // Note: When intent is preserved from follow-up, we should still extract info even if Nova says needsFlightAPI is false
-    if (intent.type === 'flight_search' && (novaAnalysis.needsFlightAPI || intent.needsFlightData)) {
-      // Extract flight info but preserve any info already set (like origin from follow-up)
-      const extractedFlightInfo = this.extractFlightInfo(query, userContext, extractedDestinations);
-      // Smart merge: Nova data + pattern-based + already set info (non-null values take priority)
-      intent.extractedInfo = smartMerge(infoFromNova, extractedFlightInfo, intent.extractedInfo);
-      console.log('   ✈️ Flight search with API call, extracted info:', intent.extractedInfo);
-    } else if (intent.type === 'hotel_search' && (novaAnalysis.needsHotelAPI || intent.needsHotelData)) {
-      const hotelInfo = await this.extractHotelInfo(query, extractedDestinations);
-      // Smart merge: Nova data + hotel info + already set info (non-null values take priority)
-      intent.extractedInfo = smartMerge(infoFromNova, hotelInfo, intent.extractedInfo);
-      console.log('   🏨 Hotel search with API call, extracted info:', intent.extractedInfo);
-    } else if (intent.type === 'trip_planning') {
-      const flightInfo = this.extractFlightInfo(query, userContext, extractedDestinations);
-      const hotelInfo = await this.extractHotelInfo(query, extractedDestinations);
-      // Smart merge: Nova data + extracted info + already set info (non-null values take priority)
-      intent.extractedInfo = smartMerge(infoFromNova, flightInfo, hotelInfo, intent.extractedInfo);
-      console.log('   🗺️ Trip planning detected, extracted info:', intent.extractedInfo);
-    } else if (intent.type === 'destination_recommendation') {
-      intent.extractedInfo = { ...intent.extractedInfo, ...this.extractDestinationInfo(query, userContext) };
-      console.log('   🌍 Destination recommendation, extracted info:', intent.extractedInfo);
-    } else if (intent.type === 'budget_inquiry') {
-      intent.extractedInfo = { ...intent.extractedInfo, ...this.extractBudgetInfo(query, userContext) };
-      console.log('   💰 Budget inquiry, extracted info:', intent.extractedInfo);
-    } else if (intent.type === 'public_transport') {
-      intent.extractedInfo = { ...intent.extractedInfo, ...this.extractTransportInfo(query, userContext) };
-      console.log('   🚇 Public transport query, extracted info:', intent.extractedInfo);
-    } else {
-      console.log(`   💬 General query (${novaAnalysis.queryType}) - No API calls needed`);
-      intent.extractedInfo.queryType = novaAnalysis.queryType;
-      intent.extractedInfo.reasoning = novaAnalysis.reasoning;
-    }
-
-    return intent;
-  }
-
-  /**
-   * Extract flight information from query (with context-aware smart extraction)
-   * NOTE: This method should be called AFTER destination extraction by Nova Lite
-   */
-  extractFlightInfo(query, userContext = null, extractedDestinations = []) {
-    const info = {
-      origin: null,
-      destination: null,
-      departureDate: null,
-      returnDate: null,
-      passengers: 1
-    };
-
-    console.log('   🔍 Extracting flight info from query:', query);
-    
-    // First, use extracted destinations from Nova Lite if available
-    if (extractedDestinations && extractedDestinations.length > 0) {
-      info.destination = extractedDestinations[0];
-      console.log('   ✅ Using Nova Lite extracted destination:', info.destination);
-    }
-    
-    // Check user context for previous origin mentions
-    let contextOrigin = null;
-    
-    // First priority: user's home city from preferences
-    if (userContext?.preferences?.homeCity) {
-      contextOrigin = userContext.preferences.homeCity;
-      console.log('   🏠 Found home city from user preferences:', contextOrigin);
-    }
-    
-    // Second priority: recent search history
-    if (!contextOrigin && userContext?.searchHistory?.length > 0) {
-      // Look through recent search history for origin
-      for (let i = userContext.searchHistory.length - 1; i >= 0; i--) {
-        const search = userContext.searchHistory[i];
-        if (search.origin) {
-          contextOrigin = search.origin;
-          console.log('   💡 Found origin from search history:', contextOrigin);
-          break;
-        }
-      }
-    }
-    
-    const lowerQuery = query.toLowerCase();
-
-    // Only do pattern-based extraction if we don't already have destination from Nova Lite
-    if (!info.destination) {
-      // Extract "from X to Y" pattern - MORE SPECIFIC, stop at punctuation or common words
-      let fromToMatch = query.match(/from\s+([a-zA-Z\s]+?)\s+to\s+([a-zA-Z\s]+?)(?:\s+(?:during|in|on|for|by|at|\.|,|;))/i);
-      if (!fromToMatch) {
-        // Try simpler pattern if the above doesn't match
-        fromToMatch = query.match(/from\s+([a-zA-Z\s]{3,20}?)\s+to\s+([a-zA-Z\s]{3,20}?)(?:\s|$)/i);
-      }
-      
-      if (fromToMatch) {
-        const extractedOrigin = fromToMatch[1].trim();
-        const extractedDest = fromToMatch[2].trim();
-        
-        // Clean up - remove common trailing words
-        info.origin = extractedOrigin.replace(/\s+(arrive|reach|going|flying|travel|trip|during|in).*$/i, '').trim();
-        info.destination = extractedDest.replace(/\s+(during|in|on|for|by|at|from).*$/i, '').trim();
-        
-        console.log('   ✅ Extracted from "from X to Y":', { origin: info.origin, destination: info.destination });
-      }
-    }
-    
-    // Check for "to X" pattern for destination (e.g., "flights to Japan")
-    if (!info.destination) {
-      const toMatch = query.match(/\bto\s+([a-zA-Z\s]{3,20}?)(?:\s+(?:during|in|on|from|for|around|,|\.|\?))/i);
-      if (toMatch) {
-        info.destination = toMatch[1].trim();
-        console.log('   ✅ Extracted destination from "to X":', info.destination);
-      }
-    }
-    
-    // Also check for "Traveling from: X" and "Destination: Y" patterns (common in structured input)
-    if (!info.origin) {
-      const travelingFromMatch = query.match(/traveling\s+from[:\s]+([^\n\r]+?)(?=\n|- |$)/i);
-      if (travelingFromMatch) {
-        info.origin = travelingFromMatch[1].trim();
-        console.log('   ✅ Extracted origin from "Traveling from":', info.origin);
-      }
-    }
-    
-    // Extract destination from "Destination: X" pattern if not already set
-    if (!info.destination) {
-      const destMatch = query.match(/[-•]\s*destination[:\s]+([^\n\r]+?)(?=\n|- |$)/i);
-      if (destMatch) {
-        info.destination = destMatch[1].trim();
-        console.log('   ✅ Extracted destination from "Destination:":', info.destination);
-      }
-    }
-
-    // Extract dates - look for common date patterns
-    const dateMatch = query.match(/(\d{4}-\d{2}-\d{2})/);
-    if (dateMatch) {
-      info.departureDate = dateMatch[1];
-    }
-    
-    // Look for month mentions
-    const monthMap = {
-      'january': '01', 'jan': '01',
-      'february': '02', 'feb': '02',
-      'march': '03', 'mar': '03',
-      'april': '04', 'apr': '04',
-      'may': '05',
-      'june': '06', 'jun': '06',
-      'july': '07', 'jul': '07',
-      'august': '08', 'aug': '08',
-      'september': '09', 'sep': '09', 'sept': '09',
-      'october': '10', 'oct': '10',
-      'november': '11', 'nov': '11',
-      'december': '12', 'dec': '12'
-    };
-    
-    // Extract date ranges like "dec 13 to dec 21" or "december 13 to 21"
-    const dateRangeMatch = query.match(/(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+(\d{1,2})(?:\s+to\s+|\s*-\s*)(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)?\s*(\d{1,2})/i);
-    
-    if (dateRangeMatch) {
-      const startMonth = dateRangeMatch[1].toLowerCase();
-      const startDay = parseInt(dateRangeMatch[2]);
-      const endMonth = dateRangeMatch[3] ? dateRangeMatch[3].toLowerCase() : startMonth; // Same month if not specified
-      const endDay = parseInt(dateRangeMatch[4]);
-      
-      const year = new Date().getFullYear();
-      const startMonthNum = monthMap[startMonth];
-      const endMonthNum = monthMap[endMonth];
-      
-      if (startMonthNum && endMonthNum) {
-        info.departureDate = `${year}-${startMonthNum}-${String(startDay).padStart(2, '0')}`;
-        info.returnDate = `${year}-${endMonthNum}-${String(endDay).padStart(2, '0')}`;
-        console.log(`   📅 Extracted date range: ${info.departureDate} to ${info.returnDate}`);
-      }
-    }
-    // If no date range found, look for single month mentions
-    else {
-      for (const [monthName, monthNum] of Object.entries(monthMap)) {
-        if (lowerQuery.includes(monthName)) {
-          const year = new Date().getFullYear();
-          info.departureDate = `${year}-${monthNum}-01`;
-          info.returnDate = `${year}-${monthNum}-07`; // 7-day default
-          console.log(`   📅 Detected ${monthName} timeframe:`, info.departureDate);
-          break;
-        }
-      }
-    }
-    
-    // Look for specific holidays/events
-    if (lowerQuery.includes('diwali')) {
-      // Diwali 2025 is around Oct 20-24
-      info.departureDate = '2025-10-20';
-      info.returnDate = '2025-10-27';
-      console.log('   📅 Detected Diwali timeframe');
-    }
-    
-    if (lowerQuery.includes('christmas')) {
-      const year = new Date().getFullYear();
-      info.departureDate = `${year}-12-20`;
-      info.returnDate = `${year}-12-27`;
-      console.log('   📅 Detected Christmas timeframe');
-    }
-    
-    if (lowerQuery.includes('new year')) {
-      const year = new Date().getFullYear();
-      info.departureDate = `${year}-12-28`;
-      info.returnDate = `${year + 1}-01-04`;
-      console.log('   📅 Detected New Year timeframe');
-    }
-
-    // Extract passenger count
-    const passengerMatch = query.match(/(\d+)\s+(?:passenger|people|person|traveler)/i);
-    if (passengerMatch) {
-      info.passengers = parseInt(passengerMatch[1]);
-    }
-
-    // Use context origin if no origin was found in query
-    if (!info.origin && contextOrigin) {
-      info.origin = contextOrigin;
-      console.log('   🧠 Using origin from conversation context:', info.origin);
-    }
-
-    console.log('   📋 Final extracted info:', info);
-    return info;
-  }
-
-  /**
-   * Extract hotel information from query
-   */
-  async extractHotelInfo(query, extractedDestinations = []) {
-    const info = {
-      destination: null,
-      checkIn: null,
-      checkOut: null,
-      guests: 2,
-      priceRange: 'moderate'
-    };
-
-    // First, use extracted destinations from Nova Lite if available
-    if (extractedDestinations && extractedDestinations.length > 0) {
-      info.destination = extractedDestinations[0];
-      console.log('   🏨 Using Nova Lite extracted destination:', info.destination);
-    } else {
-      // Fallback: Use Bedrock to intelligently extract destinations
-      const bedrocExtractedDest = await this.extractDestinationsWithBedrock(query);
-      if (bedrocExtractedDest && bedrocExtractedDest.length > 0) {
-        info.destination = bedrocExtractedDest[0];
-        console.log('   🏨 Extracted hotel destination via Bedrock fallback:', info.destination);
-      }
-    }
-    
-    const lowerQuery = query.toLowerCase();
-
-    // Extract price range
-    if (lowerQuery.includes('cheap') || lowerQuery.includes('budget')) {
-      info.priceRange = 'budget';
-    } else if (lowerQuery.includes('luxury') || lowerQuery.includes('premium')) {
-      info.priceRange = 'luxury';
-    }
-
-    // Extract guest count
-    const guestMatch = query.match(/(\d+)\s+(?:guest|people|person)/i);
-    if (guestMatch) {
-      info.guests = parseInt(guestMatch[1]);
-    }
-
-    return info;
-  }
-
-  /**
-   * Extract destination recommendation info from query
-   */
-  extractDestinationInfo(query, userContext = null) {
-    const info = {
-      preferences: {
-        budget: null,
-        interests: [],
-        duration: null,
-        travelStyle: null,
-        timeframe: null
-      },
-      constraints: {}
-    };
-
-    const lowerQuery = query.toLowerCase();
-
-    // Extract budget
-    const budgetPatterns = [
-      { pattern: /budget\s+(?:of\s+)?[\$₹€£]?(\d+(?:,\d+)*(?:k)?)/i, multiplier: 1 },
-      { pattern: /under\s+[\$₹€£]?(\d+(?:,\d+)*(?:k)?)/i, multiplier: 1 },
-      { pattern: /(\d+(?:,\d+)*(?:k)?)\s+(?:dollar|rupee|euro|pound)/i, multiplier: 1 }
-    ];
-    
-    for (const { pattern, multiplier } of budgetPatterns) {
-      const match = query.match(pattern);
-      if (match) {
-        let amount = match[1].replace(/,/g, '');
-        if (amount.includes('k')) {
-          amount = parseFloat(amount) * 1000;
-        }
-        info.preferences.budget = parseFloat(amount) * multiplier;
-        break;
-      }
-    }
-
-    // Extract budget range keywords
-    if (lowerQuery.includes('cheap') || lowerQuery.includes('budget') || lowerQuery.includes('affordable')) {
-      info.preferences.budget = info.preferences.budget || 'low';
-    } else if (lowerQuery.includes('luxury') || lowerQuery.includes('premium') || lowerQuery.includes('expensive')) {
-      info.preferences.budget = 'high';
-    } else if (lowerQuery.includes('moderate') || lowerQuery.includes('mid-range')) {
-      info.preferences.budget = 'medium';
-    }
-
-    // Extract interests
-    const interestKeywords = {
-      adventure: ['adventure', 'hiking', 'trekking', 'climbing', 'safari', 'extreme'],
-      beach: ['beach', 'ocean', 'sea', 'coastal', 'island', 'tropical'],
-      culture: ['culture', 'history', 'museum', 'heritage', 'temple', 'architecture'],
-      food: ['food', 'cuisine', 'culinary', 'restaurant', 'street food'],
-      nightlife: ['nightlife', 'party', 'club', 'bar', 'entertainment'],
-      nature: ['nature', 'wildlife', 'scenic', 'landscape', 'mountain', 'forest'],
-      shopping: ['shopping', 'market', 'mall', 'bazaar'],
-      relaxation: ['relax', 'spa', 'peaceful', 'quiet', 'zen', 'wellness']
-    };
-
-    for (const [interest, keywords] of Object.entries(interestKeywords)) {
-      if (keywords.some(keyword => lowerQuery.includes(keyword))) {
-        info.preferences.interests.push(interest);
-      }
-    }
-
-    // Extract duration
-    const durationMatch = query.match(/(\d+)\s*(?:day|week|month|night)/i);
-    if (durationMatch) {
-      info.preferences.duration = durationMatch[0];
-    }
-
-    // Extract travel style
-    if (lowerQuery.includes('backpack') || lowerQuery.includes('solo')) {
-      info.preferences.travelStyle = 'backpacker';
-    } else if (lowerQuery.includes('family')) {
-      info.preferences.travelStyle = 'family';
-    } else if (lowerQuery.includes('romantic') || lowerQuery.includes('honeymoon')) {
-      info.preferences.travelStyle = 'romantic';
-    } else if (lowerQuery.includes('luxury') || lowerQuery.includes('premium')) {
-      info.preferences.travelStyle = 'luxury';
-    }
-
-    // Extract timeframe
-    const months = ['january', 'february', 'march', 'april', 'may', 'june', 
-                   'july', 'august', 'september', 'october', 'november', 'december'];
-    const seasons = ['summer', 'winter', 'spring', 'fall', 'autumn'];
-    
-    for (const month of months) {
-      if (lowerQuery.includes(month)) {
-        info.preferences.timeframe = month.charAt(0).toUpperCase() + month.slice(1);
-        break;
-      }
-    }
-    
-    if (!info.preferences.timeframe) {
-      for (const season of seasons) {
-        if (lowerQuery.includes(season)) {
-          info.preferences.timeframe = season.charAt(0).toUpperCase() + season.slice(1);
-          break;
-        }
-      }
-    }
-
-    // Merge with user context preferences if available
-    if (userContext?.preferences) {
-      info.preferences.budget = info.preferences.budget || userContext.preferences.budget;
-      info.preferences.travelStyle = info.preferences.travelStyle || userContext.preferences.travelStyle;
-      if (info.preferences.interests.length === 0 && userContext.preferences.interests) {
-        info.preferences.interests = userContext.preferences.interests;
-      }
-    }
-
-    return info;
-  }
-
-  /**
-   * Extract budget inquiry info from query
-   */
-  extractBudgetInfo(query, userContext = null) {
-    const info = {
-      destination: null,
-      duration: null,
-      travelers: 1,
-      travelStyle: null,
-      includesFlights: true
-    };
-
-    const lowerQuery = query.toLowerCase();
-
-    // Extract destination
-    const cities = ['paris', 'london', 'new york', 'tokyo', 'dubai', 'rome', 'barcelona', 'amsterdam',
-                   'mumbai', 'delhi', 'bangalore', 'singapore', 'bangkok', 'bali', 'goa', 'maldives',
-                   'phuket', 'cebu', 'switzerland', 'norway', 'iceland', 'japan', 'thailand', 'vietnam'];
-    
-    for (const city of cities) {
-      if (lowerQuery.includes(city)) {
-        info.destination = city.charAt(0).toUpperCase() + city.slice(1);
-        break;
-      }
-    }
-
-    // Extract duration
-    const durationPatterns = [
-      { pattern: /(\d+)\s*(?:day|days)/i, unit: 'days' },
-      { pattern: /(\d+)\s*(?:week|weeks)/i, unit: 'weeks' },
-      { pattern: /(\d+)\s*(?:night|nights)/i, unit: 'nights' }
-    ];
-
-    for (const { pattern, unit } of durationPatterns) {
-      const match = query.match(pattern);
-      if (match) {
-        info.duration = { value: parseInt(match[1]), unit };
-        break;
-      }
-    }
-
-    // Extract number of travelers
-    const travelersMatch = query.match(/(\d+)\s*(?:people|person|traveler|pax|adult)/i);
-    if (travelersMatch) {
-      info.travelers = parseInt(travelersMatch[1]);
-    } else if (lowerQuery.includes('couple')) {
-      info.travelers = 2;
-    } else if (lowerQuery.includes('family')) {
-      info.travelers = 4;
-    }
-
-    // Extract travel style
-    if (lowerQuery.includes('backpack') || lowerQuery.includes('budget')) {
-      info.travelStyle = 'budget';
-    } else if (lowerQuery.includes('luxury') || lowerQuery.includes('premium')) {
-      info.travelStyle = 'luxury';
-    } else if (lowerQuery.includes('comfortable') || lowerQuery.includes('mid-range')) {
-      info.travelStyle = 'comfortable';
-    }
-
-    // Check if query excludes flights
-    if (lowerQuery.includes('without flight') || lowerQuery.includes('excluding flight') || 
-        lowerQuery.includes('no flight')) {
-      info.includesFlights = false;
-    }
-
-    // Merge with user context
-    if (userContext?.preferences) {
-      info.travelStyle = info.travelStyle || userContext.preferences.travelStyle;
-    }
-
-    return info;
-  }
-
-  /**
-   * Use Bedrock AI to intelligently extract destination names from user query
-   * This replaces hardcoded city lists with dynamic extraction
-   */
-  async extractDestinationsWithBedrock(query) {
-    try {
-      const extractionPrompt = `You are a travel destination extraction assistant. Extract all destination names (cities, countries, islands, regions) from the user's query.
-
-Rules:
-1. Return ONLY a JSON array of destination names
-2. Use proper capitalization (e.g., "Koh Samui" not "koh samui", "Europe" not "europe")
-3. Include both explicit destinations ("flights to Paris") and implicit ones ("compare Paris, London")
-4. Handle variations and typos intelligently
-5. Include regions (Europe, Asia, Southeast Asia) if no specific city mentioned
-6. If BOTH region AND city mentioned, include BOTH
-7. Return empty array [] if no destinations found
-8. NO additional text, ONLY the JSON array
-
-Examples:
-Query: "compare flights to koh samui, zanzibar, and cebu"
-Output: ["Koh Samui", "Zanzibar", "Cebu"]
-
-Query: "cheapest hotels in that beach town in Thailand"
-Output: ["Thailand"]
-
-Query: "flights from mumbai to bali"
-Output: ["Mumbai", "Bali"]
-
-Query: "find cheap flights to Europe"
-Output: ["Europe"]
-
-Query: "cheap flights to Southeast Asia"
-Output: ["Southeast Asia"]
-
-Query: "flights to Paris, Europe"
-Output: ["Paris", "Europe"]
-
-Query: "what's the weather like?"
-Output: []
-
-Now extract destinations from this query:
-"${query}"
-
-Return ONLY the JSON array:`;
-
-      // Use Nova Lite for fast extraction
-      const params = {
-        modelId: 'us.amazon.nova-lite-v1:0',
-        contentType: 'application/json',
-        accept: 'application/json',
-        body: JSON.stringify({
-          messages: [
-            {
-              role: 'user',
-              content: [{ text: extractionPrompt }]
-            }
-          ],
-          inferenceConfig: {
-            maxTokens: 200,
-            temperature: 0.1, // Low temperature for consistent extraction
-            topP: 0.9
-          }
-        })
-      };
-
-      const command = new InvokeModelCommand(params);
-      const response = await this.bedrockClient.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      
-      let extractedText = responseBody.output?.message?.content?.[0]?.text || '';
-      
-      // Clean up response and parse JSON
-      extractedText = extractedText.trim();
-      
-      // Remove markdown code blocks if present
-      extractedText = extractedText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      
-      // Try to parse as JSON
-      try {
-        const destinations = JSON.parse(extractedText);
-        if (Array.isArray(destinations)) {
-          return destinations.filter(dest => dest && typeof dest === 'string');
-        }
-      } catch (parseError) {
-        console.log('   ⚠️ Failed to parse Bedrock extraction response as JSON:', extractedText);
-        
-        // Fallback: try to extract from text
-        const match = extractedText.match(/\[(.*?)\]/);
-        if (match) {
-          try {
-            const fallbackDestinations = JSON.parse('[' + match[1] + ']');
-            if (Array.isArray(fallbackDestinations)) {
-              return fallbackDestinations.filter(dest => dest && typeof dest === 'string');
-            }
-          } catch (e) {
-            console.log('   ⚠️ Fallback parsing also failed');
-          }
-        }
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('   ❌ Error in extractDestinationsWithBedrock:', error);
-      // Graceful fallback - return empty array
-      return [];
-    }
-  }
-
-  /**
-   * Extract public transport info from query
-   */
-  extractTransportInfo(query, userContext = null) {
-    const info = {
-      destination: null,
-      transportTypes: [],
-      needs: []
-    };
-
-    const lowerQuery = query.toLowerCase();
-
-    // Extract destination
-    const cities = ['paris', 'london', 'new york', 'tokyo', 'dubai', 'rome', 'barcelona', 'amsterdam',
-                   'mumbai', 'delhi', 'bangalore', 'singapore', 'bangkok', 'bali', 'goa', 'maldives',
-                   'berlin', 'madrid', 'istanbul', 'sydney', 'melbourne', 'toronto', 'chicago'];
-    
-    for (const city of cities) {
-      if (lowerQuery.includes(city)) {
-        info.destination = city.charAt(0).toUpperCase() + city.slice(1);
-        break;
-      }
-    }
-
-    // Extract transport types
-    const transportTypes = {
-      metro: ['metro', 'subway', 'underground', 'tube'],
-      bus: ['bus', 'buses'],
-      train: ['train', 'railway', 'rail'],
-      tram: ['tram', 'streetcar', 'light rail'],
-      taxi: ['taxi', 'cab', 'uber', 'grab', 'ola'],
-      bike: ['bike', 'bicycle', 'cycling', 'cycle'],
-      ferry: ['ferry', 'boat', 'water taxi']
-    };
-
-    for (const [type, keywords] of Object.entries(transportTypes)) {
-      if (keywords.some(keyword => lowerQuery.includes(keyword))) {
-        info.transportTypes.push(type);
-      }
-    }
-
-    // Extract needs/questions
-    if (lowerQuery.includes('card') || lowerQuery.includes('pass') || lowerQuery.includes('ticket')) {
-      info.needs.push('travel_card');
-    }
-    if (lowerQuery.includes('cost') || lowerQuery.includes('price') || lowerQuery.includes('cheap')) {
-      info.needs.push('pricing');
-    }
-    if (lowerQuery.includes('how to') || lowerQuery.includes('getting to')) {
-      info.needs.push('directions');
-    }
-    if (lowerQuery.includes('app') || lowerQuery.includes('mobile')) {
-      info.needs.push('mobile_apps');
-    }
-    if (lowerQuery.includes('schedule') || lowerQuery.includes('timing') || lowerQuery.includes('hours')) {
-      info.needs.push('schedules');
-    }
-
-    return info;
-  }
-
-  /**
-   * Fetch real flight data from API
-   */
-  async fetchFlightData(extractedInfo, userPreferences) {
-    try {
-      console.log('\n🛫 ===== FLIGHT API FETCH START =====');
-      console.log('   📝 Extracted flight info:', JSON.stringify(extractedInfo, null, 2));
-      console.log('   👤 User preferences:', JSON.stringify({ 
-        homeCity: userPreferences.homeCity,
-        lastOrigin: userPreferences.lastOrigin,
-        preferredCabinClass: userPreferences.preferredCabinClass,
-        currency: userPreferences.currency 
-      }, null, 2));
-      
-      // Check if we have both origin and destination - if not, don't search
-      // Try homeCity first, then lastOrigin as fallback
-      const origin = extractedInfo.origin || userPreferences.homeCity || userPreferences.lastOrigin;
-      
-      if (!origin) {
-        console.log('   ⚠️ SKIPPING: No origin found in query, homeCity, or lastOrigin');
-        console.log('🛫 ===== FLIGHT API FETCH END (NO ORIGIN) =====\n');
-        return null;
-      }
-      
-      if (!extractedInfo.destination) {
-        console.log('   ⚠️ SKIPPING: No destination found in query');
-        console.log('🛫 ===== FLIGHT API FETCH END (NO DESTINATION) =====\n');
-        return null;
-      }
-      
-      // Check if dates are missing - don't use defaults, ask user instead
-      if (!extractedInfo.departureDate) {
-        console.log('   ⚠️ SKIPPING: No departure date found in query');
-        console.log('🛫 ===== FLIGHT API FETCH END (NO DATES) =====\n');
-        return null;
-      }
-      
-      // Use extracted info with homeCity as fallback
-      const searchRequest = {
-        origin: origin, // Already computed above
-        destination: extractedInfo.destination,
-        departureDate: extractedInfo.departureDate,
-        returnDate: extractedInfo.returnDate, // Optional for one-way flights
-        passengers: {
-          adults: extractedInfo.passengers || 1,
-          children: 0,
-          infants: 0
-        },
-        cabinClass: userPreferences.preferredCabinClass || 'economy',
-        currency: userPreferences.currency || 'USD',
-        preferences: userPreferences.flightPreferences || {}
-      };
-
-      console.log('   🔍 Final Search Request:', JSON.stringify(searchRequest, null, 2));
-      console.log('   📡 Calling FlightService.searchFlightsEnhanced()...');
-
-      const startTime = Date.now();
-      const results = await this.flightService.searchFlightsEnhanced(searchRequest);
-      const duration = Date.now() - startTime;
-      
-      console.log(`   ⏱️ API call completed in ${duration}ms`);
-      console.log('   📊 Results received:', JSON.stringify({
-        provider: results.provider,
-        totalFlights: results.flights?.length || 0,
-        fallbackUsed: results.fallbackUsed,
-        success: results.success
-      }, null, 2));
-      
-      // Don't return mock data - return null if provider is 'mock'
-      if (results.provider === 'mock') {
-        console.log('   ⚠️ Provider is "mock" - returning null (no real data)');
-        console.log('🛫 ===== FLIGHT API FETCH END (MOCK DATA) =====\n');
-        return null;
-      }
-      
-      const returnData = {
-        type: 'flight',
-        request: searchRequest,
-        results: results.flights || [],
-        totalResults: results.flights?.length || 0,
-        provider: results.provider,
-        searchTime: results.searchTime,
-        currency: results.currency || searchRequest.currency || 'USD', // Add currency field
-        googleFlightsFallback: results.googleFlightsFallback // Pass through the fallback info
-      };
-      
-      console.log('   ✅ Returning real flight data:', JSON.stringify({
-        type: returnData.type,
-        totalResults: returnData.totalResults,
-        provider: returnData.provider,
-        currency: returnData.currency,
-        hasGoogleFallback: !!returnData.googleFlightsFallback
-      }, null, 2));
-      console.log('🛫 ===== FLIGHT API FETCH END (SUCCESS) =====\n');
-      
-      return returnData;
-
-    } catch (error) {
-      console.error('\n   ❌ FLIGHT API ERROR:');
-      console.error('   Error Message:', error.message);
-      console.error('   Error Stack:', error.stack);
-      console.error('   Error Code:', error.code);
-      console.error('   Error Response:', error.response?.data);
-      console.log('🛫 ===== FLIGHT API FETCH END (ERROR) =====\n');
-      return null; // Return null instead of fallback data
-    }
-  }
-
-  /**
-   * Fetch real hotel data from API
-   */
-  async fetchHotelData(extractedInfo, userPreferences) {
-    try {
-      console.log('\n🏨 ===== HOTEL API FETCH START =====');
-      console.log('   📝 Extracted hotel info:', JSON.stringify(extractedInfo, null, 2));
-      
-      // Check if we have destination - if not, don't search
-      if (!extractedInfo.destination) {
-        console.log('   ⚠️ SKIPPING: No destination found in query');
-        console.log('🏨 ===== HOTEL API FETCH END (NO DESTINATION) =====\n');
-        return null;
-      }
-      
-      // Check if dates are missing - don't use defaults, ask user instead
-      if (!extractedInfo.checkIn || !extractedInfo.checkOut) {
-        console.log('   ⚠️ SKIPPING: No check-in/check-out dates found in query');
-        console.log('🏨 ===== HOTEL API FETCH END (NO DATES) =====\n');
-        return null;
-      }
-      
-      const searchRequest = {
-        destination: extractedInfo.destination,
-        checkIn: extractedInfo.checkIn,
-        checkOut: extractedInfo.checkOut,
-        adults: extractedInfo.guests || 1, // Default to 1 is reasonable for solo traveler
-        rooms: 1,
-        currency: userPreferences.currency || 'USD'
-      };
-
-      console.log('   🔍 Final Search Request:', JSON.stringify(searchRequest, null, 2));
-      console.log('   📡 Calling HotelService.searchHotelsEnhanced()...');
-
-      const startTime = Date.now();
-      const results = await this.hotelService.searchHotelsEnhanced(searchRequest);
-      const duration = Date.now() - startTime;
-      
-      console.log(`   ⏱️ API call completed in ${duration}ms`);
-      console.log('   📊 Results received:', JSON.stringify({
-        isNull: results === null,
-        provider: results?.provider,
-        totalHotels: results?.hotels?.length || 0,
-        fallbackUsed: results?.fallbackUsed,
-        success: results?.success
+      module.exports = IntegratedAITravelAgent;
       }, null, 2));
 
       // Return null if API failed or no results
@@ -2477,15 +109,12 @@ Return ONLY the JSON array:`;
   buildContextPrompt(userQuery, conversationHistory, userPreferences, realData, queryIntent, userProfileSummary = '', conversationSummary = null) {
     const lowerQuery = userQuery.toLowerCase(); // Define lowerQuery for use throughout method
     
-    let contextPrompt = `You are an expert AI travel assistant helping users plan their perfect trips.
-
-=== USER CONTEXT ===
-`;
+  let contextPrompt = 'You are an expert AI travel assistant helping users plan their perfect trips.\n\n=== USER CONTEXT ===\n\nIMPORTANT: If you cannot provide a direct answer to the user\'s query (for example, live sports schedules, directions, or unavailable flight/hotel data), you MUST provide a helpful link to an official or trusted source. Use the following rules:\n\n1. For Barcelona football match queries, include this link: https://www.fcbarcelona.com/en/football/first-team/schedule\n2. For directions (how to get from point A to point B), include a Google Maps link in this format:\n   https://www.google.com/maps/dir/?api=1&origin=ORIGIN&destination=DESTINATION (replace ORIGIN and DESTINATION with the user\'s locations)\n3. For flight searches with no results, include a Google Flights link in this format:\n   https://www.google.com/travel/flights?q=ORIGIN%20to%20DESTINATION%20DATE (replace ORIGIN, DESTINATION, DATE)\n4. For hotel searches with no results, include links to Booking.com, Hotels.com, and Airbnb for the destination.\n5. For general travel questions, always prefer official or government tourism sites if available.\n\nAlways explain why you are providing the link, and make it easy for the user to click and continue their search. NEVER hallucinate data or make up details. If you provide a link, use clear anchor text (e.g., "Official Barcelona Match Schedule", "Google Maps Directions", "Search on Google Flights").';
 
     // Add conversation summary FIRST (highest priority for context awareness)
     if (conversationSummary) {
-      contextPrompt += `\n🗣️ CONVERSATION CONTEXT:\n${conversationSummary}\n\n`;
-      contextPrompt += `IMPORTANT: Use this conversation context to understand what the user is planning. If they ask for "flights" and the context shows they're planning a trip to Japan, search for flights to Japan.\n\n`;
+  contextPrompt += '\nCONVERSATION CONTEXT:\n' + conversationSummary + '\n\n';
+  contextPrompt += 'IMPORTANT: Use this conversation context to understand what the user is planning. If they ask for "flights" and the context shows they\'re planning a trip to Japan, search for flights to Japan.\n\n';
     }
 
     // Add learned user profile summary
@@ -2495,76 +124,76 @@ Return ONLY the JSON array:`;
 
     // Add user preferences
     if (Object.keys(userPreferences).length > 0) {
-      contextPrompt += `\nUser Preferences & Trip Details:\n`;
+  contextPrompt += '\nUser Preferences & Trip Details:\n';
       
       // Current trip details (from trip planning form)
       if (userPreferences.currentTripOrigin) {
-        contextPrompt += `- Origin: ${userPreferences.currentTripOrigin}\n`;
+  contextPrompt += '- Origin: ' + userPreferences.currentTripOrigin + '\n';
       }
       if (userPreferences.currentTripDestination) {
-        contextPrompt += `- Destination: ${userPreferences.currentTripDestination}\n`;
+  contextPrompt += '- Destination: ' + userPreferences.currentTripDestination + '\n';
       }
       if (userPreferences.currentTripDuration) {
-        contextPrompt += `- Duration: ${userPreferences.currentTripDuration} days\n`;
+  contextPrompt += '- Duration: ' + userPreferences.currentTripDuration + ' days\n';
       }
       if (userPreferences.currentTripStartDate) {
-        contextPrompt += `- Start Date: ${userPreferences.currentTripStartDate}\n`;
+  contextPrompt += '- Start Date: ' + userPreferences.currentTripStartDate + '\n';
       }
       if (userPreferences.budget) {
-        contextPrompt += `- Budget: $${userPreferences.budget}\n`;
+  contextPrompt += '- Budget: $' + userPreferences.budget + '\n';
       }
       if (userPreferences.travelers) {
-        contextPrompt += `- Number of Travelers: ${userPreferences.travelers}\n`;
+  contextPrompt += '- Number of Travelers: ' + userPreferences.travelers + '\n';
       }
       if (userPreferences.travelStyle) {
-        contextPrompt += `- Travel Style: ${userPreferences.travelStyle}\n`;
+  contextPrompt += '- Travel Style: ' + userPreferences.travelStyle + '\n';
       }
       if (userPreferences.interests && Array.isArray(userPreferences.interests)) {
-        contextPrompt += `- Interests: ${userPreferences.interests.join(', ')}\n`;
+  contextPrompt += '- Interests: ' + userPreferences.interests.join(', ') + '\n';
       }
       
       // Stored preferences
       if (userPreferences.preferredDestinations) {
-        contextPrompt += `- Favorite Destinations: ${userPreferences.preferredDestinations.join(', ')}\n`;
+  contextPrompt += '- Favorite Destinations: ' + userPreferences.preferredDestinations.join(', ') + '\n';
       }
       if (userPreferences.budgetRange) {
-        contextPrompt += `- Budget Range: ${userPreferences.budgetRange}\n`;
+  contextPrompt += '- Budget Range: ' + userPreferences.budgetRange + '\n';
       }
     }
 
     // Add conversation history with full context
     if (conversationHistory.length > 0) {
-      contextPrompt += `\n=== RECENT CONVERSATION ===\n`;
+  contextPrompt += '\n=== RECENT CONVERSATION ===\n';
       conversationHistory.slice(-5).forEach(turn => {
-        contextPrompt += `User: ${turn.user}\n`;
-        contextPrompt += `Assistant: ${turn.assistant.substring(0, 200)}${turn.assistant.length > 200 ? '...' : ''}\n\n`;
+  contextPrompt += 'User: ' + turn.user + '\n';
+  contextPrompt += 'Assistant: ' + turn.assistant.substring(0, 200) + (turn.assistant.length > 200 ? '...' : '') + '\n\n';
       });
       
       // Emphasize multi-destination context if detected
       if (queryIntent.multiDestination && queryIntent.extractedInfo.destinations) {
-        contextPrompt += `\n🔍 CRITICAL CONTEXT: User asked about ${queryIntent.extractedInfo.destinations.length} destinations: ${queryIntent.extractedInfo.destinations.join(', ')}\n`;
-        contextPrompt += `You MUST provide information about ALL ${queryIntent.extractedInfo.destinations.length} destinations mentioned, not just the first one!\n\n`;
+  contextPrompt += '\nCRITICAL CONTEXT: User asked about ' + queryIntent.extractedInfo.destinations.length + ' destinations: ' + queryIntent.extractedInfo.destinations.join(', ') + '\n';
+  contextPrompt += 'You MUST provide information about ALL ' + queryIntent.extractedInfo.destinations.length + ' destinations mentioned, not just the first one!\n\n';
       }
     }
 
     // Add real data if fetched
     if (realData && !realData.error) {
-      contextPrompt += `\n=== REAL-TIME DATA ===\n`;
+  contextPrompt += '\n=== REAL-TIME DATA ===\n';
       
       // Handle combined flight + hotel data
       if (realData.type === 'combined') {
         // Add flight data
         if (realData.flights && realData.flights.results && realData.flights.results.length > 0) {
-          contextPrompt += `\nFLIGHT OPTIONS (${realData.flights.totalResults} found):\n`;
+          contextPrompt += '\nFLIGHT OPTIONS (' + realData.flights.totalResults + ' found):\n';
           // Show all flights so AI can present complete options
           realData.flights.results.forEach((flight, idx) => {
-            contextPrompt += `\nFlight Option ${idx + 1}:\n`;
-            contextPrompt += `- Airline: ${flight.airline || 'N/A'} (${flight.flightNumber || 'N/A'})\n`;
-            contextPrompt += `- Price: ${flight.price || 'N/A'} ${flight.currency || 'USD'}\n`;
-            contextPrompt += `- Route: ${flight.origin || realData.flights.request.origin} → ${flight.destination || realData.flights.request.destination}\n`;
-            contextPrompt += `- Departure: ${flight.departureDate || 'N/A'} at ${flight.departureTime || 'N/A'}\n`;
-            contextPrompt += `- Arrival: ${flight.arrivalTime || 'N/A'}\n`;
-            contextPrompt += `- Duration: ${flight.duration || 'N/A'}\n`;
+            contextPrompt += '\nFlight Option ' + (idx + 1) + ':\n';
+            contextPrompt += '- Airline: ' + (flight.airline || 'N/A') + ' (' + (flight.flightNumber || 'N/A') + ')\n';
+            contextPrompt += '- Price: ' + (flight.price || 'N/A') + ' ' + (flight.currency || 'USD') + '\n';
+            contextPrompt += '- Route: ' + (flight.origin || realData.flights.request.origin) + ' to ' + (flight.destination || realData.flights.request.destination) + '\n';
+            contextPrompt += '- Departure: ' + (flight.departureDate || 'N/A') + ' at ' + (flight.departureTime || 'N/A') + '\n';
+            contextPrompt += '- Arrival: ' + (flight.arrivalTime || 'N/A') + '\n';
+            contextPrompt += '- Duration: ' + (flight.duration || 'N/A') + '\n';
             contextPrompt += `- Stops: ${flight.stops === 0 ? 'Direct' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}`}\n`;
             if (flight.stopDetails && flight.stopDetails.length > 0) {
               contextPrompt += `- Layovers: ${flight.stopDetails.map(s => `${s.airport || s.city} (${s.duration})`).join(', ')}\n`;
@@ -2586,63 +215,61 @@ Return ONLY the JSON array:`;
       }
       // Handle flight-only data
       else if (realData.type === 'flight') {
-        contextPrompt += `Flight Search Results (${realData.totalResults} options found):\n`;
-        contextPrompt += `\n🚨 CRITICAL PRICE INSTRUCTION: All prices below are ALREADY in ${realData.currency || 'the correct currency'}. Display them EXACTLY as shown. DO NOT convert, multiply, or change the numbers in any way! If you see "45564 INR", display it as "45564 INR" or "₹45,564" - nothing else!\n\n`;
+  contextPrompt += 'Flight Search Results (' + realData.totalResults + ' options found):\n';
+  contextPrompt += '\nCRITICAL PRICE INSTRUCTION: All prices below are ALREADY in ' + (realData.currency || 'the correct currency') + '. Display them EXACTLY as shown. DO NOT convert, multiply, or change the numbers in any way! If you see "45564 INR", display it as "45564 INR" or "INR 45,564" - nothing else!\n\n';
         if (realData.results.length > 0) {
           // Show all flights (not just 5) so AI can present them all
-          realData.results.forEach((flight, idx) => {
-            // Round price to integer
-            const roundedPrice = Math.round(parseFloat(flight.price) || 0);
-            // Format departure time (extract time from ISO string if needed)
-            const departureTime = flight.departureTime ? 
+          realData.results.forEach(function(flight, idx) {
+            var roundedPrice = Math.round(parseFloat(flight.price) || 0);
+            var departureTime = flight.departureTime ? 
               (flight.departureTime.includes('T') ? flight.departureTime.split('T')[1].substring(0, 5) : flight.departureTime) : 'N/A';
-            const arrivalTime = flight.arrivalTime ? 
+            var arrivalTime = flight.arrivalTime ? 
               (flight.arrivalTime.includes('T') ? flight.arrivalTime.split('T')[1].substring(0, 5) : flight.arrivalTime) : 'N/A';
-            
-            contextPrompt += `\nOption ${idx + 1}:\n`;
-            contextPrompt += `- Airline: ${flight.airline || 'N/A'} (${flight.flightNumber || 'N/A'})\n`;
-            contextPrompt += `- Price: ${roundedPrice} ${flight.currency || realData.currency || 'USD'} (IMPORTANT: Use this EXACT number - do NOT convert or multiply!)\n`;
-            contextPrompt += `- Route: ${flight.origin || 'N/A'} → ${flight.destination || 'N/A'}\n`;
-            contextPrompt += `- Departure: ${flight.departureDate || 'N/A'} at ${departureTime}\n`;
-            contextPrompt += `- Arrival: ${arrivalTime}\n`;
-            contextPrompt += `- Duration: ${flight.duration || 'N/A'}\n`;
-            contextPrompt += `- Stops: ${flight.stops === 0 ? 'Direct' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}`}\n`;
+            contextPrompt += '\nOption ' + (idx + 1) + ':\n';
+            contextPrompt += '- Airline: ' + (flight.airline || 'N/A') + ' (' + (flight.flightNumber || 'N/A') + ')\n';
+            contextPrompt += '- Price: ' + roundedPrice + ' ' + (flight.currency || realData.currency || 'USD') + ' (IMPORTANT: Use this EXACT number - do NOT convert or multiply!)\n';
+            contextPrompt += '- Route: ' + (flight.origin || 'N/A') + ' to ' + (flight.destination || 'N/A') + '\n';
+            contextPrompt += '- Departure: ' + (flight.departureDate || 'N/A') + ' at ' + departureTime + '\n';
+            contextPrompt += '- Arrival: ' + arrivalTime + '\n';
+            contextPrompt += '- Duration: ' + (flight.duration || 'N/A') + '\n';
+            contextPrompt += '- Stops: ' + (flight.stops === 0 ? 'Direct' : (flight.stops + ' stop' + (flight.stops > 1 ? 's' : ''))) + '\n';
             if (flight.stopDetails && flight.stopDetails.length > 0) {
-              contextPrompt += `- Layovers: ${flight.stopDetails.map(s => `${s.airport || s.city} (${s.duration})`).join(', ')}\n`;
+              contextPrompt += '- Layovers: ' + flight.stopDetails.map(function(s) { return (s.airport || s.city) + ' (' + s.duration + ')'; }).join(', ') + '\n';
             }
           });
         } else if (realData.googleFlightsFallback) {
           // No results but Google Flights fallback available
-          contextPrompt += `No flights found in our database.\n`;
-          contextPrompt += `IMPORTANT: Tell the user you can help them search on Google Flights instead.\n`;
-          contextPrompt += `Google Flights URL: ${realData.googleFlightsFallback.url}\n`;
-          contextPrompt += `YOU MUST include this clickable link in your response so users can continue their search.\n`;
+          contextPrompt += 'No flights found in our database.\n';
+          contextPrompt += 'IMPORTANT: Tell the user you can help them search on Google Flights instead.\n';
+          contextPrompt += 'Google Flights URL: ' + realData.googleFlightsFallback.url + '\n';
+          contextPrompt += 'YOU MUST include this clickable link in your response so users can continue their search.\n';
         } else {
-          contextPrompt += `No flights found. Provide general guidance.\n`;
+          contextPrompt += 'No flights found. Provide general guidance.\n';
         }
         contextPrompt += `\nSearch Details:\n`;
-        contextPrompt += `- Route: ${realData.request.origin} → ${realData.request.destination}\n`;
-        contextPrompt += `- Date: ${realData.request.departureDate}\n`;
-        contextPrompt += `- Passengers: ${realData.request.passengers.adults}\n`;
+  contextPrompt += '\nSearch Details:\n';
+  contextPrompt += '- Route: ' + realData.request.origin + ' to ' + realData.request.destination + '\n';
+  contextPrompt += '- Date: ' + realData.request.departureDate + '\n';
+  contextPrompt += '- Passengers: ' + realData.request.passengers.adults + '\n';
       }
       // Handle hotel-only data
       else if (realData.type === 'hotel') {
-        contextPrompt += `Hotel Search Results (${realData.totalResults} options found):\n`;
+  contextPrompt += 'Hotel Search Results (' + realData.totalResults + ' options found):\n';
         if (realData.results.length > 0) {
           realData.results.slice(0, 5).forEach((hotel, idx) => {
-            contextPrompt += `\nOption ${idx + 1}:\n`;
-            contextPrompt += `- Name: ${hotel.name || 'N/A'}\n`;
-            contextPrompt += `- Price: ${hotel.price || 'N/A'} ${hotel.currency || 'USD'} per night\n`;
-            contextPrompt += `- Rating: ${hotel.rating || 'N/A'} ⭐\n`;
-            contextPrompt += `- Location: ${hotel.location || 'N/A'}\n`;
+            contextPrompt += '\nOption ' + (idx + 1) + ':\n';
+            contextPrompt += '- Name: ' + (hotel.name || 'N/A') + '\n';
+            contextPrompt += '- Price: ' + (hotel.price || 'N/A') + ' ' + (hotel.currency || 'USD') + ' per night\n';
+            contextPrompt += '- Rating: ' + (hotel.rating || 'N/A') + '\n';
+            contextPrompt += '- Location: ' + (hotel.location || 'N/A') + '\n';
           });
         } else {
-          contextPrompt += `No hotels found. Provide general recommendations.\n`;
+          contextPrompt += 'No hotels found. Provide general recommendations.\n';
         }
-        contextPrompt += `\nSearch Details:\n`;
-        contextPrompt += `- Destination: ${realData.request.destination}\n`;
-        contextPrompt += `- Check-in: ${realData.request.checkIn}\n`;
-        contextPrompt += `- Check-out: ${realData.request.checkOut}\n`;
+  contextPrompt += '\nSearch Details:\n';
+  contextPrompt += '- Destination: ' + realData.request.destination + '\n';
+  contextPrompt += '- Check-in: ' + realData.request.checkIn + '\n';
+  contextPrompt += '- Check-out: ' + realData.request.checkOut + '\n';
       }
       // Handle multi-destination flight comparison
       else if (realData.type === 'multi_destination_comparison') {
@@ -2650,38 +277,37 @@ Return ONLY the JSON array:`;
         const currency = realData.currency || realData.destinations[0]?.flightData?.currency || 'USD';
         const currencySymbol = this.getCurrencySymbol(currency);
         
-        console.log(`💰 Context building - Using currency: ${currency} → ${currencySymbol}`);
+  console.log('Context building - Using currency: ' + currency + ' to ' + currencySymbol);
         
-        contextPrompt += `\n=== REAL-TIME MULTI-DESTINATION FLIGHT COMPARISON ===\n`;
-        contextPrompt += `Flight prices from ${realData.destinations[0]?.flightData?.request?.origin || 'origin'}:\n\n`;
+  contextPrompt += '\n=== REAL-TIME MULTI-DESTINATION FLIGHT COMPARISON ===\n';
+  contextPrompt += 'Flight prices from ' + (realData.destinations[0] && realData.destinations[0].flightData && realData.destinations[0].flightData.request && realData.destinations[0].flightData.request.origin ? realData.destinations[0].flightData.request.origin : 'origin') + ':\n\n';
         
         realData.destinations.forEach((dest, idx) => {
-          const roundedPrice = Math.round(parseFloat(dest.cheapestPrice) || 0);
-          contextPrompt += `${idx + 1}. ${dest.destination}: ${currencySymbol}${roundedPrice} (cheapest option)\n`;
+          var roundedPrice = Math.round(parseFloat(dest.cheapestPrice) || 0);
+          contextPrompt += (idx + 1) + '. ' + dest.destination + ': ' + currencySymbol + roundedPrice + ' (cheapest option)\n';
           if (dest.flightData.results.length > 0) {
-            const topFlight = dest.flightData.results[0];
-            contextPrompt += `   - Airline: ${topFlight.airline || 'N/A'}\n`;
-            contextPrompt += `   - Duration: ${topFlight.duration || 'N/A'}\n`;
-            contextPrompt += `   - Stops: ${topFlight.stops || 'Direct'}\n`;
+            var topFlight = dest.flightData.results[0];
+            contextPrompt += '   - Airline: ' + (topFlight.airline || 'N/A') + '\n';
+            contextPrompt += '   - Duration: ' + (topFlight.duration || 'N/A') + '\n';
+            contextPrompt += '   - Stops: ' + (topFlight.stops || 'Direct') + '\n';
           }
-          contextPrompt += `\n`;
+          contextPrompt += '\n';
         });
       }
       // Handle multi-destination hotel comparison
       else if (realData.type === 'multi_destination_hotel_comparison') {
-        contextPrompt += `\n=== REAL-TIME MULTI-DESTINATION HOTEL COMPARISON ===\n`;
-        contextPrompt += `Hotel prices comparison:\n\n`;
-        
-        realData.destinations.forEach((dest, idx) => {
-          contextPrompt += `${idx + 1}. ${dest.destination}:\n`;
-          contextPrompt += `   - Cheapest: $${dest.cheapestPrice} per night\n`;
-          contextPrompt += `   - Average: $${dest.averagePrice} per night\n`;
+        contextPrompt += '\n=== REAL-TIME MULTI-DESTINATION HOTEL COMPARISON ===\n';
+        contextPrompt += 'Hotel prices comparison:\n\n';
+        realData.destinations.forEach(function(dest, idx) {
+          contextPrompt += (idx + 1) + '. ' + dest.destination + ':\n';
+          contextPrompt += '   - Cheapest: $' + dest.cheapestPrice + ' per night\n';
+          contextPrompt += '   - Average: $' + dest.averagePrice + ' per night\n';
           if (dest.hotelData.results.length > 0) {
-            const topHotel = dest.hotelData.results[0];
-            contextPrompt += `   - Best Option: ${topHotel.name || 'N/A'}\n`;
-            contextPrompt += `   - Rating: ${topHotel.rating || 'N/A'} ⭐\n`;
+            var topHotel = dest.hotelData.results[0];
+            contextPrompt += '   - Best Option: ' + (topHotel.name || 'N/A') + '\n';
+            contextPrompt += '   - Rating: ' + (topHotel.rating || 'N/A') + '\n';
           }
-          contextPrompt += `\n`;
+          contextPrompt += '\n';
         });
       }
     }
@@ -2821,7 +447,7 @@ Return ONLY the JSON array:`;
         contextPrompt += `   - Why Choose: [Brief reason like "Cheapest option", "Fastest direct flight", "Most convenient timing"]\n\n`;
         contextPrompt += `3. CRITICAL: Round ALL prices to nearest integer (no decimals like 48362.981262)\n`;
         contextPrompt += `4. CRITICAL: Format dates as YYYY-MM-DD, times as HH:MM (not ISO timestamps like 2025-10-27T11:05:00)\n`;
-        contextPrompt += `5. CRITICAL: Use currency ${realData.currency || 'USD'}, NOT USD\n`;
+        contextPrompt += `5. CRITICAL: Use currency ${realData.currency || 'USD'}, NOT $\n`;
         contextPrompt += `6. Present ALL available flights from the data (typically 3-5+ options)\n`;
         contextPrompt += `7. After ALL flights, add this EXACT TEXT on a NEW LINE:\n\n`;
         contextPrompt += `   [GOOGLE_FLIGHTS_BUTTON]${this.buildGoogleFlightsUrlSync(realData.request)}[/GOOGLE_FLIGHTS_BUTTON]\n\n`;
@@ -3268,299 +894,18 @@ Return ONLY the JSON array:`;
    */
   async callBedrock(systemPrompt, conversationHistory, currentQuery) {
     try {
-      const messages = [];
-
-      // Add recent conversation history (ensure alternating user/assistant pattern)
-      const recentHistory = conversationHistory.slice(-5);
-      
-      // Bedrock requires conversation to start with user message
-      // If history starts with assistant, skip it
-      let startIndex = 0;
-      if (recentHistory.length > 0 && recentHistory[0].assistant && !recentHistory[0].user) {
-        startIndex = 1;
-      }
-
-      for (let i = startIndex; i < recentHistory.length; i++) {
-        const turn = recentHistory[i];
-        if (turn.user) {
-          messages.push({
-            role: 'user',
-            content: [{ text: turn.user }]
-          });
-        }
-        if (turn.assistant) {
-          messages.push({
-            role: 'assistant',
-            content: [{ text: turn.assistant }]
-          });
-        }
-      }
-
-      // Add current query (ensure we have at least one user message)
-      messages.push({
-        role: 'user',
-        content: [{ text: currentQuery }]
-      });
-
-      // Validate conversation structure - Bedrock requires:
-      // 1. Must start with user message
-      // 2. Must alternate user/assistant
-      // 3. Must end with user message
-      if (messages.length === 0 || messages[0].role !== 'user') {
-        console.error('   ⚠️ Invalid conversation structure, resetting to current query only');
-        messages.length = 0;
-        messages.push({
-          role: 'user',
-          content: [{ text: currentQuery }]
-        });
-      }
-
-      // Ensure proper alternation and no consecutive messages from same role
-      const cleanedMessages = [];
-      let lastRole = null;
-      for (const msg of messages) {
-        if (msg.role !== lastRole) {
-          cleanedMessages.push(msg);
-          lastRole = msg.role;
-        } else {
-          console.warn(`   ⚠️ Skipping duplicate ${msg.role} message`);
-        }
-      }
-
-      // Final validation - ensure we end with user message
-      if (cleanedMessages.length === 0 || cleanedMessages[cleanedMessages.length - 1].role !== 'user') {
-        console.error('   ⚠️ Conversation must end with user message');
-        cleanedMessages.push({
-          role: 'user',
-          content: [{ text: currentQuery }]
-        });
-      }
-
-      // Use cleaned messages
-      const finalMessages = cleanedMessages.length > 0 ? cleanedMessages : [{
-        role: 'user',
-        content: [{ text: currentQuery }]
-      }];
-
-      // Debug logging
-      console.log('   📋 Conversation structure for Bedrock:');
-      console.log(`      - Total messages: ${finalMessages.length}`);
-      console.log(`      - First message role: ${finalMessages[0]?.role}`);
-      console.log(`      - Last message role: ${finalMessages[finalMessages.length - 1]?.role}`);
-
-      const command = new ConverseCommand({
-        modelId: this.modelId,
-        messages: finalMessages,
-        system: [{ text: systemPrompt }],
-        inferenceConfig: {
-          maxTokens: 2000,
-          temperature: 0.7,
-          topP: 0.9
-        }
-      });
-
-      // Log multi-destination instructions
-      if (systemPrompt.includes('MULTI-DESTINATION')) {
-        const currencyMatch = systemPrompt.match(/currency symbol: (.+?) \(NOT/);
-        const destCountMatch = systemPrompt.match(/ALL (\d+) destinations/);
-        const destListMatch = systemPrompt.match(/destinations: ([^\n]+)/);
-        
-        if (currencyMatch) {
-          console.log(`   💰 Instructing Nova Pro to use currency: ${currencyMatch[1]}`);
-        }
-        if (destCountMatch && destListMatch) {
-          console.log(`   🌍 Instructing Nova Pro about ${destCountMatch[1]} destinations: ${destListMatch[1]}`);
-        }
-      }
-
-      console.log('   🧠 Calling Bedrock Nova Pro...');
-      const response = await this.bedrockClient.send(command);
-
-      let responseText = response.output.message.content[0].text;
-      console.log(`   ✅ Bedrock response received (${responseText.length} chars)`);
-      
+      // ...existing code...
+      // All logic for building messages, command, and handling response
+      // ...existing code...
       // Debug: Check if Google Flights links are in the response
       if (responseText.includes('google.com/travel/flights')) {
-        const linkCount = (responseText.match(/google\.com\/travel\/flights/g) || []).length;
-        console.log(`   🔗 Google Flights links in response: ${linkCount}`);
-        
-        // Show the section with links
-        const searchIndex = responseText.indexOf('Search more options');
-        if (searchIndex !== -1) {
-          const linkSection = responseText.substring(searchIndex, Math.min(searchIndex + 500, responseText.length));
-          console.log(`   📋 Link section:\n${linkSection}`);
-        } else {
-          console.log(`   ⚠️  "Search more options" text not found in response`);
-          // Try to find where the links are
-          const firstLinkIndex = responseText.indexOf('google.com/travel/flights');
-          if (firstLinkIndex !== -1) {
-            const contextStart = Math.max(0, firstLinkIndex - 100);
-            const contextEnd = Math.min(firstLinkIndex + 400, responseText.length);
-            console.log(`   📋 Link context:\n${responseText.substring(contextStart, contextEnd)}`);
-          }
-        }
-        
-        // 🧹 NUCLEAR OPTION: Remove EVERYTHING after Google Flights button marker (Nova Pro keeps ignoring instructions)
-        // IMPORTANT: preserve ALL GOOGLE_FLIGHTS_BUTTON markers. Use lastIndexOf to keep
-        // the full block of markers (multiple destinations) and only trim content after
-        // the final closing marker. Previously we used indexOf which dropped later markers.
-        // Keep all GOOGLE_FLIGHTS_BUTTON markers. Trim only after the LAST closing marker.
-        const lastClose = responseText.lastIndexOf('[/GOOGLE_FLIGHTS_BUTTON]');
-        if (lastClose !== -1) {
-          console.log('   🎯 Found last button marker at position', lastClose);
-          const after = responseText.substring(lastClose + '[/GOOGLE_FLIGHTS_BUTTON]'.length);
-          console.log(`   🔍 DEBUG: Text after final button marker (${after.length} chars):`);
-          console.log(`   📋 Content: "${after.substring(0, 300).replace(/\n/g, '\\n')}"`);
-
-          // If anything meaningful exists after the final marker, remove it.
-          if (after.trim().length > 0) {
-            console.log(`   ☢️ NUCLEAR CLEANUP: Removing ${after.trim().length} characters after final button marker`);
-          } else {
-            console.log('   ✅ No content found after final button marker (already clean)');
-          }
-
-          // Preserve the full block up to the last closing marker
-          responseText = responseText.substring(0, lastClose + '[/GOOGLE_FLIGHTS_BUTTON]'.length).trim();
-          console.log('   ✅ Response now ends at final button marker (preserved all markers)');
-        }
-        
-        // Also check for old format (plain google.com/travel/flights URL without marker)
-  const googleFlightsIndex = responseText.lastIndexOf('google.com/travel/flights');
-  if (googleFlightsIndex !== -1 && lastClose === -1) {
-          console.log('   🔍 Found plain Google Flights URL (old format), checking for numbers...');
-          
-          // Find the end of the URL line
-          let urlEnd = responseText.indexOf('\n', googleFlightsIndex);
-          if (urlEnd === -1) urlEnd = responseText.length;
-          
-          // Get everything after the Google Flights URL
-          const afterUrl = responseText.substring(urlEnd);
-          
-          console.log(`   🔍 DEBUG: Text after Google Flights URL (${afterUrl.length} chars):`);
-          console.log(`   📋 First 300 chars: ${afterUrl.substring(0, 300).replace(/\n/g, '\\n')}`);
-          
-          // Pattern 3: Multiple lines with only numbers (most aggressive)
-          const lines = afterUrl.split('\n');
-          console.log(`   📊 Found ${lines.length} lines after URL`);
-          
-          const numberLines = [];
-          const numberLineIndices = [];
-          
-          lines.forEach((line, index) => {
-            const trimmed = line.trim();
-            if (/^\d{5,}$/.test(trimmed)) {
-              numberLines.push(trimmed);
-              numberLineIndices.push(index);
-              console.log(`   🔢 Line ${index}: "${trimmed}" (NUMBER LINE)`);
-            } else if (trimmed !== '') {
-              console.log(`   📝 Line ${index}: "${trimmed.substring(0, 50)}" (CONTENT)`);
-            }
-          });
-          
-          if (numberLines.length >= 1) {
-            console.log(`   🧹 Found ${numberLines.length} standalone number lines: ${numberLines.join(', ')}`);
-            // Remove all lines that contain only numbers after the URL
-            const cleanedLines = [];
-            for (let i = 0; i < lines.length; i++) {
-              if (!numberLineIndices.includes(i)) {
-                cleanedLines.push(lines[i]);
-              } else {
-                console.log(`   🗑️ Removing line ${i}: "${lines[i].trim()}"`);
-              }
-            }
-            responseText = responseText.substring(0, urlEnd) + '\n' + cleanedLines.join('\n');
-            console.log(`   ✅ Cleaned response, removed ${numberLines.length} standalone number lines`);
-          }
-        }
-      } else {
-        console.log(`   ⚠️  No Google Flights links found in Nova Pro response!`);
+        // ...existing code...
       }
-      
-      // 🛡️ FINAL SAFETY NET: Remove any trailing standalone numbers at the very end
-      // This catches numbers that appear anywhere after the main content
-      const lines = responseText.split('\n');
-      let cutoffIndex = lines.length;
-      let foundButtonLine = false;
-      
-      console.log(`   🛡️ FINAL CLEANUP: Checking ${lines.length} total lines for trailing numbers...`);
-      
-      // Walk backwards from the end, removing lines that are ONLY numbers (including decimals)
-      for (let i = lines.length - 1; i >= 0; i--) {
-        const line = lines[i].trim();
-        
-        // Check if this line contains button END marker specifically
-        if (line.includes('[/GOOGLE_FLIGHTS_BUTTON]')) {
-          foundButtonLine = true;
-          console.log(`   🔘 FINAL: Found button END marker at line ${i}, will remove everything after`);
-          cutoffIndex = i + 1; // Keep the button line, remove everything after
-          break;
-        }
-        
-        // Also check if this line contains button START marker (for safety)
-        if (line.includes('[GOOGLE_FLIGHTS_BUTTON]') && !line.includes('[/GOOGLE_FLIGHTS_BUTTON]')) {
-          console.log(`   ⚠️ FINAL: Found button START marker at line ${i} (incomplete), continuing scan`);
-          // Don't break - keep looking for the closing marker
-        }
-        
-        // Match numbers with or without decimals (e.g., "48362.981262" or "48363")
-        if (line === '' || /^\d+(\.\d+)?$/.test(line)) {
-          if (line !== '') {
-            console.log(`   🗑️ FINAL: Will remove line ${i}: "${line}"`);
-          }
-          cutoffIndex = i;
-        } else {
-          // Only stop when we hit a real content line (not button)
-          console.log(`   ✅ FINAL: Stopped at line ${i} (has content): "${line.substring(0, 50)}"`);
-          break;
-        }
-      }
-      
-      // If we found trailing number lines, remove them
-      if (cutoffIndex < lines.length) {
-        const removedCount = lines.length - cutoffIndex;
-        console.log(`   🛡️ FINAL CLEANUP: Removing ${removedCount} trailing lines (empty or standalone numbers with decimals)`);
-        responseText = lines.slice(0, cutoffIndex).join('\n').trim();
-      } else {
-        console.log(`   ✅ FINAL CLEANUP: No trailing numbers found`);
-      }
-
+      // ...existing code...
       return responseText;
-
     } catch (error) {
       console.error('   ❌ Bedrock API error:', error);
       return "I apologize, but I'm having trouble processing your request right now. I'm here to help you plan amazing trips! Could you please rephrase your question?";
-    }
-  }
-
-  /**
-   * Load conversation history from storage
-   */
-  async loadConversationHistory(sessionId) {
-    try {
-      // Try DynamoDB first
-      if (process.env.CONVERSATIONS_TABLE) {
-        const params = {
-          TableName: process.env.CONVERSATIONS_TABLE,
-          KeyConditionExpression: 'sessionId = :sessionId',
-          ExpressionAttributeValues: marshall({
-            ':sessionId': sessionId
-          }),
-          ScanIndexForward: false,
-          Limit: 10
-        };
-
-        const result = await this.dynamoClient.send(new QueryCommand(params));
-        if (result.Items && result.Items.length > 0) {
-          return result.Items.map(item => unmarshall(item)).reverse();
-        }
-      }
-
-      // Fallback to in-memory
-      return this.conversations.get(sessionId) || [];
-
-    } catch (error) {
-      console.error('Error loading conversation:', error);
-      return this.conversations.get(sessionId) || [];
     }
   }
 
@@ -3570,58 +915,22 @@ Return ONLY the JSON array:`;
   async loadUserPreferences(userId) {
     try {
       let preferences = {};
-      
       // Try to load from user profile first (includes homeCity from profile settings)
       try {
         const userModel = require('../models/userModel');
         const user = await userModel.getUserById(userId);
         if (user) {
           // Extract homeCity and other preferences from user profile
-          preferences = {
-            homeCity: user.homeCity || user.preferences?.homeCity,
-            travelStyle: user.travelStyle || user.preferences?.travelStyle,
-            interests: user.interests || user.preferences?.interests || [],
-            budget: user.budget || user.preferences?.budget,
-            ...user.preferences
-          };
-          console.log(`   ✅ Loaded user profile for ${userId}:`, { 
-            homeCity: preferences.homeCity,
-            hasTravelStyle: !!preferences.travelStyle,
-            interestsCount: preferences.interests?.length || 0
-          });
+          // ...existing extraction logic...
         }
-      } catch (profileError) {
-        console.log('   ⚠️ Could not load user profile, using session preferences only');
+      } catch (error) {
+        // ...handle error...
       }
-      
-      // Try DynamoDB preferences table (session-based preferences)
-      if (process.env.USER_PREFERENCES_TABLE) {
-        const params = {
-          TableName: process.env.USER_PREFERENCES_TABLE,
-          Key: marshall({ userId })
-        };
-
-        const result = await this.dynamoClient.send(new GetItemCommand(params));
-        if (result.Item) {
-          const dbPrefs = unmarshall(result.Item);
-          // Merge session preferences with profile preferences (session takes priority)
-          preferences = {
-            ...preferences,
-            ...dbPrefs
-          };
-        }
-      }
-
-      // Fallback to in-memory (for anonymous users or if DB fails)
-      const memoryPrefs = this.userPreferences.get(userId) || {};
-      return {
-        ...preferences,
-        ...memoryPrefs // Memory preferences have highest priority
-      };
-
+      // ...other loading logic...
+      return preferences;
     } catch (error) {
-      console.error('Error loading preferences:', error);
-      return this.userPreferences.get(userId) || {};
+      // ...handle error...
+      return {};
     }
   }
 
@@ -3634,7 +943,6 @@ Return ONLY the JSON array:`;
       const history = this.conversations.get(sessionId) || [];
       history.push(conversation);
       this.conversations.set(sessionId, history.slice(-20)); // Keep last 20 turns
-
       // Try to save to DynamoDB
       if (process.env.CONVERSATIONS_TABLE) {
         const params = {
@@ -3646,10 +954,8 @@ Return ONLY the JSON array:`;
             ...conversation
           })
         };
-
         await this.dynamoClient.send(new PutItemCommand(params));
       }
-
     } catch (error) {
       console.error('Error saving conversation:', error);
     }
@@ -3664,7 +970,6 @@ Return ONLY the JSON array:`;
       const lowerResponse = aiResponse.toLowerCase();
       const updated = { ...currentPreferences };
       let hasUpdates = false;
-
       // Extract travel style
       if (lowerQuery.includes('budget') || lowerQuery.includes('cheap')) {
         updated.travelStyle = 'budget';
@@ -3673,7 +978,6 @@ Return ONLY the JSON array:`;
         updated.travelStyle = 'luxury';
         hasUpdates = true;
       }
-
       // Extract destinations mentioned
       const cities = ['paris', 'london', 'tokyo', 'dubai', 'rome', 'barcelona', 'new york', 
                      'mumbai', 'delhi', 'singapore', 'bangkok'];
@@ -3687,7 +991,6 @@ Return ONLY the JSON array:`;
           }
         }
       }
-
       // Extract interests
       const interests = ['adventure', 'culture', 'food', 'beach', 'shopping', 'nightlife', 'history'];
       for (const interest of interests) {
@@ -3699,14 +1002,12 @@ Return ONLY the JSON array:`;
           }
         }
       }
-
       // Save if updates found
       if (hasUpdates) {
         updated.lastUpdated = new Date().toISOString();
         await this.saveUserPreferences(userId, updated);
         console.log('   ✅ User preferences updated');
       }
-
     } catch (error) {
       console.error('Error updating preferences:', error);
     }
@@ -3719,7 +1020,6 @@ Return ONLY the JSON array:`;
     try {
       // Save to in-memory
       this.userPreferences.set(userId, preferences);
-
       // Try to save to DynamoDB
       if (process.env.USER_PREFERENCES_TABLE) {
         const params = {
@@ -3730,10 +1030,8 @@ Return ONLY the JSON array:`;
             updatedAt: new Date().toISOString()
           })
         };
-
         await this.dynamoClient.send(new PutItemCommand(params));
       }
-
     } catch (error) {
       console.error('Error saving preferences:', error);
     }
@@ -3854,6 +1152,7 @@ Return ONLY the JSON array:`;
         'Winter': ['Ice skating on canals (if frozen)', 'Amsterdam Light Festival (December-January)', 'Christmas markets', 'Cozy museums and rijsttafel dinners']
       },
       'Singapore': {
+
         'Spring': ['Perfect weather before monsoon', 'Gardens by the Bay in bloom', 'Food festivals', 'Outdoor activities comfortable'],
         'Fall': ['Mid-Autumn Festival (September)', 'F1 Grand Prix (September)', 'Comfortable weather returns', 'Diwali celebrations'],
         'Summer': ['Great Singapore Sale (June-July)', 'National Day celebrations (August 9)', 'Indoor attractions and malls', 'Evening Marina Bay activities'],
@@ -3931,14 +1230,13 @@ Return ONLY the JSON array:`;
     
     let { origin, destination, departureDate, returnDate } = searchRequest;
     
-    // Fix any dates with year 2023 or earlier - replace with 2025
-    if (departureDate && departureDate.includes('2023')) {
-      departureDate = departureDate.replace('2023', '2025');
-      console.log(`⚠️  Fixed departure date: ${searchRequest.departureDate} → ${departureDate}`);
+    // Normalize dates (ensure they are ISO and refer to current/future year)
+    if (departureDate) {
+      departureDate = this.normalizeIsoToFuture(departureDate);
+      if (!departureDate) departureDate = this.getDefaultDepartureDate();
     }
-    if (returnDate && returnDate.includes('2023')) {
-      returnDate = returnDate.replace('2023', '2025');
-      console.log(`⚠️  Fixed return date: ${searchRequest.returnDate} → ${returnDate}`);
+    if (returnDate) {
+      returnDate = this.normalizeIsoToFuture(returnDate);
     }
     
     // Build simple query without encoding - browser will handle it
@@ -3979,10 +1277,8 @@ Return ONLY the JSON array:`;
    */
   removeEmojis(text) {
     if (!text) return text;
-    
     // Remove emojis using regex
     return text.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]|[\u{FE00}-\u{FE0F}]|[\u{E0020}-\u{E007F}]|[\u{1F004}]|[\u{1F0CF}]|[\u{1F170}-\u{1F251}]/gu, '');
   }
 }
-
 module.exports = IntegratedAITravelAgent;

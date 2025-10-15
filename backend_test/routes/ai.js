@@ -114,9 +114,9 @@ router.post('/chat', verifyToken, async (req, res) => {
       data: {
         response: response.content,
         role: response.role,
-        type: response.metadata.intent,
+        type: response.metadata.intent || 'general',
         recommendations: recommendations,
-        intent: response.metadata.intent,
+        intent: response.metadata.intent || 'general',
         conversationId: response.metadata.sessionId,
         timestamp: response.metadata.timestamp,
         // Additional data for enhanced UI
