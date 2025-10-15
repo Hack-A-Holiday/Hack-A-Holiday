@@ -1,6 +1,7 @@
 ﻿import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import Globe from 'react-globe.gl';
 import { popularDestinations, Destination } from '../data/destinations';
+import { airportDestinations, AirportDestination } from '../data/airport-destinations';
 
 interface Coordinates {
   lat: number;
@@ -76,14 +77,37 @@ export default function InteractiveGlobe({
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
+  // Merge destinations and airports for comprehensive display
+  const allLocations = useMemo(() => {
+    // Convert airport destinations to match Destination interface
+    const airportsAsDestinations: Destination[] = airportDestinations.map(airport => ({
+      id: airport.id,
+      name: `${airport.city} (${airport.code})`,
+      country: airport.country,
+      continent: airport.continent,
+      latitude: airport.latitude,
+      longitude: airport.longitude,
+      description: airport.name,
+      category: 'city' as const,
+      popularity: airport.popularity,
+      bestMonths: [],
+      averageCost: ''
+    }));
+    
+    // Combine and deduplicate by ID
+    const combined = [...popularDestinations, ...airportsAsDestinations];
+    const uniqueMap = new Map(combined.map(loc => [loc.id, loc]));
+    return Array.from(uniqueMap.values());
+  }, []);
+
   const filteredDestinations = useMemo(() => {
-    if (!searchQuery) return popularDestinations;
-    return popularDestinations.filter(dest => 
+    if (!searchQuery) return allLocations;
+    return allLocations.filter(dest => 
       dest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       dest.country.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      dest.category.toLowerCase().includes(searchQuery.toLowerCase())
+      dest.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery]);
+  }, [searchQuery, allLocations]);
 
   // Arc data for route visualization
   const arcsData = useMemo(() => {
@@ -99,16 +123,20 @@ export default function InteractiveGlobe({
   }, [routeData]);
 
   // Convert destinations to points with proper lat/lng
-  const globeData = filteredDestinations.map(dest => ({
-    lat: dest.latitude,
-    lng: dest.longitude,
-    name: dest.name,
-    country: dest.country,
-    description: dest.description,
-    size: 0.5,
-    color: getCategoryColor(dest.category),
-    destId: dest.id // Store the destination ID to find the full object later
-  }));
+  // Differentiate between airports (showing code) and regular destinations
+  const globeData = filteredDestinations.map(dest => {
+    const isAirport = dest.name.includes('(') && dest.name.includes(')');
+    return {
+      lat: dest.latitude,
+      lng: dest.longitude,
+      name: dest.name,
+      country: dest.country,
+      description: dest.description,
+      size: isAirport ? 0.4 : 0.5, // Slightly smaller for airports
+      color: isAirport ? '#FFD700' : getCategoryColor(dest.category), // Gold for airports
+      destId: dest.id // Store the destination ID to find the full object later
+    };
+  });
 
   // Route points (source and destination markers)
   const routePoints = useMemo(() => {

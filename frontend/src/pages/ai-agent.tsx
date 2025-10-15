@@ -308,15 +308,9 @@ const renderFormattedText = (text: string | any) => {
             fontSize: '0.9rem', 
             fontWeight: '600', 
             color: '#667eea',
-            marginBottom: '4px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
+            marginBottom: '4px'
           }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="#667eea">
-              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-            </svg>
-            <span>Search More Options</span>
+            🔍 Search More Options
           </div>
           {googleFlightsButtons.map((btn, idx) => (
             <a
@@ -351,10 +345,10 @@ const renderFormattedText = (text: string | any) => {
                 e.currentTarget.style.boxShadow = '0 4px 16px rgba(66, 133, 244, 0.35)';
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 16V8C21 7.45 20.55 7 20 7H13L11 5H4C3.45 5 3 5.45 3 6V18C3 18.55 3.45 19 4 19H20C20.55 19 21 18.55 21 18V16ZM8 13L10.5 15.5L14.5 10L18.5 15H5.5L8 13Z" fill="white"/>
               </svg>
-              View {btn.city} on Google Flights
+              ✈️ View {btn.city} on Google Flights
             </a>
           ))}
         </div>
@@ -476,9 +470,9 @@ const FlightPriceComparison: React.FC<{ data: ReturnType<typeof parseFlightPrice
   
   // Create a descriptive title with all destinations
   const destinationNames = data.destinations.map(d => d.name).join(', ');
-  const titleText = data.origin 
-    ? `${data.origin} → ${destinationNames}`
-    : `Flights to ${destinationNames}`;
+  const title = data.origin 
+    ? `✈️ ${data.origin} → ${destinationNames}`
+    : `✈️ Flights to ${destinationNames}`;
   
   return (
     <div style={{ marginBottom: '20px' }}>
@@ -486,15 +480,9 @@ const FlightPriceComparison: React.FC<{ data: ReturnType<typeof parseFlightPrice
         fontSize: '1.2rem', 
         fontWeight: '700', 
         marginBottom: '8px',
-        color: isDarkMode ? '#e0e0e0' : '#333',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px'
+        color: isDarkMode ? '#e0e0e0' : '#333'
       }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
-        </svg>
-        <span>{titleText}</span>
+        {title}
       </div>
       <div style={{
         fontSize: '0.9rem',
@@ -587,22 +575,13 @@ const FlightPriceComparison: React.FC<{ data: ReturnType<typeof parseFlightPrice
                 }}>
                   {details.duration && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none"/>
-                        <path d="M12 6v6l4 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
+                      <span>⏱️</span>
                       <span>{details.duration}</span>
                     </div>
                   )}
                   {details.flightType && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        {details.flightType === 'Direct' ? (
-                          <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
-                        ) : (
-                          <path d="M2.5 19h19v2h-19v-2zm7.18-5.73l4.35 1.16 5.31 1.42c.8.21 1.62-.26 1.84-1.06.21-.8-.26-1.62-1.06-1.84l-5.31-1.42-2.76-9.02L10.12 2v8.28L5.15 8.95l-.93-2.32-1.45-.39v5.17l1.45.39 4.96 1.33z"/>
-                        )}
-                      </svg>
+                      <span>{details.flightType === 'Direct' ? '✈️' : '🛬'}</span>
                       <span>{details.flightType}</span>
                     </div>
                   )}
@@ -640,9 +619,7 @@ const FlightPriceComparison: React.FC<{ data: ReturnType<typeof parseFlightPrice
                       e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                    </svg>
+                    <span style={{ fontSize: '1.2rem' }}>🔍</span>
                     <span>View on Google Flights</span>
                   </a>
                 </div>
@@ -665,15 +642,9 @@ const FlightOptionsList: React.FC<{ flights: ReturnType<typeof parseFlightOption
         fontSize: '1.2rem', 
         fontWeight: '700', 
         marginBottom: '15px',
-        color: isDarkMode ? '#e0e0e0' : '#333',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px'
+        color: isDarkMode ? '#e0e0e0' : '#333'
       }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
-        </svg>
-        <span>Available Flight Options</span>
+        ✈️ Available Flight Options
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {flights.map((flight, idx) => (
@@ -1317,7 +1288,7 @@ const BudgetBreakdown: React.FC<{ breakdown: any; role: string }> = ({ breakdown
 // Daily Itinerary Component with Enhanced UI
 const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: boolean }> = ({ dailyData, role, isDarkMode = false }) => (
   <div style={{ marginBottom: '16px' }}>
-    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e8eaed' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span>📋</span>
       <span>Daily Itinerary</span>
     </div>
@@ -1326,8 +1297,8 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
         const dayKey = day.id || `day_${day.day || idx + 1}_${Date.now()}`;
         return (
           <div key={dayKey} style={{ 
-            background: role === 'user' ? 'rgba(255,255,255,0.1)' : (isDarkMode ? '#2d3548' : 'white'),
-            border: role === 'user' ? '1px solid rgba(255,255,255,0.2)' : (isDarkMode ? '1px solid rgba(255,255,255,0.12)' : '1px solid #e0e0e0'),
+            background: role === 'user' ? 'rgba(255,255,255,0.1)' : (isDarkMode ? 'rgba(30, 30, 30, 0.8)' : 'white'),
+            border: role === 'user' ? '1px solid rgba(255,255,255,0.2)' : (isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0'),
             borderRadius: '12px',
             padding: '16px',
             boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.1)'
@@ -1344,7 +1315,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                 <div style={{ 
                   fontWeight: '700',
                   fontSize: '1.1rem',
-                  color: role === 'user' ? 'white' : (isDarkMode ? '#8b9cff' : '#667eea'),
+                  color: role === 'user' ? 'white' : '#667eea',
                   marginBottom: '4px'
                 }}>
                   Day {day.day || idx + 1}
@@ -1352,7 +1323,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                 <div style={{ 
                   fontSize: '1rem',
                   fontWeight: '600',
-                  color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? '#e8eaed' : '#333')
+                  color: role === 'user' ? 'rgba(255,255,255,0.9)' : '#333'
                 }}>
                   {day.title || day.theme || 'Exploring'}
                 </div>
@@ -1360,8 +1331,8 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
               {day.date && (
                 <div style={{ 
                   fontSize: '0.9rem',
-                  color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? '#9ca3af' : '#888'),
-                  background: role === 'user' ? 'rgba(255,255,255,0.1)' : (isDarkMode ? 'rgba(255,255,255,0.08)' : '#f0f0f0'),
+                  color: role === 'user' ? 'rgba(255,255,255,0.8)' : '#888',
+                  background: role === 'user' ? 'rgba(255,255,255,0.1)' : '#f0f0f0',
                   padding: '6px 12px',
                   borderRadius: '8px'
                 }}>
@@ -1377,7 +1348,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                   fontWeight: '600',
                   fontSize: '0.95rem',
                   marginBottom: '8px',
-                  color: role === 'user' ? 'white' : (isDarkMode ? '#c5cae9' : '#495057')
+                  color: role === 'user' ? 'white' : '#495057'
                 }}>
                   🎯 Activities:
                 </div>
@@ -1387,15 +1358,15 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                       display: 'flex',
                       gap: '12px',
                       padding: '12px',
-                      background: role === 'user' ? 'rgba(0,0,0,0.1)' : (isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa'),
+                      background: role === 'user' ? 'rgba(0,0,0,0.1)' : (isDarkMode ? 'rgba(50, 50, 50, 0.6)' : '#f8f9fa'),
                       borderRadius: '8px',
                       fontSize: '0.9rem',
-                      border: isDarkMode ? '1px solid rgba(255,255,255,0.08)' : 'none'
+                      border: isDarkMode ? '1px solid rgba(255,255,255,0.05)' : 'none'
                     }}>
                       {activity.time && (
                         <div style={{ 
                           fontWeight: '600',
-                          color: role === 'user' ? 'white' : (isDarkMode ? '#8b9cff' : '#667eea'),
+                          color: role === 'user' ? 'white' : '#667eea',
                           minWidth: '60px'
                         }}>
                           {activity.time}
@@ -1404,7 +1375,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                       <div style={{ flex: 1 }}>
                         <div style={{ 
                           fontWeight: '400',
-                          color: role === 'user' ? 'white' : (isDarkMode ? '#e8eaed' : '#333'),
+                          color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#333'),
                           marginBottom: '2px',
                           lineHeight: '1.6'
                         }}>
@@ -1413,7 +1384,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                         {activity.location && (
                           <div style={{ 
                             fontSize: '0.85rem',
-                            color: role === 'user' ? 'rgba(255,255,255,0.7)' : (isDarkMode ? '#9ca3af' : '#666')
+                            color: role === 'user' ? 'rgba(255,255,255,0.7)' : '#666'
                           }}>
                             📍 {activity.location}
                           </div>
@@ -1421,7 +1392,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                         {activity.cost > 0 && (
                           <div style={{ 
                             fontSize: '0.85rem',
-                            color: role === 'user' ? 'rgba(255,255,255,0.7)' : (isDarkMode ? '#9ca3af' : '#888'),
+                            color: role === 'user' ? 'rgba(255,255,255,0.7)' : '#888',
                             marginTop: '4px'
                           }}>
                             💵 ${activity.cost}
@@ -1441,7 +1412,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                   fontWeight: '600',
                   fontSize: '0.95rem',
                   marginBottom: '8px',
-                  color: role === 'user' ? 'white' : (isDarkMode ? '#c5cae9' : '#495057')
+                  color: role === 'user' ? 'white' : '#495057'
                 }}>
                   🍽️ Meals:
                 </div>
@@ -1979,7 +1950,7 @@ const AiAgentPage: React.FC = () => {
                 ? 'linear-gradient(135deg, #1e3a8a 0%, #312e81 100%)'
                 : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
-              padding: '16px 28px',
+              padding: '28px 48px',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -1989,105 +1960,81 @@ const AiAgentPage: React.FC = () => {
               <div>
                 <h1 style={{ 
                   margin: 0, 
-                  fontSize: '1.6rem', 
+                  fontSize: '1.8rem', 
                   fontWeight: '700',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px'
                 }}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="3" y="3" width="18" height="18" rx="3" fill="white" opacity="0.9"/>
-                    <circle cx="8" cy="9" r="1.5" fill="#667eea"/>
-                    <circle cx="16" cy="9" r="1.5" fill="#667eea"/>
-                    <path d="M8 15 Q12 17 16 15" stroke="#764ba2" strokeWidth="2" strokeLinecap="round" fill="none"/>
-                    <rect x="6" y="3" width="2" height="4" rx="1" fill="white"/>
-                    <rect x="16" y="3" width="2" height="4" rx="1" fill="white"/>
-                  </svg>
-                  <span>AI Travel Assistant</span>
+                  <span style={{ fontSize: '2rem' }}>🤖</span>
+                  <span>AI Travel Agent</span>
                 </h1>
                 <p style={{ 
-                  margin: '3px 0 0 0', 
+                  margin: '5px 0 0 0', 
                   opacity: 0.9,
-                  fontSize: '0.85rem'
+                  fontSize: '0.9rem'
                 }}>
                   Your intelligent travel planning assistant • AI-Powered
                 </p>
-                {/* User Preferences Indicator - Compact */}
+                {/* User Preferences Indicator */}
                 {(userContext.preferences?.budget || userContext.preferences?.interests?.length > 0) && (
                   <div style={{
-                    marginTop: '8px',
-                    padding: '6px 12px',
-                    background: 'rgba(255,255,255,0.12)',
-                    borderRadius: '8px',
-                    fontSize: '0.8rem',
+                    marginTop: '12px',
+                    padding: '8px 16px',
+                    background: 'rgba(255,255,255,0.15)',
+                    borderRadius: '12px',
+                    fontSize: '0.85rem',
                     display: 'flex',
-                    gap: '10px',
+                    gap: '12px',
                     flexWrap: 'wrap',
                     alignItems: 'center'
                   }}>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="white" opacity="0.85">
-                      <circle cx="8" cy="5" r="4" fill="white"/>
-                      <path d="M8 10 L8 14 M5 12 L11 12" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
+                    <span style={{ opacity: 0.9 }}>💡 I remember:</span>
                     {userContext.preferences.budget && (
                       <span style={{ 
-                        background: 'rgba(255,255,255,0.15)', 
-                        padding: '3px 10px', 
-                        borderRadius: '6px',
-                        fontWeight: '600',
-                        fontSize: '0.75rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
+                        background: 'rgba(255,255,255,0.2)', 
+                        padding: '4px 12px', 
+                        borderRadius: '8px',
+                        fontWeight: '600'
                       }}>
-                        <svg width="12" height="12" viewBox="0 0 16 16" fill="white">
-                          <text x="8" y="12" fontSize="12" textAnchor="middle" fill="white">$</text>
-                        </svg>
-                        ${userContext.preferences.budget}
+                        💰 ${userContext.preferences.budget} budget
                       </span>
                     )}
                     {userContext.preferences.interests && userContext.preferences.interests.length > 0 && (
                       <span style={{ 
-                        background: 'rgba(255,255,255,0.15)', 
-                        padding: '3px 10px', 
-                        borderRadius: '6px',
-                        fontWeight: '600',
-                        fontSize: '0.75rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
+                        background: 'rgba(255,255,255,0.2)', 
+                        padding: '4px 12px', 
+                        borderRadius: '8px',
+                        fontWeight: '600'
                       }}>
-                        <svg width="12" height="12" viewBox="0 0 16 16" fill="white">
-                          <path d="M8,2 L10,6 L14,7 L11,10 L12,14 L8,12 L4,14 L5,10 L2,7 L6,6 Z" fill="white"/>
-                        </svg>
-                        {userContext.preferences.interests.slice(0, 3).join(', ')}{userContext.preferences.interests.length > 3 ? '...' : ''}
+                        ❤️ {userContext.preferences.interests.join(', ')}
                       </span>
                     )}
                   </div>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <button
                   onClick={clearChat}
                   style={{
                     background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
                     border: 'none',
                     color: 'white',
-                    padding: '8px 16px',
-                    borderRadius: '20px',
+                    padding: '10px 20px',
+                    borderRadius: '24px',
                     cursor: 'pointer',
-                    fontSize: '0.85rem',
+                    fontSize: '0.95rem',
                     fontWeight: '600',
-                    boxShadow: '0 3px 10px rgba(239, 68, 68, 0.3)',
+                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
                     transition: 'all 0.3s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px) scale(1.03)';
-                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.5)';
+                    e.currentTarget.style.transform = 'translateY(-3px) scale(1.05)';
+                    e.currentTarget.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.5)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                    e.currentTarget.style.boxShadow = '0 3px 10px rgba(239, 68, 68, 0.3)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
                   }}
                 >
                   🧹 Clear Chat
@@ -2101,12 +2048,12 @@ const AiAgentPage: React.FC = () => {
               width: '100%',
               maxWidth: '1400px',
               margin: '0 auto',
-              padding: '20px 28px',
+              padding: '40px 48px',
               overflowY: 'auto',
               overflowX: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              gap: '18px',
+              gap: '24px',
               background: isDarkMode 
                 ? 'linear-gradient(to bottom, #0f172a 0%, #1e293b 100%)' 
                 : 'linear-gradient(to bottom, #f8fafc 0%, #e2e8f0 100%)',
@@ -2134,12 +2081,7 @@ const AiAgentPage: React.FC = () => {
                     color: 'white',
                     fontSize: '1.2rem'
                   }}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                      <rect x="5" y="5" width="14" height="14" rx="2" fill="white"/>
-                      <circle cx="9" cy="10" r="1.5" fill="#4ecdc4"/>
-                      <circle cx="15" cy="10" r="1.5" fill="#4ecdc4"/>
-                      <path d="M9 14 Q12 16 15 14" stroke="#4ecdc4" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-                    </svg>
+                    🤖
                   </div>
                   <div style={{
                     background: isDarkMode ? 'rgba(30, 41, 59, 0.8)' : '#f8f9fa',
@@ -2179,7 +2121,7 @@ const AiAgentPage: React.FC = () => {
               width: '100%',
               maxWidth: '1400px',
               margin: '0 auto',
-              padding: '16px 28px 20px 28px',
+              padding: '28px 48px 36px 48px',
               borderTop: 'none',
               background: isDarkMode 
                 ? 'linear-gradient(to top, #1e293b 0%, #0f172a 100%)'
@@ -2189,48 +2131,39 @@ const AiAgentPage: React.FC = () => {
               {/* Quick Actions */}
               <div style={{ 
                 display: 'flex', 
-                gap: '8px', 
-                marginBottom: '14px',
+                gap: '12px', 
+                marginBottom: '20px',
                 flexWrap: 'wrap',
                 justifyContent: 'center'
               }}>
-                {[
-                  { text: 'Find flights', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg> },
-                  { text: 'Hotel recommendations', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M7 13c1.66 0 3-1.34 3-3S8.66 7 7 7s-3 1.34-3 3 1.34 3 3 3zm12-6h-8v7H3V7H1v13h2v-2h18v2h2v-9c0-2.21-1.79-4-4-4z"/></svg> },
-                  { text: 'Popular destinations', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="10" stroke="white" strokeWidth="2" fill="none"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="white" strokeWidth="1" fill="none"/></svg> },
-                  { text: 'Travel tips', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="5" r="3" fill="white"/><path d="M12 8 L12 16 M9 14 L15 14" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg> }
-                ].map((action) => (
+                {['Find flights ✈️', 'Hotel recommendations 🏨', 'Popular destinations 🌎', 'Travel tips 💡'].map((action) => (
                   <button
-                    key={action.text}
-                    onClick={() => setInput(action.text)}
+                    key={action}
+                    onClick={() => setInput(action)}
                     style={{
-                      padding: '8px 16px',
+                      padding: '10px 20px',
                       background: isDarkMode 
                         ? 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)' 
                         : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                       border: 'none',
-                      borderRadius: '20px',
-                      fontSize: '0.85rem',
+                      borderRadius: '24px',
+                      fontSize: '0.9rem',
                       cursor: 'pointer',
                       transition: 'all 0.3s ease',
                       color: 'white',
                       fontWeight: '600',
-                      boxShadow: '0 3px 10px rgba(59,130,246,0.3)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
+                      boxShadow: '0 4px 12px rgba(59,130,246,0.3)'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px) scale(1.03)';
-                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(59,130,246,0.5)';
+                      e.currentTarget.style.transform = 'translateY(-3px) scale(1.05)';
+                      e.currentTarget.style.boxShadow = '0 8px 20px rgba(59,130,246,0.5)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                      e.currentTarget.style.boxShadow = '0 3px 10px rgba(59,130,246,0.3)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(59,130,246,0.3)';
                     }}
                   >
-                    {action.icon}
-                    <span>{action.text}</span>
+                    {action}
                   </button>
                 ))}
               </div>

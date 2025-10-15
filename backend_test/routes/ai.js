@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const IntegratedAITravelAgent = require('../services/IntegratedAITravelAgent');
 const verifyToken = require('../middleware/authMiddleware');
+const optionalAuth = require('../middleware/optionalAuth');
 
 // Initialize the integrated AI travel agent
 const aiAgent = new IntegratedAITravelAgent();
@@ -17,12 +18,13 @@ const aiAgent = new IntegratedAITravelAgent();
  * - Real-time hotel API integration
  * - Conversation history storage and context
  * - User preferences tracking
+ * - Works for both authenticated and guest users
  */
-router.post('/chat', verifyToken, async (req, res) => {
+router.post('/chat', optionalAuth, async (req, res) => {
   try {
     const { message, messages, conversationId, preferences, userContext } = req.body;
-    const userId = req.user.userId;
-    const userEmail = req.user.email;
+    const userId = req.user?.userId || userContext?.userId || 'anonymous';
+    const userEmail = req.user?.email || userContext?.email || 'guest';
 
     console.log('\n🤖 ═══════════════════════════════════════');
     console.log('🤖 AI Chat Request (Agent Mode) - User:', userEmail);

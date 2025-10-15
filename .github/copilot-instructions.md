@@ -1,9 +1,4 @@
 # Hack-A-Holiday AI Agent Instructions
-## Category
-
-**Type:** Full-stack AI-powered travel platform
-**Tech:** Next.js (TypeScript/React), Express.js (Node), AWS Bedrock, RapidAPI (Kiwi, Booking.com)
-**Domain:** Travel, conversational AI, real-time search, itinerary planning
 
 ## Project Overview
 
@@ -115,10 +110,12 @@ if (group.options.length > 1) {
 
 **Two models, distinct purposes**:
 
+- **Nova Lite** (`us.amazon.nova-lite-v1:0`) - Fast, cheap operations:
   - Airport code lookup: "Mumbai" → "BOM" (cached in `Map`)
   - Intent classification
   - Quick responses
 
+- **Nova Pro** (`us.amazon.nova-pro-v1:0`) - Complex reasoning:
   - Travel planning
   - Itinerary generation
   - Conversational responses with context
@@ -296,12 +293,27 @@ if (!extractedInfo.departureDate) {
 
 ## Code Style Conventions
 
+- **Logging**: Use emojis for readability (`🛫`, `🏨`, `✅`, `⚠️`, `📅`)
+- **Error handling**: Always return graceful fallback, never throw to user
+- **Date format**: ISO 8601 (`YYYY-MM-DD`) everywhere
+- **Price display**: Round to integer (`Math.round(price)`)
+- **Null checks**: Use optional chaining (`flight?.departure?.airport`)
 
 ## Key Files to Reference
 
+- **AI prompts**: `IntegratedAITravelAgent.js` lines 2100-2200
+- **Deduplication**: `FlightService.js` lines 603-682
+- **Package creation**: `FlightSearch.tsx` lines 1000-1150
+- **Intent detection**: `IntegratedAITravelAgent.js` lines 790-1000
+- **Airport codes**: `FlightService.js` lines 46-110 (Nova Lite lookup)
 
 ## External API Notes
 
+- **Kiwi API**: Round-trip endpoint returns mixed results; dedup essential
+- **Booking.com API**: Coordinates required, not city names
+- **RapidAPI**: Single key (`RAPIDAPI_KEY`) works for both Kiwi & Booking.com
+- **AWS Bedrock**: No API keys needed if IAM role configured; uses `AWS_ACCESS_KEY_ID` otherwise
 
+---
 
 **When in doubt**: Check the backend console logs. Every operation is logged with clear emojis and context.

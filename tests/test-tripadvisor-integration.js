@@ -2,7 +2,7 @@
  * Test script for TripAdvisor RapidAPI integration with Bedrock Agent
  */
 
-const BedrockAgentCore = require('./backend_test/services/BedrockAgentCore');
+const BedrockAgentCore = require('../backend_test/services/BedrockAgentCore');
 
 async function testTripAdvisorIntegration() {
   console.log('🧪 Testing TripAdvisor RapidAPI Integration with Bedrock Agent\n');
