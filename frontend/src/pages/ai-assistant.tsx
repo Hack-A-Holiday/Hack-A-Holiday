@@ -539,10 +539,11 @@ What would you like to explore?`,
             borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
             background: isUser
               ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-              : '#f0f2f5',
-            color: isUser ? 'white' : '#333',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            wordBreak: 'break-word'
+              : (isDarkMode ? 'rgba(30, 30, 30, 0.8)' : '#f0f2f5'),
+            color: isUser ? 'white' : (isDarkMode ? '#e0e0e0' : '#333'),
+            boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.1)',
+            wordBreak: 'break-word',
+            border: isDarkMode && !isUser ? '1px solid rgba(255,255,255,0.1)' : 'none'
           }}
         >
           {message.type === 'recommendation' && message.data?.recommendations ? (
@@ -555,15 +556,15 @@ What would you like to explore?`,
                   <div
                     key={idx}
                     style={{
-                      background: 'white',
+                      background: isDarkMode ? 'rgba(50, 50, 50, 0.6)' : 'white',
                       padding: '16px',
                       borderRadius: '12px',
-                      border: '1px solid #e0e0e0',
-                      color: '#333'
+                      border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0',
+                      color: isDarkMode ? '#e0e0e0' : '#333'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
-                      <h4 style={{ margin: 0, fontSize: '1rem', color: '#667eea' }}>
+                      <h4 style={{ margin: 0, fontSize: '1rem', color: isDarkMode ? '#8b9cff' : '#667eea' }}>
                         {rec.type === 'flight' && '✈️ '}
                         {rec.type === 'hotel' && '🏨 '}
                         {rec.type === 'destination' && '🌍 '}
@@ -575,11 +576,11 @@ What would you like to explore?`,
                         </span>
                       )}
                     </div>
-                    <p style={{ margin: '8px 0', fontSize: '0.9rem', color: '#666' }}>
+                    <p style={{ margin: '8px 0', fontSize: '0.9rem', color: isDarkMode ? '#ccc' : '#666' }}>
                       {rec.description}
                     </p>
                     {rec.price && (
-                      <p style={{ margin: '8px 0', fontSize: '1rem', fontWeight: 'bold', color: '#28a745' }}>
+                      <p style={{ margin: '8px 0', fontSize: '1rem', fontWeight: 'bold', color: isDarkMode ? '#66ff99' : '#28a745' }}>
                         {rec.price}
                       </p>
                     )}
