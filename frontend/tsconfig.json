@@ -10,11 +10,12 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "ignoreDeprecations": "6.0",
+  // "ignoreDeprecations": "6.0", // Removed to fix Next.js build error
     "plugins": [
       {
         "name": "next"
