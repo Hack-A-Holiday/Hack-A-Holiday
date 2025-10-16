@@ -22,7 +22,8 @@ const app = express();
 // CORS configuration - allow multiple origins (localhost + Render)
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://hack-a-holiday.onrender.com'
+  'https://hack-a-holiday.onrender.com',
+  'https://hacktravel.vercel.app'
 ];
 
 // Add FRONTEND_ORIGIN env variable if set (for backwards compatibility)
