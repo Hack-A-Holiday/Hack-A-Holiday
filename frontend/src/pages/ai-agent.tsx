@@ -2,6 +2,7 @@ import axios from 'axios';
 import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useAuth } from '../contexts/AuthContext';
+import { useDarkMode } from '../contexts/DarkModeContext';
 import Navbar from '../components/layout/Navbar';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import UserContextService from '../services/UserContextService';
@@ -1019,12 +1020,12 @@ const ItineraryContent: React.FC<{ content: any; role: string; isDarkMode?: bool
     
     {/* Flight Information */}
     {content.flights && (
-      <FlightRecommendations flights={content.flights} role={role} />
+      <FlightRecommendations flights={content.flights} role={role} isDarkMode={isDarkMode} />
     )}
     
     {/* Hotel Recommendations */}
     {content.hotels && (
-      <HotelRecommendations hotels={content.hotels} role={role} />
+      <HotelRecommendations hotels={content.hotels} role={role} isDarkMode={isDarkMode} />
     )}
     
     {/* Daily Itinerary - use parsed if available */}
@@ -1038,41 +1039,41 @@ const ItineraryContent: React.FC<{ content: any; role: string; isDarkMode?: bool
 
     {/* Personalized Recommendations */}
     {content.recommendations && Array.isArray(content.recommendations) && content.recommendations.length > 0 && (
-      <PersonalizedRecommendations recommendations={content.recommendations} role={role} />
+      <PersonalizedRecommendations recommendations={content.recommendations} role={role} isDarkMode={isDarkMode} />
     )}
 
     {/* Travel Tips */}
     {content.tips && Array.isArray(content.tips) && (
-      <TravelTips tips={content.tips} role={role} />
+      <TravelTips tips={content.tips} role={role} isDarkMode={isDarkMode} />
     )}
     
     {/* Budget Breakdown */}
     {content.budgetBreakdown && (
-      <BudgetBreakdown breakdown={content.budgetBreakdown} role={role} />
+      <BudgetBreakdown breakdown={content.budgetBreakdown} role={role} isDarkMode={isDarkMode} />
     )}
   </div>
   );
 };
 
 // Flight Recommendations Component
-const FlightRecommendations: React.FC<{ flights: any[]; role: string }> = ({ flights, role }) => (
+const FlightRecommendations: React.FC<{ flights: any[]; role: string; isDarkMode?: boolean }> = ({ flights, role, isDarkMode = false }) => (
   <div style={{ marginBottom: '16px' }}>
-    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span>✈️</span>
       <span>Recommended Flights</span>
     </div>
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {flights.slice(0, 3).map((flight: any, idx: number) => (
         <div key={`flight_${idx}`} style={{
-          background: role === 'user' ? 'rgba(255,255,255,0.1)' : 'white',
-          border: role === 'user' ? '1px solid rgba(255,255,255,0.2)' : '1px solid #e0e0e0',
+          background: role === 'user' ? 'rgba(255,255,255,0.1)' : (isDarkMode ? 'rgba(30, 30, 30, 0.8)' : 'white'),
+          border: role === 'user' ? '1px solid rgba(255,255,255,0.2)' : (isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0'),
           borderRadius: '12px',
           padding: '16px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.1)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ fontWeight: '600', fontSize: '1.1rem', color: role === 'user' ? 'white' : '#333' }}>
+              <div style={{ fontWeight: '600', fontSize: '1.1rem', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#333') }}>
                 {flight.airline || 'Airline'} {flight.flightNumber && `- ${flight.flightNumber}`}
               </div>
               {flight.stops === 0 && (
@@ -1099,7 +1100,7 @@ const FlightRecommendations: React.FC<{ flights: any[]; role: string }> = ({ fli
               {flight.currency || '$'}{flight.price || 'N/A'}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '20px', fontSize: '0.95rem', color: role === 'user' ? 'rgba(255,255,255,0.9)' : '#666', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', gap: '20px', fontSize: '0.95rem', color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? '#ccc' : '#666'), marginBottom: '10px' }}>
             <div>
               <div style={{ fontWeight: '600', marginBottom: '4px' }}>From</div>
               <div>{flight.origin || flight.departure || 'N/A'}</div>
@@ -1114,7 +1115,7 @@ const FlightRecommendations: React.FC<{ flights: any[]; role: string }> = ({ fli
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', color: role === 'user' ? 'white' : '#667eea' }}>
+            <div style={{ display: 'flex', alignItems: 'center', color: role === 'user' ? 'white' : (isDarkMode ? '#8b9cff' : '#667eea') }}>
               <span style={{ fontSize: '1.5rem' }}>→</span>
             </div>
             <div>
@@ -1132,7 +1133,7 @@ const FlightRecommendations: React.FC<{ flights: any[]; role: string }> = ({ fli
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '16px', fontSize: '0.9rem', color: role === 'user' ? 'rgba(255,255,255,0.8)' : '#888' }}>
+          <div style={{ display: 'flex', gap: '16px', fontSize: '0.9rem', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? '#aaa' : '#888') }}>
             {flight.duration && (
               <div>⏱️ {flight.duration}</div>
             )}
@@ -1150,36 +1151,36 @@ const FlightRecommendations: React.FC<{ flights: any[]; role: string }> = ({ fli
 );
 
 // Hotel Recommendations Component
-const HotelRecommendations: React.FC<{ hotels: any[]; role: string }> = ({ hotels, role }) => (
+const HotelRecommendations: React.FC<{ hotels: any[]; role: string; isDarkMode?: boolean }> = ({ hotels, role, isDarkMode = false }) => (
   <div style={{ marginBottom: '16px' }}>
-    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span>🏨</span>
       <span>Recommended Hotels</span>
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
       {hotels.slice(0, 3).map((hotel: any, idx: number) => (
         <div key={`hotel_${idx}`} style={{
-          background: role === 'user' ? 'rgba(255,255,255,0.1)' : 'white',
-          border: role === 'user' ? '1px solid rgba(255,255,255,0.2)' : '1px solid #e0e0e0',
+          background: role === 'user' ? 'rgba(255,255,255,0.1)' : (isDarkMode ? 'rgba(30, 30, 30, 0.8)' : 'white'),
+          border: role === 'user' ? '1px solid rgba(255,255,255,0.2)' : (isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0'),
           borderRadius: '12px',
           padding: '16px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.1)'
         }}>
-          <div style={{ fontWeight: '600', fontSize: '1.1rem', marginBottom: '8px', color: role === 'user' ? 'white' : '#333' }}>
+          <div style={{ fontWeight: '600', fontSize: '1.1rem', marginBottom: '8px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#333') }}>
             {hotel.name || 'Hotel'}
           </div>
-          <div style={{ fontSize: '0.9rem', marginBottom: '8px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : '#666' }}>
+          <div style={{ fontSize: '0.9rem', marginBottom: '8px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? '#ccc' : '#666') }}>
             <div style={{ marginBottom: '4px' }}>⭐ {hotel.rating || 'N/A'} ({hotel.reviews || 0} reviews)</div>
             <div style={{ marginBottom: '4px' }}>📍 {hotel.location || 'N/A'}</div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-            <div style={{ fontSize: '0.85rem', color: role === 'user' ? 'rgba(255,255,255,0.7)' : '#888' }}>
+            <div style={{ fontSize: '0.85rem', color: role === 'user' ? 'rgba(255,255,255,0.7)' : (isDarkMode ? '#aaa' : '#888') }}>
               {hotel.amenities?.slice(0, 2).join(', ') || 'Amenities available'}
             </div>
             <div style={{ 
               fontWeight: '700',
               fontSize: '1.2rem',
-              color: role === 'user' ? 'white' : '#667eea'
+              color: role === 'user' ? 'white' : (isDarkMode ? '#8b9cff' : '#667eea')
             }}>
               ${hotel.price || 'N/A'}
               <span style={{ fontSize: '0.75rem', fontWeight: '400' }}>/night</span>
@@ -1192,35 +1193,35 @@ const HotelRecommendations: React.FC<{ hotels: any[]; role: string }> = ({ hotel
 );
 
 // Personalized Recommendations Component
-const PersonalizedRecommendations: React.FC<{ recommendations: any; role: string }> = ({ recommendations, role }) => {
+const PersonalizedRecommendations: React.FC<{ recommendations: any; role: string; isDarkMode?: boolean }> = ({ recommendations, role, isDarkMode = false }) => {
   // If recommendations is an array of flights, render as flight recommendations
   if (Array.isArray(recommendations) && recommendations.length > 0 && recommendations[0].airline) {
-    return <FlightRecommendations flights={recommendations} role={role} />;
+    return <FlightRecommendations flights={recommendations} role={role} isDarkMode={isDarkMode} />;
   }
 
   // If recommendations is an array of hotels, render as hotel recommendations  
   if (Array.isArray(recommendations) && recommendations.length > 0 && recommendations[0].name && recommendations[0].rating) {
-    return <HotelRecommendations hotels={recommendations} role={role} />;
+    return <HotelRecommendations hotels={recommendations} role={role} isDarkMode={isDarkMode} />;
   }
 
   // Otherwise render as personalized recommendations (original format)
   return (
     <div style={{ marginBottom: '16px' }}>
-      <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
         <span>🎯</span>
         <span>Personalized for You</span>
       </div>
       <div style={{ 
-        background: role === 'user' ? 'rgba(255,255,255,0.1)' : '#f8f9fa',
+        background: role === 'user' ? 'rgba(255,255,255,0.1)' : (isDarkMode ? 'rgba(30, 30, 30, 0.6)' : '#f8f9fa'),
         borderRadius: '12px',
         padding: '16px'
       }}>
         {recommendations.basedOnHistory && (
           <div style={{ marginBottom: '12px' }}>
-            <div style={{ fontWeight: '600', marginBottom: '6px', color: role === 'user' ? 'white' : '#495057' }}>
+            <div style={{ fontWeight: '600', marginBottom: '6px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#495057') }}>
               📚 Based on Your History:
             </div>
-            <ul style={{ paddingLeft: '20px', fontSize: '0.95rem', color: role === 'user' ? 'rgba(255,255,255,0.9)' : '#666' }}>
+            <ul style={{ paddingLeft: '20px', fontSize: '0.95rem', color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? '#ccc' : '#666') }}>
               {recommendations.basedOnHistory.slice(0, 3).map((item: string, i: number) => (
                 <li key={`history_${i}`} style={{ marginBottom: '4px' }}>{item}</li>
               ))}
@@ -1229,10 +1230,10 @@ const PersonalizedRecommendations: React.FC<{ recommendations: any; role: string
         )}
         {recommendations.basedOnPreferences && (
           <div>
-            <div style={{ fontWeight: '600', marginBottom: '6px', color: role === 'user' ? 'white' : '#495057' }}>
+            <div style={{ fontWeight: '600', marginBottom: '6px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#495057') }}>
               ❤️ Based on Your Preferences:
             </div>
-            <ul style={{ paddingLeft: '20px', fontSize: '0.95rem', color: role === 'user' ? 'rgba(255,255,255,0.9)' : '#666' }}>
+            <ul style={{ paddingLeft: '20px', fontSize: '0.95rem', color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? '#ccc' : '#666') }}>
               {recommendations.basedOnPreferences.slice(0, 3).map((item: string, i: number) => (
                 <li key={`pref_${i}`} style={{ marginBottom: '4px' }}>{item}</li>
               ))}
@@ -1245,15 +1246,15 @@ const PersonalizedRecommendations: React.FC<{ recommendations: any; role: string
 };
 
 // Budget Breakdown Component
-const BudgetBreakdown: React.FC<{ breakdown: any; role: string }> = ({ breakdown, role }) => (
+const BudgetBreakdown: React.FC<{ breakdown: any; role: string; isDarkMode?: boolean }> = ({ breakdown, role, isDarkMode = false }) => (
   <div style={{ marginBottom: '16px' }}>
-    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span>💳</span>
       <span>Budget Breakdown</span>
     </div>
     <div style={{ 
-      background: role === 'user' ? 'rgba(255,255,255,0.1)' : 'white',
-      border: role === 'user' ? '1px solid rgba(255,255,255,0.2)' : '1px solid #e0e0e0',
+      background: role === 'user' ? 'rgba(255,255,255,0.1)' : (isDarkMode ? 'rgba(30, 30, 30, 0.8)' : 'white'),
+      border: role === 'user' ? '1px solid rgba(255,255,255,0.2)' : (isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0'),
       borderRadius: '12px',
       padding: '16px'
     }}>
@@ -1263,19 +1264,19 @@ const BudgetBreakdown: React.FC<{ breakdown: any; role: string }> = ({ breakdown
           justifyContent: 'space-between', 
           alignItems: 'center',
           padding: '10px 0',
-          borderBottom: '1px solid rgba(0,0,0,0.1)'
+          borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'
         }}>
           <div style={{ 
             fontWeight: '500',
             textTransform: 'capitalize',
-            color: role === 'user' ? 'white' : '#333'
+            color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#333')
           }}>
             {category}
           </div>
           <div style={{ 
             fontWeight: '600',
             fontSize: '1.1rem',
-            color: role === 'user' ? 'white' : '#667eea'
+            color: role === 'user' ? 'white' : (isDarkMode ? '#8b9cff' : '#667eea')
           }}>
             ${amount}
           </div>
@@ -1315,7 +1316,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                 <div style={{ 
                   fontWeight: '700',
                   fontSize: '1.1rem',
-                  color: role === 'user' ? 'white' : '#667eea',
+                  color: role === 'user' ? 'white' : (isDarkMode ? '#8b9cff' : '#667eea'),
                   marginBottom: '4px'
                 }}>
                   Day {day.day || idx + 1}
@@ -1323,7 +1324,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                 <div style={{ 
                   fontSize: '1rem',
                   fontWeight: '600',
-                  color: role === 'user' ? 'rgba(255,255,255,0.9)' : '#333'
+                  color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? '#e0e0e0' : '#333')
                 }}>
                   {day.title || day.theme || 'Exploring'}
                 </div>
@@ -1331,8 +1332,8 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
               {day.date && (
                 <div style={{ 
                   fontSize: '0.9rem',
-                  color: role === 'user' ? 'rgba(255,255,255,0.8)' : '#888',
-                  background: role === 'user' ? 'rgba(255,255,255,0.1)' : '#f0f0f0',
+                  color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? '#aaa' : '#888'),
+                  background: role === 'user' ? 'rgba(255,255,255,0.1)' : (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f0f0f0'),
                   padding: '6px 12px',
                   borderRadius: '8px'
                 }}>
@@ -1348,7 +1349,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                   fontWeight: '600',
                   fontSize: '0.95rem',
                   marginBottom: '8px',
-                  color: role === 'user' ? 'white' : '#495057'
+                  color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#495057')
                 }}>
                   🎯 Activities:
                 </div>
@@ -1366,7 +1367,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                       {activity.time && (
                         <div style={{ 
                           fontWeight: '600',
-                          color: role === 'user' ? 'white' : '#667eea',
+                          color: role === 'user' ? 'white' : (isDarkMode ? '#8b9cff' : '#667eea'),
                           minWidth: '60px'
                         }}>
                           {activity.time}
@@ -1384,7 +1385,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                         {activity.location && (
                           <div style={{ 
                             fontSize: '0.85rem',
-                            color: role === 'user' ? 'rgba(255,255,255,0.7)' : '#666'
+                            color: role === 'user' ? 'rgba(255,255,255,0.7)' : (isDarkMode ? '#aaa' : '#666')
                           }}>
                             📍 {activity.location}
                           </div>
@@ -1392,7 +1393,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                         {activity.cost > 0 && (
                           <div style={{ 
                             fontSize: '0.85rem',
-                            color: role === 'user' ? 'rgba(255,255,255,0.7)' : '#888',
+                            color: role === 'user' ? 'rgba(255,255,255,0.7)' : (isDarkMode ? '#aaa' : '#888'),
                             marginTop: '4px'
                           }}>
                             💵 ${activity.cost}
@@ -1412,7 +1413,7 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                   fontWeight: '600',
                   fontSize: '0.95rem',
                   marginBottom: '8px',
-                  color: role === 'user' ? 'white' : '#495057'
+                  color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#495057')
                 }}>
                   🍽️ Meals:
                 </div>
@@ -1425,9 +1426,9 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                   {day.meals.breakfast && (
                     <div style={{ 
                       padding: '8px',
-                      background: role === 'user' ? 'rgba(0,0,0,0.1)' : '#fff3cd',
+                      background: role === 'user' ? 'rgba(0,0,0,0.1)' : (isDarkMode ? 'rgba(255, 243, 205, 0.15)' : '#fff3cd'),
                       borderRadius: '6px',
-                      color: role === 'user' ? 'rgba(255,255,255,0.9)' : '#856404'
+                      color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? '#ffd966' : '#856404')
                     }}>
                       <strong>🌅 Breakfast:</strong><br/>{day.meals.breakfast}
                     </div>
@@ -1435,9 +1436,9 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                   {day.meals.lunch && (
                     <div style={{ 
                       padding: '8px',
-                      background: role === 'user' ? 'rgba(0,0,0,0.1)' : '#d1ecf1',
+                      background: role === 'user' ? 'rgba(0,0,0,0.1)' : (isDarkMode ? 'rgba(209, 236, 241, 0.15)' : '#d1ecf1'),
                       borderRadius: '6px',
-                      color: role === 'user' ? 'rgba(255,255,255,0.9)' : '#0c5460'
+                      color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? '#66d9ef' : '#0c5460')
                     }}>
                       <strong>☀️ Lunch:</strong><br/>{day.meals.lunch}
                     </div>
@@ -1445,9 +1446,9 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
                   {day.meals.dinner && (
                     <div style={{ 
                       padding: '8px',
-                      background: role === 'user' ? 'rgba(0,0,0,0.1)' : '#d4edda',
+                      background: role === 'user' ? 'rgba(0,0,0,0.1)' : (isDarkMode ? 'rgba(212, 237, 218, 0.15)' : '#d4edda'),
                       borderRadius: '6px',
-                      color: role === 'user' ? 'rgba(255,255,255,0.9)' : '#155724'
+                      color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? '#66ff99' : '#155724')
                     }}>
                       <strong>🌙 Dinner:</strong><br/>{day.meals.dinner}
                     </div>
@@ -1460,10 +1461,10 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
             {day.accommodation && (
               <div style={{
                 padding: '10px',
-                background: role === 'user' ? 'rgba(102, 126, 234, 0.2)' : '#e7f3ff',
+                background: role === 'user' ? 'rgba(102, 126, 234, 0.2)' : (isDarkMode ? 'rgba(231, 243, 255, 0.1)' : '#e7f3ff'),
                 borderRadius: '8px',
                 fontSize: '0.9rem',
-                color: role === 'user' ? 'white' : '#004085'
+                color: role === 'user' ? 'white' : (isDarkMode ? '#66b3ff' : '#004085')
               }}>
                 <strong>🏨 Accommodation:</strong> {day.accommodation}
               </div>
@@ -1476,9 +1477,9 @@ const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: bo
 );
 
 // Travel Tips Component with Enhanced UI
-const TravelTips: React.FC<{ tips: string[]; role: string }> = ({ tips, role }) => (
+const TravelTips: React.FC<{ tips: string[]; role: string; isDarkMode?: boolean }> = ({ tips, role, isDarkMode = false }) => (
   <div style={{ marginBottom: '16px' }}>
-    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span>💡</span>
       <span>Travel Tips</span>
     </div>
@@ -1490,10 +1491,10 @@ const TravelTips: React.FC<{ tips: string[]; role: string }> = ({ tips, role }) 
             display: 'flex',
             gap: '12px',
             padding: '14px',
-            background: role === 'user' ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%)',
+            background: role === 'user' ? 'rgba(255,255,255,0.1)' : (isDarkMode ? 'rgba(255, 234, 167, 0.15)' : 'linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%)'),
             borderRadius: '10px',
             fontSize: '0.95rem',
-            color: role === 'user' ? 'white' : '#2d3436',
+            color: role === 'user' ? 'white' : (isDarkMode ? '#ffd966' : '#2d3436'),
             boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
           }}>
             <div style={{ fontSize: '1.2rem' }}>✨</div>
@@ -1554,6 +1555,7 @@ const renderActivities = (activities: any, role: string) => {
 
 const AiAgentPage: React.FC = () => {
   const { state } = useAuth();
+  const { isDarkMode } = useDarkMode();
   const contextService = UserContextService.getInstance();
   const [userContext, setUserContext] = useState<LocalUserContext>({
     sessionId: `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
@@ -1589,7 +1591,6 @@ const AiAgentPage: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [aiModel, setAiModel] = useState<'bedrock' | 'sagemaker'>('bedrock');
-  const [isDarkMode, setIsDarkMode] = useState(true); // Dark mode by default for travel agent feel
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
