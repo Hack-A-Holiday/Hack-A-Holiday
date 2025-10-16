@@ -13,6 +13,7 @@ const { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand } = require
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const FlightService = require('./FlightService');
 const HotelService = require('./HotelService');
+const TripAdvisorRapidAPIService = require('./TripAdvisorRapidAPIService');
 
 class IntegratedAITravelAgent {
   constructor() {
@@ -40,8 +41,11 @@ class IntegratedAITravelAgent {
       rapidApiKey: process.env.RAPIDAPI_KEY
     });
 
+    // TripAdvisor (RapidAPI) for attractions and restaurants enrichment
+    this.tripAdvisorService = new TripAdvisorRapidAPIService();
+
     // Use AWS Nova Pro for all responses
-    this.modelId = 'us.amazon.nova-pro-v1:0';
+    this.modelId = 'amazon.nova-pro-v1:0';
 
     // In-memory storage (fallback if DynamoDB not available)
     this.conversations = new Map();
@@ -848,6 +852,7 @@ class IntegratedAITravelAgent {
 
       // 4. Fetch real data if needed (flights/hotels)
       let realData = null;
+      let tripAdvisorData = null; // enrichment data for attractions/restaurants
       
       // Handle multi-destination comparison
       if (queryIntent.multiDestination && queryIntent.extractedInfo.destinations) {
@@ -1006,6 +1011,23 @@ class IntegratedAITravelAgent {
         }
       }
 
+      // TripAdvisor enrichment: if we have a destination from intent or preferences
+      const destinationForPOI = queryIntent.extractedInfo?.destination ||
+        userPreferences?.currentTripDestination ||
+        (Array.isArray(userPreferences?.preferredDestinations) && userPreferences.preferredDestinations[0]);
+      if (destinationForPOI) {
+        try {
+          tripAdvisorData = await this.tripAdvisorService.getTravelDataForAI(destinationForPOI, {
+            interests: userPreferences?.interests,
+            cuisine: userPreferences?.hotelPreferences?.preferredAmenities?.includes('restaurant') ? 'local' : null,
+            amenities: userPreferences?.hotelPreferences?.preferredAmenities,
+            budget: userPreferences?.budget
+          });
+        } catch (e) {
+          console.warn('⚠️ TripAdvisor enrichment failed:', e?.message);
+        }
+      }
+
       // 6. Store search history if this was a search query
       if (queryIntent.extractedInfo?.destination) {
         this.updateUserContext(effectiveSessionId, {
@@ -1034,7 +1056,8 @@ class IntegratedAITravelAgent {
         realData,
         queryIntent,
         userProfileSummary,
-        conversationSummary  // Pass summary to context prompt
+        conversationSummary,  // Pass summary to context prompt
+        tripAdvisorData       // New enrichment block
       );
 
       // 8. Call Bedrock with full context
@@ -2474,7 +2497,7 @@ Return ONLY the JSON array:`;
   /**
    * Build comprehensive context prompt for Bedrock
    */
-  buildContextPrompt(userQuery, conversationHistory, userPreferences, realData, queryIntent, userProfileSummary = '', conversationSummary = null) {
+  buildContextPrompt(userQuery, conversationHistory, userPreferences, realData, queryIntent, userProfileSummary = '', conversationSummary = null, tripAdvisorData = null) {
     const lowerQuery = userQuery.toLowerCase(); // Define lowerQuery for use throughout method
     
     let contextPrompt = `You are an expert AI travel assistant helping users plan their perfect trips.
@@ -2684,6 +2707,28 @@ Return ONLY the JSON array:`;
           contextPrompt += `\n`;
         });
       }
+    }
+
+    // Add TripAdvisor enrichment if available
+    if (tripAdvisorData) {
+      contextPrompt += `\n=== POINTS OF INTEREST (TripAdvisor) ===\n`;
+      if (tripAdvisorData.location) {
+        contextPrompt += `\nLocation: ${tripAdvisorData.location.name} (geoId: ${tripAdvisorData.location.geoId || tripAdvisorData.location.location_id || 'N/A'})\n`;
+      }
+      if (Array.isArray(tripAdvisorData.attractions) && tripAdvisorData.attractions.length > 0) {
+        contextPrompt += `\nTop Attractions:\n`;
+        tripAdvisorData.attractions.slice(0, 5).forEach((a, i) => {
+          contextPrompt += `- ${a.name || 'Attraction'} | Rating: ${a.rating || 'N/A'} | Reviews: ${a.review_count || a.reviewCount || 0}${a.price_level ? ` | Price: ${a.price_level}` : ''}${a.category ? ` | Category: ${a.category}` : ''}\n`;
+        });
+      }
+      if (Array.isArray(tripAdvisorData.restaurants) && tripAdvisorData.restaurants.length > 0) {
+        contextPrompt += `\nPopular Restaurants:\n`;
+        tripAdvisorData.restaurants.slice(0, 5).forEach((r, i) => {
+          const cuisine = Array.isArray(r.cuisine) ? r.cuisine.join(', ') : (r.cuisine || '');
+          contextPrompt += `- ${r.name || 'Restaurant'} | Rating: ${r.rating || 'N/A'} | Reviews: ${r.review_count || r.reviewCount || 0}${cuisine ? ` | Cuisine: ${cuisine}` : ''}${r.price_level ? ` | Price: ${r.price_level}` : ''}\n`;
+        });
+      }
+      contextPrompt += `\nUse these attractions and restaurants to personalize the itinerary and recommendations.\n`;
     }
 
     contextPrompt += `\n=== CURRENT QUERY ===\n`;

@@ -73,8 +73,8 @@ class BedrockAgentCore {
     // Model configuration - Using AWS Nova Pro & Nova Lite ONLY
     // Nova Pro provides excellent reasoning and is AWS-native
     // Nova Lite for fast, simple queries
-    this.reasoningModel = process.env.REASONING_MODEL || 'us.amazon.nova-pro-v1:0'; // Nova Pro ✅
-    this.fastModel = process.env.FAST_MODEL || 'us.amazon.nova-pro-v1:0'; // Use Nova Pro for fast model until Nova Lite is enabled
+    this.reasoningModel = process.env.REASONING_MODEL || 'amazon.nova-pro-v1:0'; // Nova Pro ✅
+    this.fastModel = process.env.FAST_MODEL || 'amazon.nova-lite-v1:0'; // Nova Lite for fast queries
     
     // Agent tools registry
     this.tools = this.initializeTools();
