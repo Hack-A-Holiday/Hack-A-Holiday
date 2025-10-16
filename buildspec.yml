@@ -3,18 +3,16 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      nodejs: 18 # Or your project's Node.js version
+      nodejs: 20
     commands:
-      # Navigate into the backend folder first
       - cd backend_test
       - echo Installing NPM dependencies...
-      - npm install
+      - npm ci --production
   build:
     commands:
       - echo Build started on `date`
-      - echo No build commands needed for this app...
+      - echo Build completed on `date`
 artifacts:
-  # Specify that the artifacts are located in the backend_test folder
   base-directory: backend_test
   files:
     - '**/*'
