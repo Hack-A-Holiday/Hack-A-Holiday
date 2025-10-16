@@ -8,8 +8,8 @@ class GeocodingService {
     this.bedrockClient = new BedrockRuntimeClient({ 
       region: process.env.AWS_REGION || 'us-east-1' 
     });
-    // Use Nova Pro if Nova Lite access not enabled
-    this.model = process.env.FAST_MODEL || 'us.amazon.nova-pro-v1:0';
+    // Use Nova Lite for fast geocoding
+    this.model = process.env.FAST_MODEL || 'amazon.nova-lite-v1:0';
     
     console.log('🌍 Geocoding Service initialized with Nova Pro');
   }

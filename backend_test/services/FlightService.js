@@ -24,7 +24,7 @@ class FlightService {
     });
     
     // Use Nova Lite for fast airport code lookups
-    this.fastModel = process.env.FAST_MODEL || 'us.amazon.nova-lite-v1:0';
+    this.fastModel = process.env.FAST_MODEL || 'amazon.nova-lite-v1:0';
     
     // Cache for airport codes to avoid repeated API calls
     this.airportCodeCache = new Map();
