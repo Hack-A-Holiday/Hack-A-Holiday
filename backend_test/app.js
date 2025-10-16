@@ -8,7 +8,7 @@ const app = express();
 // CORS configuration
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://your-frontend-domain.com', // Replace with your actual frontend domain
+  'https://hacktravel.vercel.app',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 

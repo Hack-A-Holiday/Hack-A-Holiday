@@ -115,6 +115,8 @@ class IntegratedAITravelAgent {
         searchHistory: [],
         tripHistory: [],
         conversationTopics: [],
+        currentDestinations: [], // Recently discussed destinations
+        lastSearchParams: null, // Last flight/hotel search parameters for navigation
         lastInteraction: Date.now(),
         totalInteractions: 0
       });
@@ -606,6 +608,340 @@ class IntegratedAITravelAgent {
     });
     
     return context;
+  }
+
+  /**
+   * Detect if user wants destination enrichment information
+   * @param {string} message - User message
+   * @param {Object} context - User context
+   * @returns {Object} Intent detection result
+   */
+  detectDestinationIntent(message, context) {
+    const lowerMsg = message.toLowerCase();
+    
+    const intent = {
+      wantsRestaurants: false,
+      wantsActivities: false,
+      wantsPhotos: false,
+      destination: null,
+      confidence: 0
+    };
+    
+    // Detect restaurant intent
+    if (/restaurant|food|dining|eat|cuisine|where to eat|best places to eat|popular restaurants/i.test(lowerMsg)) {
+      intent.wantsRestaurants = true;
+      intent.confidence += 0.4;
+    }
+    
+    // Detect activities/attractions intent
+    if (/activity|activities|things to do|attractions|sightseeing|what to do|places to visit|popular activities|tourist spots/i.test(lowerMsg)) {
+      intent.wantsActivities = true;
+      intent.confidence += 0.4;
+    }
+    
+    // Detect photo intent
+    if (/photo|picture|image|show me|what.*look like|gallery|view/i.test(lowerMsg)) {
+      intent.wantsPhotos = true;
+      intent.confidence += 0.2;
+    }
+    
+    // Extract destination from message or context
+    intent.destination = this.extractDestination(message, context);
+    
+    return intent;
+  }
+
+  /**
+   * Extract destination from message or context
+   * @param {string} message - User message
+   * @param {Object} context - User context with conversation history
+   * @returns {string|null} Destination name
+   */
+  extractDestination(message, context) {
+    // First, try to extract from the message itself
+    const lowerMsg = message.toLowerCase();
+    
+    // Common patterns for destination mentions
+    const patterns = [
+      /(?:in|at|near|around|visiting|going to|traveling to|trip to|fly to|flight to)\s+([a-z\s]+?)(?:\s|,|\.|\?|!|$)/i,
+      /([a-z\s]+?)\s+(?:restaurants|activities|attractions|hotels|flights)/i,
+      /(?:popular|best|top)\s+(?:restaurants|activities|attractions)\s+(?:in|at|near)\s+([a-z\s]+)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = message.match(pattern);
+      if (match && match[1]) {
+        const destination = match[1].trim();
+        // Filter out common words that aren't destinations
+        const excludeWords = ['the', 'a', 'an', 'some', 'any', 'good', 'best', 'popular', 'top', 'nice'];
+        if (!excludeWords.includes(destination.toLowerCase()) && destination.length > 2) {
+          console.log(`   📍 Extracted destination from message: ${destination}`);
+          return destination;
+        }
+      }
+    }
+    
+    // If not found in message, check context for recent destinations
+    if (context.currentDestinations && context.currentDestinations.length > 0) {
+      // Get the most recent destination discussed (within last 5 minutes)
+      const recentDestinations = context.currentDestinations.filter(
+        d => Date.now() - d.discussedAt < 5 * 60 * 1000
+      );
+      
+      if (recentDestinations.length > 0) {
+        const destination = recentDestinations[recentDestinations.length - 1].name;
+        console.log(`   📍 Using recent destination from context: ${destination}`);
+        return destination;
+      }
+    }
+    
+    // Check search history for recent destinations
+    if (context.searchHistory && context.searchHistory.length > 0) {
+      const recentSearch = context.searchHistory[context.searchHistory.length - 1];
+      if (recentSearch.destination) {
+        console.log(`   📍 Using destination from search history: ${recentSearch.destination}`);
+        return recentSearch.destination;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Store destination in context for future reference
+   * @param {string} sessionId - Session ID
+   * @param {string} destination - Destination name
+   * @param {Object} additionalInfo - Additional info (origin, dates, etc.)
+   */
+  storeDestinationInContext(sessionId, destination, additionalInfo = {}) {
+    const context = this.getUserContext(sessionId);
+    
+    if (!context.currentDestinations) {
+      context.currentDestinations = [];
+    }
+    
+    // Clean up old destinations (older than 24 hours)
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    context.currentDestinations = context.currentDestinations.filter(
+      d => d.discussedAt > oneDayAgo
+    );
+    
+    // Add or update destination
+    const existingIndex = context.currentDestinations.findIndex(d => 
+      d.name.toLowerCase() === destination.toLowerCase()
+    );
+    
+    const destinationData = {
+      name: destination,
+      discussedAt: Date.now(),
+      ...additionalInfo
+    };
+    
+    if (existingIndex >= 0) {
+      context.currentDestinations[existingIndex] = destinationData;
+    } else {
+      context.currentDestinations.push(destinationData);
+    }
+    
+    // Keep only last 5 destinations
+    if (context.currentDestinations.length > 5) {
+      context.currentDestinations = context.currentDestinations.slice(-5);
+    }
+    
+    this.userContexts.set(sessionId, context);
+    console.log(`   💾 Stored destination in context: ${destination}`);
+  }
+
+  /**
+   * Store search parameters for navigation to search tabs
+   * @param {string} sessionId - Session ID
+   * @param {Object} searchParams - Search parameters
+   */
+  storeSearchParams(sessionId, searchParams) {
+    const context = this.getUserContext(sessionId);
+    
+    context.lastSearchParams = {
+      ...searchParams,
+      timestamp: Date.now()
+    };
+    
+    this.userContexts.set(sessionId, context);
+    console.log(`   💾 Stored search params for navigation:`, searchParams);
+  }
+
+  /**
+   * Get last search parameters for pre-populating search forms
+   * @param {string} sessionId - Session ID
+   * @returns {Object|null} Search parameters or null
+   */
+  getLastSearchParams(sessionId) {
+    const context = this.getUserContext(sessionId);
+    
+    // Return params if they're less than 1 hour old
+    if (context.lastSearchParams) {
+      const oneHourAgo = Date.now() - (60 * 60 * 1000);
+      if (context.lastSearchParams.timestamp > oneHourAgo) {
+        return context.lastSearchParams;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Fetch and format destination enrichment data
+   * @param {string} destination - Destination name
+   * @param {string} type - Type of enrichment ('restaurants' or 'activities')
+   * @param {number} limit - Number of results to return
+   * @returns {Promise<Object>} Enrichment data
+   */
+  async enrichDestinationInfo(destination, type = 'restaurants', limit = 5) {
+    try {
+      console.log(`   🔍 Enriching ${type} for destination: ${destination}`);
+      
+      // Search for locations
+      let searchResults;
+      if (type === 'restaurants') {
+        searchResults = await this.tripAdvisorService.getRestaurantsNearby(destination, limit);
+      } else {
+        searchResults = await this.tripAdvisorService.getAttractionsNearby(destination, limit);
+      }
+      
+      if (!searchResults || searchResults.length === 0) {
+        console.log(`   ⚠️ No ${type} found for ${destination}`);
+        return {
+          success: false,
+          message: `I couldn't find ${type} information for ${destination}. Would you like to try a different destination?`
+        };
+      }
+      
+      console.log(`   ✅ Found ${searchResults.length} ${type} for ${destination}`);
+      
+      // Get details and photos for top results (limit to 3 for performance)
+      const enrichedResults = await Promise.all(
+        searchResults.slice(0, Math.min(3, limit)).map(async (location) => {
+          try {
+            const locationId = location.contentId || location.location_id;
+            if (!locationId) {
+              console.warn(`   ⚠️ No location ID for ${location.name}`);
+              return location;
+            }
+            
+            // Fetch details and photos in parallel
+            const [details, photos] = await Promise.all([
+              this.tripAdvisorService.getLocationDetails(locationId).catch(err => {
+                console.warn(`   ⚠️ Failed to get details for ${location.name}:`, err.message);
+                return null;
+              }),
+              this.tripAdvisorService.getLocationPhotos(locationId, 5).catch(err => {
+                console.warn(`   ⚠️ Failed to get photos for ${location.name}:`, err.message);
+                return [];
+              })
+            ]);
+            
+            return {
+              ...location,
+              ...(details || {}),
+              photos: photos || []
+            };
+          } catch (error) {
+            console.error(`   ❌ Error enriching location ${location.name}:`, error.message);
+            return location;
+          }
+        })
+      );
+      
+      return {
+        success: true,
+        destination,
+        type,
+        results: enrichedResults,
+        count: enrichedResults.length
+      };
+      
+    } catch (error) {
+      console.error(`   ❌ Error enriching destination ${destination}:`, error);
+      return {
+        success: false,
+        message: `I encountered an issue fetching ${type} for ${destination}. Please try again.`,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Format destination enrichment data for AI response
+   * @param {Object} enrichmentData - Enrichment data from enrichDestinationInfo
+   * @returns {string} Formatted response text
+   */
+  formatDestinationResponse(enrichmentData) {
+    if (!enrichmentData.success) {
+      return enrichmentData.message;
+    }
+    
+    const { destination, type, results } = enrichmentData;
+    
+    let response = `Here are some popular ${type} in ${destination}:\n\n`;
+    
+    results.forEach((location, index) => {
+      response += `${index + 1}. **${location.name}**\n`;
+      
+      if (location.rating) {
+        const stars = '⭐'.repeat(Math.round(location.rating));
+        response += `   ${stars} ${location.rating}/5`;
+        if (location.num_reviews || location.reviewCount) {
+          response += ` (${location.num_reviews || location.reviewCount} reviews)`;
+        }
+        response += '\n';
+      }
+      
+      if (location.description) {
+        const shortDesc = location.description.substring(0, 150);
+        response += `   ${shortDesc}${location.description.length > 150 ? '...' : ''}\n`;
+      }
+      
+      if (location.address) {
+        response += `   📍 ${location.address}\n`;
+      }
+      
+      if (type === 'restaurants') {
+        if (location.cuisine && Array.isArray(location.cuisine)) {
+          const cuisineNames = location.cuisine.map(c => 
+            typeof c === 'string' ? c : c.name || c.localized_name
+          ).filter(Boolean);
+          if (cuisineNames.length > 0) {
+            response += `   🍽️ Cuisine: ${cuisineNames.join(', ')}\n`;
+          }
+        }
+        
+        if (location.price_level || location.priceLevel) {
+          response += `   💰 Price: ${location.price_level || location.priceLevel}\n`;
+        }
+      }
+      
+      if (type === 'activities' && location.category) {
+        const categoryName = typeof location.category === 'string' 
+          ? location.category 
+          : location.category.name || location.category.localized_name;
+        if (categoryName) {
+          response += `   🎯 Category: ${categoryName}\n`;
+        }
+      }
+      
+      if (location.hours && location.hours.weekday_text) {
+        response += `   🕐 Hours: ${location.hours.weekday_text[0]}\n`;
+      }
+      
+      if (location.web_url) {
+        response += `   🔗 [View on TripAdvisor](${location.web_url})\n`;
+      }
+      
+      response += '\n';
+    });
+    
+    response += `\nWould you like more details about any of these ${type}?`;
+    
+    return response;
   }
 
   /**
