@@ -59,6 +59,12 @@ function ProfileForm({ editForm, handleInputChange, disabled, fields }: Readonly
           disabled={disabled}
         />
       )}
+      {/* Show user info below fields if available */}
+      {editForm.name && editForm.email && (
+        <span style={{ color: '#667eea', fontWeight: 'bold' }}>
+          &quot;{editForm.name}&quot; - &quot;{editForm.email}&quot;
+        </span>
+      )}
     </form>
   );
 }
@@ -513,7 +519,7 @@ export default function ProfilePage() {
     } finally {
       setIsLoadingTrips(false);
     }
-  }, [state.user, lastFetchTime]);
+  }, [state.user, lastFetchTime, CACHE_DURATION]);
 
   // Load trips on mount and when user changes
   useEffect(() => {
@@ -540,7 +546,7 @@ export default function ProfilePage() {
       window.removeEventListener('tripUpdated', handleTripUpdate);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [state.user]);
+  }, [state.user, loadTrips]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -976,7 +982,7 @@ export default function ProfilePage() {
                 )}
                 {!homeCity && (
                   <div style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: '10px' }}>
-                    Click "Edit Home City" to set your default origin city
+                    Click &quot;Edit Home City&quot; to set your default origin city
                   </div>
                 )}
               </div>
@@ -984,7 +990,7 @@ export default function ProfilePage() {
               <div>
                 <div style={{ background: '#e3f2fd', borderRadius: '10px', padding: '15px', marginBottom: '20px' }}>
                   <p style={{ margin: 0, color: '#1976d2', fontSize: '0.9rem' }}>
-                    <strong>Tip:</strong> Once you set your home city, the AI will remember it and use it as your default origin for flight searches. Just say "find flights to Paris" and the AI will know you're flying from {homeCity || 'your home city'}!
+                    <strong>Tip:</strong> Once you set your home city, the AI will remember it and use it as your default origin for flight searches. Just say &quot;find flights to Paris&quot; and the AI will know you&apos;re flying from {homeCity || 'your home city'}!
                   </p>
                 </div>                  <label style={{ display: 'block', marginBottom: '10px', fontWeight: '600', color: '#333' }}>
                     Enter your home city

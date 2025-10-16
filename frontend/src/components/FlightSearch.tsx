@@ -19,6 +19,7 @@ import { tripTrackingService } from '../services/trip-tracking';
 import { tripApiService } from '../services/trip-api';
 import { BookingConfirmationModal } from './BookingConfirmationModal';
 import Swal from 'sweetalert2';
+import Image from 'next/image';
 
 // Add CSS animation for spinner
 const spinKeyframes = `

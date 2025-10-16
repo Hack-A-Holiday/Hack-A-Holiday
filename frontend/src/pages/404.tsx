@@ -55,7 +55,7 @@ export default function Custom404() {
             marginBottom: '40px',
             lineHeight: '1.6'
           }}>
-            Sorry, we couldn't find the page you're looking for. 
+                  Sorry, we can&apos;t find the page you&apos;re looking for. 
             It might have been moved, deleted, or you entered the wrong URL.
           </p>
           <div style={{

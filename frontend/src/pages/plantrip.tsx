@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
@@ -711,14 +712,13 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 								gap: isMobile ? '10px' : '15px',
 								marginBottom: '10px'
 							}}>
-								<img 
+								{/* ...existing code... */}
+								<Image 
 									src="/globe-logo.jpg" 
 									alt="Hack-A-Holiday Globe Logo" 
-									style={{
-										width: isMobile ? '50px' : '60px',
-										height: isMobile ? '50px' : '60px',
-										objectFit: 'contain'
-									}}
+									width={isMobile ? 50 : 60}
+									height={isMobile ? 50 : 60}
+									style={{ objectFit: 'contain' }}
 								/>
 								<h1 style={{ fontSize: getTitleFontSize(), margin: 0, lineHeight: '1.2' }}>
 									Hack-A-Holiday

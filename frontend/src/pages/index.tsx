@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import AuthForm from '../components/auth/AuthForm';
@@ -102,14 +103,12 @@ export default function HomePage() {
               gap: '15px',
               marginBottom: '10px'
             }}>
-              <img 
-                src="/globe-logo.jpg" 
-                alt="Hack-A-Holiday Globe Logo" 
-                style={{
-                  width: '60px',
-                  height: '60px',
-                  objectFit: 'contain'
-                }}
+              <Image
+                src="/globe-logo.jpg"
+                alt="Hack-A-Holiday Globe Logo"
+                width={60}
+                height={60}
+                style={{ objectFit: 'contain' }}
               />
               <h1 className="auth-title" style={{ margin: 0 }}>
                 Hack-A-Holiday
