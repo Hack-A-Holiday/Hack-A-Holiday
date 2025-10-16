@@ -296,7 +296,7 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
         confirmButtonColor: '#667eea'
       });
     }
-  }, [router]);
+  }, [router, dispatch]);
 
   // Email/Password signup - goes directly to DynamoDB
   const signup = useCallback(async (email: string, password: string, name: string) => {
@@ -343,7 +343,7 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
         confirmButtonColor: '#667eea'
       });
     }
-  }, [router]);
+  }, [router, dispatch]);
 
   // Google OAuth - uses Firebase then stores in DynamoDB
   const googleAuth = useCallback(async () => {
@@ -368,7 +368,7 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
         confirmButtonColor: '#667eea'
       });
     }
-  }, []);
+  }, [dispatch]);
 
   // Logout - handles both regular and Google users
   const logout = useCallback(async () => {
@@ -410,11 +410,11 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
         dispatch({ type: 'LOGOUT' });
       }
     }
-  }, [state.user?.role]);
+  }, [state.user?.role, dispatch]);
 
   const clearError = useCallback(() => {
     dispatch({ type: 'CLEAR_ERROR' });
-  }, []);
+  }, [dispatch]);
 
   const value: AuthContextType = useMemo(() => ({
     state,

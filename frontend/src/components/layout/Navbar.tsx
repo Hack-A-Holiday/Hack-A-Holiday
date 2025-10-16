@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -100,12 +101,12 @@ export default function Navbar() {
           fontSize: isMobile ? '1.2rem' : '1.5rem',
           gap: '10px'
         }}>
-          <img 
-            src="/globe-logo.jpg" 
-            alt="Hack-A-Holiday Globe" 
+          <Image
+            src="/globe-logo.jpg"
+            alt="Hack-A-Holiday Globe"
+            width={isMobile ? 32 : 40}
+            height={isMobile ? 32 : 40}
             style={{
-              width: isMobile ? '32px' : '40px',
-              height: isMobile ? '32px' : '40px',
               objectFit: 'contain'
             }}
           />

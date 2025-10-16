@@ -55,7 +55,7 @@ export default function Custom500() {
             marginBottom: '40px',
             lineHeight: '1.6'
           }}>
-            Something went wrong on our end. We're working to fix this issue.
+              Something went wrong on our end. We&apos;re working to fix this issue.
             Please try again later.
           </p>
           <div style={{
