@@ -124,7 +124,7 @@ export class BookingApiService {
     this.baseUrl = this.host ? `https://${this.host}/api/v1` : '';
     
     if (!this.apiKey || !this.host) {
-      console.warn('⚠️ Booking API credentials not configured. Set NEXT_PUBLIC_BOOKING_API_KEY and NEXT_PUBLIC_BOOKING_API_HOST in .env.local');
+      console.warn('⚠️ Booking API credentials not configured. Set NEXT_PUBLIC_BOOKING_API_KEY and NEXT_PUBLIC_BOOKING_API_HOST in .env');
     }
   }
 
@@ -133,7 +133,7 @@ export class BookingApiService {
    */
   async searchHotels(params: HotelSearchParams): Promise<BookingApiResponse> {
     if (!this.apiKey || !this.host || !this.baseUrl) {
-      throw new Error('Booking.com RapidAPI environment variables are not configured. Please set NEXT_PUBLIC_BOOKING_API_KEY and NEXT_PUBLIC_BOOKING_API_HOST.');
+      throw new Error('Booking.com RapidAPI environment variables are not configured. Please set NEXT_PUBLIC_BOOKING_API_KEY and NEXT_PUBLIC_BOOKING_API_HOST in .env.');
     }
     const coordinates = AIRPORT_COORDINATES[params.airportCode];
     
