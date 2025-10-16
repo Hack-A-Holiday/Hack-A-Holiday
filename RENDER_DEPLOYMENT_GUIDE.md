@@ -60,6 +60,12 @@ RAPIDAPI_KEY=your-rapidapi-key-here
 BOOKING_API_KEY=your-rapidapi-key-here
 ```
 
+**TripAdvisor API** (for destination content):
+```
+TRIPADVISOR_API_KEY=your-tripadvisor-api-key-here
+TRIPADVISOR_CACHE_TTL=3600000
+```
+
 **Firebase Config** (if backend needs Firebase):
 ```
 NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key

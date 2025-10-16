@@ -45,6 +45,10 @@ services:
         sync: false
       - key: BOOKING_API_HOST
         value: booking-com15.p.rapidapi.com
+      - key: TRIPADVISOR_API_KEY
+        sync: false
+      - key: TRIPADVISOR_CACHE_TTL
+        value: 3600000
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
