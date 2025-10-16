@@ -1,11 +1,14 @@
-# Deploying Hack-A-Holiday to Render
+# Deploying Hack-A-Holiday Frontend to Render
 
 ## Overview
-This guide walks you through deploying the full-stack Hack-A-Holiday app to Render using the included `render.yaml` blueprint.
+This guide walks you through deploying the **frontend only** to Render. The backend is already hosted on **AWS Elastic Beanstalk**.
 
-**Services created:**
-1. **Backend** (`hack-a-holiday-backend`) - Express API with AWS Bedrock AI, DynamoDB, flight/hotel search
-2. **Frontend** (`hack-a-holiday-frontend`) - Next.js web app with React, Firebase auth, 3D globe
+**Architecture:**
+- **Frontend** (Render) - Next.js web app at `https://hack-a-holiday-frontend.onrender.com`
+- **Backend** (AWS) - Express API at `http://hack-a-holiday-prod.eba-fjphuqxp.us-east-1.elasticbeanstalk.com`
+
+**Service created:**
+- **Frontend** (`hack-a-holiday-frontend`) - Next.js web app with React, Firebase auth, 3D globe
 
 ---
 
@@ -13,10 +16,9 @@ This guide walks you through deploying the full-stack Hack-A-Holiday app to Rend
 
 ✅ GitHub account with access to this repo  
 ✅ Render account (free tier works for testing)  
-✅ AWS credentials (for Bedrock AI and DynamoDB)  
 ✅ RapidAPI key (for flight/hotel search)  
 ✅ Firebase project credentials  
-✅ All secrets from your local `.env` file
+✅ Backend already deployed on AWS Elastic Beanstalk ✅
 
 ---
 
@@ -28,54 +30,15 @@ This guide walks you through deploying the full-stack Hack-A-Holiday app to Rend
 2. Click **New** → **Blueprint**
 3. Connect your GitHub account if not already connected
 4. Select the repository: `VarunGagwani/Hack-A-Holiday`
-5. Branch: `main` (or `professional-ui-redesign-v1` if deploying from feature branch)
+5. Branch: `main`
 
-Render will detect `render.yaml` and show you the services it will create.
+Render will detect `render.yaml` and show you the frontend service it will create.
 
 ---
 
 ### 2. Set Environment Variables (Secrets)
 
-Render will prompt you to provide values for `sync: false` environment variables. You **must** set these before deploying:
-
-#### Backend Secrets (hack-a-holiday-backend)
-
-**AWS Credentials** (for Bedrock AI & DynamoDB):
-```
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your-aws-access-key-id
-AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
-```
-
-**Authentication**:
-```
-JWT_SECRET=your-jwt-secret-minimum-32-characters-long
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-```
-
-**RapidAPI Keys** (for Kiwi flights & Booking.com):
-```
-RAPIDAPI_KEY=your-rapidapi-key-here
-BOOKING_API_KEY=your-rapidapi-key-here
-```
-
-**TripAdvisor API** (for destination content):
-```
-TRIPADVISOR_API_KEY=your-tripadvisor-api-key-here
-TRIPADVISOR_CACHE_TTL=3600000
-```
-
-**Firebase Config** (if backend needs Firebase):
-```
-NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project-id.firebasestorage.app
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your-measurement-id
-```
+Render will prompt you to provide values for `sync: false` environment variables. The AWS backend URL is already pre-configured!
 
 #### Frontend Secrets (hack-a-holiday-frontend)
 
@@ -96,45 +59,28 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your-measurement-id
 ```
 
-**API URL** (set AFTER backend deploys):
+**Note**: The `NEXT_PUBLIC_API_URL` is already set to your AWS backend in the `render.yaml`:
 ```
-NEXT_PUBLIC_API_URL=REPLACE_WITH_BACKEND_URL_AFTER_DEPLOY
+NEXT_PUBLIC_API_URL=http://hack-a-holiday-prod.eba-fjphuqxp.us-east-1.elasticbeanstalk.com
 ```
 
 ---
 
-### 3. Deploy Services
+### 3. Deploy Frontend
 
 1. After setting all secrets, click **Apply** or **Deploy**
 2. Render will:
    - Clone the repo
-   - Build backend: `cd backend_test && npm ci --production`
    - Build frontend: `cd frontend && npm ci && npm run build`
-   - Start both services
+   - Start the Next.js server
 
-**Backend will be available at**: `https://hack-a-holiday-backend.onrender.com`  
 **Frontend will be available at**: `https://hack-a-holiday-frontend.onrender.com`
 
 ---
 
-### 4. Update Frontend API URL
+### 4. Update Backend CORS
 
-⚠️ **CRITICAL STEP**: After backend deploys, you must update the frontend's `NEXT_PUBLIC_API_URL`:
-
-1. Go to Render dashboard → **hack-a-holiday-frontend** service
-2. Click **Environment** tab
-3. Find `NEXT_PUBLIC_API_URL`
-4. Change from `REPLACE_WITH_BACKEND_URL_AFTER_DEPLOY` to:
-   ```
-   https://hack-a-holiday-backend.onrender.com
-   ```
-5. Click **Save Changes** (this will trigger a redeploy)
-
----
-
-### 5. Update Backend CORS
-
-Your backend needs to allow the frontend domain. Update `backend_test/server.js`:
+⚠️ **CRITICAL STEP**: Your AWS backend needs to allow the Render frontend domain.
 
 ```javascript
 const cors = require('cors');
