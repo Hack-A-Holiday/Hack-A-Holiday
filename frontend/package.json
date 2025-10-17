@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
+    "@heroicons/react": "^2.2.0",
     "@react-three/drei": "^9.88.13",
     "@react-three/fiber": "^8.15.12",
     "@types/three": "^0.180.0",
