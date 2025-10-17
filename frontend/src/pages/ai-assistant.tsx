@@ -360,32 +360,6 @@ const ItineraryContent: React.FC<{ content: any; role: string; isDarkMode?: bool
   );
 };
 
-// Flight Recommendations Component
-const FlightRecommendations: React.FC<{ flights: any; role: string; isDarkMode?: boolean }> = ({ flights, role, isDarkMode = false }) => (
-  <div style={{ marginBottom: '20px' }}>
-    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <span>✈️</span>
-      <span>Flight Options</span>
-    </div>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      {flights.slice(0, 3).map((flight: any, idx: number) => (
-        <div key={idx} style={{
-          padding: '12px',
-          backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-          borderRadius: '8px',
-          border: isDarkMode ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.1)'
-        }}>
-          <div style={{ fontWeight: '600', marginBottom: '4px' }}>
-            {flight.airline} {flight.flightNumber}
-          </div>
-          <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
-            {flight.departure} → {flight.arrival} • {flight.duration} • ${flight.price}
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
 
 // Hotel Recommendations Component
 const HotelRecommendations: React.FC<{ hotels: any; role: string; isDarkMode?: boolean }> = ({ hotels, role, isDarkMode = false }) => (
@@ -413,6 +387,322 @@ const HotelRecommendations: React.FC<{ hotels: any; role: string; isDarkMode?: b
     </div>
   </div>
 );
+
+// Flight Recommendations Component
+const FlightRecommendations: React.FC<{ flights: any[]; role: string; isDarkMode?: boolean; googleFlightsUrl?: string; origin?: string; destination?: string; depDate?: string; retDate?: string }> = ({ flights, role, isDarkMode = false, googleFlightsUrl, origin, destination, depDate, retDate }) => {
+  const router = useRouter();
+  
+  const handleExploreMore = () => {
+    // Redirect to flight search page with the dates
+    const searchParams = new URLSearchParams();
+    if (origin) searchParams.set('origin', origin);
+    if (destination) searchParams.set('destination', destination);
+    if (depDate) searchParams.set('departureDate', depDate);
+    if (retDate) searchParams.set('returnDate', retDate);
+    
+    router.push(`/flight-search?${searchParams.toString()}`);
+  };
+
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span>✈️</span>
+        <span>Flight Recommendations</span>
+      </div>
+      
+      <div style={{ marginBottom: '16px', fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
+        Based on your preferences, here are the best flight options:
+      </div>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+        {flights.slice(0, 3).map((flight: any, idx: number) => (
+          <div key={idx} style={{
+            backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'white',
+            borderRadius: '12px',
+            border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0',
+            padding: '16px',
+            boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+              <h3 style={{ 
+                margin: 0, 
+                fontSize: '1.1rem', 
+                fontWeight: '600', 
+                color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50')
+              }}>
+                {idx + 1}. {flight.airline} ({flight.flightNumber})
+              </h3>
+              <div style={{ 
+                fontWeight: '700', 
+                fontSize: '1.2rem', 
+                color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50') 
+              }}>
+                ${flight.price}
+              </div>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+              <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
+                <strong>Route:</strong> {flight.origin} → {flight.destination}
+              </div>
+              <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
+                <strong>Duration:</strong> {flight.duration}
+              </div>
+              <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
+                <strong>Departure:</strong> {new Date(flight.departureTime).toLocaleString()}
+              </div>
+              <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
+                <strong>Arrival:</strong> {new Date(flight.arrivalTime).toLocaleString()}
+              </div>
+              <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
+                <strong>Stops:</strong> {flight.stops === 0 ? 'Direct' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}`}
+              </div>
+            </div>
+            
+            <a
+              href={googleFlightsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 16px',
+                backgroundColor: '#1d4ed8',
+                color: 'white',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                fontSize: '14px',
+                fontWeight: '500',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#1e40af';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#1d4ed8';
+              }}
+            >
+              ✈️ Book {flight.airline} {flight.flightNumber}
+            </a>
+          </div>
+        ))}
+      </div>
+      
+      <button
+        onClick={handleExploreMore}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '10px 16px',
+          backgroundColor: '#059669',
+          color: 'white',
+          borderRadius: '8px',
+          border: 'none',
+          fontSize: '14px',
+          fontWeight: '500',
+          cursor: 'pointer',
+          transition: 'background-color 0.2s'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#047857';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '#059669';
+        }}
+      >
+        🔍 Explore More Options
+      </button>
+    </div>
+  );
+};
+
+// Attractions Recommendations Component
+const AttractionsRecommendations: React.FC<{ attractions: any[]; role: string; isDarkMode?: boolean; tripAdvisorUrl?: string; destination?: string }> = ({ attractions, role, isDarkMode = false, tripAdvisorUrl, destination }) => {
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span>🏛️</span>
+        <span>Nearby Attractions</span>
+      </div>
+      
+      <div style={{ marginBottom: '16px', fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
+        Discover the best attractions in {destination}:
+      </div>
+      
+      {tripAdvisorUrl && (
+        <div style={{ marginBottom: '16px' }}>
+          <a
+            href={tripAdvisorUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 16px',
+              backgroundColor: '#00a680',
+              color: 'white',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#008f6b';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#00a680';
+            }}
+          >
+            🔍 Explore More on TripAdvisor
+          </a>
+        </div>
+      )}
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+        {attractions.slice(0, 3).map((attraction: any, idx: number) => (
+          <div key={idx} style={{
+            backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'white',
+            borderRadius: '12px',
+            border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0',
+            overflow: 'hidden',
+            boxShadow: isDarkMode ? '0 4px 6px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
+            transition: 'transform 0.2s, box-shadow 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = isDarkMode ? '0 8px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = isDarkMode ? '0 4px 6px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)';
+          }}
+          >
+            {/* Attraction Image Placeholder */}
+            <div style={{
+              height: '200px',
+              backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#f5f5f5',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '48px',
+              color: isDarkMode ? 'rgba(255,255,255,0.3)' : '#ccc'
+            }}>
+              {attraction.photo_url ? (
+                <img 
+                  src={attraction.photo_url} 
+                  alt={attraction.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                '🏛️'
+              )}
+            </div>
+            
+            {/* Attraction Content */}
+            <div style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                <h3 style={{ 
+                  margin: 0, 
+                  fontSize: '1.1rem', 
+                  fontWeight: '600', 
+                  color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'),
+                  lineHeight: '1.3'
+                }}>
+                  {attraction.name}
+                </h3>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ 
+                    fontWeight: '700', 
+                    fontSize: '1rem', 
+                    color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50') 
+                  }}>
+                    {attraction.category}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Rating */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
+                <span style={{ color: '#ffc107', fontSize: '14px' }}>⭐</span>
+                <span style={{ 
+                  fontSize: '0.9rem', 
+                  fontWeight: '500', 
+                  color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? 'rgba(255,255,255,0.8)' : '#666') 
+                }}>
+                  {attraction.rating}/5
+                </span>
+                <span style={{ 
+                  fontSize: '0.8rem', 
+                  color: role === 'user' ? 'rgba(255,255,255,0.6)' : (isDarkMode ? 'rgba(255,255,255,0.5)' : '#999') 
+                }}>
+                  ({attraction.review_count || 'N/A'} reviews)
+                </span>
+              </div>
+              
+              {/* Address */}
+              <div style={{ 
+                fontSize: '0.9rem', 
+                color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666'),
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                📍 {attraction.address || 'Address not specified'}
+              </div>
+              
+              {/* Description */}
+              {attraction.description && (
+                <div style={{ 
+                  fontSize: '0.85rem', 
+                  color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666'),
+                  lineHeight: '1.4',
+                  marginBottom: '12px'
+                }}>
+                  {attraction.description.length > 100 ? `${attraction.description.substring(0, 100)}...` : attraction.description}
+                </div>
+              )}
+              
+              {/* View on TripAdvisor Button */}
+              {attraction.web_url && (
+                <a
+                  href={attraction.web_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 16px',
+                    backgroundColor: '#00a680',
+                    color: 'white',
+                    borderRadius: '8px',
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#008f6b';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#00a680';
+                  }}
+                >
+                  View on TripAdvisor
+                </a>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 // Hotel Cards Component (similar to search pages)
 const HotelCards: React.FC<{ hotels: any[]; role: string; isDarkMode?: boolean; bookingUrl?: string }> = ({ hotels, role, isDarkMode = false, bookingUrl }) => (
@@ -640,7 +930,7 @@ interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string | Record<string, any>;
   timestamp: number;
-  type?: 'text' | 'recommendation' | 'link' | 'itinerary' | 'hotel_cards';
+  type?: 'text' | 'recommendation' | 'link' | 'itinerary' | 'hotel_cards' | 'flight_recommendations' | 'attractions_recommendations';
   data?: any;
 }
 
@@ -1140,6 +1430,25 @@ What would you like to explore?`,
               role={message.role} 
               isDarkMode={isDarkMode} 
               bookingUrl={message.data.bookingUrl}
+            />
+          ) : message.type === 'flight_recommendations' && message.data?.flights ? (
+            <FlightRecommendations 
+              flights={message.data.flights} 
+              role={message.role} 
+              isDarkMode={isDarkMode} 
+              googleFlightsUrl={message.data.googleFlightsUrl}
+              origin={message.data.origin}
+              destination={message.data.destination}
+              depDate={message.data.depDate}
+              retDate={message.data.retDate}
+            />
+          ) : message.type === 'attractions_recommendations' && message.data?.attractions ? (
+            <AttractionsRecommendations 
+              attractions={message.data.attractions} 
+              role={message.role} 
+              isDarkMode={isDarkMode} 
+              tripAdvisorUrl={message.data.tripAdvisorUrl}
+              destination={message.data.destination}
             />
           ) : (
             <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{renderFormattedText(message.content)}</div>
