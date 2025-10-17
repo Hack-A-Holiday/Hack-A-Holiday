@@ -1928,7 +1928,6 @@ const AiAgentPage: React.FC = () => {
         <Navbar />
         
         <main style={{ 
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           height: 'calc(100vh - 60px)',
           display: 'flex',
           flexDirection: 'column',

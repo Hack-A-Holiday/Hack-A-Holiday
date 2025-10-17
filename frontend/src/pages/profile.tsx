@@ -796,7 +796,7 @@ export default function ProfilePage() {
           : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
       }}>
         <Navbar />
-        <main style={{ padding: '40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+        <main style={{ padding: '40px 20px' }}>
           <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
             
             {/* Profile Information */}

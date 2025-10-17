@@ -763,7 +763,7 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 					: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
 			}}>
 				<Navbar />
-				<main style={{ padding: getContainerPadding(), fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+				<main style={{ padding: getContainerPadding() }}>
 					<div style={{ maxWidth: '800px', margin: '0 auto' }}>
 						<div style={{ textAlign: 'center', marginBottom: isMobile ? '30px' : '40px', color: 'white' }}>
 							<div style={{ 

@@ -210,7 +210,7 @@ export default function AiAgentPage() {
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+    <div style={{ padding: '20px' }}>
       <h1 style={{ textAlign: 'center', margin: '20px 0' }}>AI Travel Agent 🤖</h1>
       
       {/* Chat Messages */}
