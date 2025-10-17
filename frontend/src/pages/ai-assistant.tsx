@@ -954,6 +954,7 @@ export default function AIAssistant() {
   const [conversationId, setConversationId] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     // Debug auth state
@@ -1482,6 +1483,14 @@ What would you like to explore?`,
     setInputMessage(prompt);
   };
 
+  const handleStartChat = () => {
+    setShowChat(true);
+    // Initialize conversation when starting chat
+    if (state.user) {
+      initializeConversation();
+    }
+  };
+
   return (
     <ProtectedRoute requireAuth={true}>
       <Head>
@@ -1489,52 +1498,331 @@ What would you like to explore?`,
         <meta name="description" content="Get personalized travel recommendations powered by AI" />
       </Head>
 
-  <div style={{ minHeight: '100vh', background: isDarkMode ? 'linear-gradient(135deg, #1a1f2e 0%, #16213e 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-        <Navbar />
-
-        <main style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          padding: isMobile ? '20px' : '40px 20px',
-          color: isDarkMode ? '#e0e0e0' : undefined
+      <div style={{ 
+        minHeight: '100vh', 
+        background: isDarkMode 
+          ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)' 
+          : 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%)',
+        position: 'relative'
+      }}>
+        {/* Animated background elements */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflow: 'hidden',
+          zIndex: 0
         }}>
           <div style={{
-            background: isDarkMode ? '#252d3d' : 'white',
-            borderRadius: '15px',
-            overflow: 'hidden',
-            boxShadow: isDarkMode ? '0 20px 40px rgba(0,0,0,0.6)' : '0 20px 40px rgba(0,0,0,0.1)',
-            border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
-            height: isMobile ? 'calc(100vh - 100px)' : '75vh',
+            position: 'absolute',
+            top: '10%',
+            left: '10%',
+            width: '300px',
+            height: '300px',
+            background: isDarkMode 
+              ? 'radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%)'
+              : 'radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, transparent 70%)',
+            borderRadius: '50%',
+            animation: 'float 6s ease-in-out infinite'
+          }} />
+          <div style={{
+            position: 'absolute',
+            bottom: '20%',
+            right: '15%',
+            width: '200px',
+            height: '200px',
+            background: isDarkMode 
+              ? 'radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%)'
+              : 'radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%)',
+            borderRadius: '50%',
+            animation: 'float 8s ease-in-out infinite reverse'
+          }} />
+        </div>
+
+        <Navbar />
+
+        {!showChat ? (
+          /* Welcome Screen */
+          <div style={{
+            position: 'relative',
+            zIndex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 'calc(100vh - 80px)',
+            padding: isMobile ? '20px 16px' : '40px 24px'
+          }}>
+            <div style={{
+              textAlign: 'center',
+              maxWidth: '800px',
+              margin: '0 auto'
+            }}>
+              {/* AI Icon */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '120px',
+                height: '120px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '32px',
+                boxShadow: '0 25px 50px rgba(102, 126, 234, 0.4)',
+                marginBottom: '40px',
+                animation: 'pulse 3s ease-in-out infinite alternate'
+              }}>
+                <svg width="60" height="60" viewBox="0 0 24 24" fill="white">
+                  <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.9 1 3 1.9 3 3V19C3 20.1 3.9 21 5 21H11V19H5V3H14L20 9H21ZM17.5 12C17.78 12 18 12.22 18 12.5V18.5C18 18.78 17.78 19 17.5 19H14.5C14.22 19 14 18.78 14 18.5V12.5C14 12.22 14.22 12 14.5 12H17.5ZM16 10.5C16.83 10.5 17.5 11.17 17.5 12H14.5C14.5 11.17 15.17 10.5 16 10.5Z"/>
+                </svg>
+              </div>
+
+              {/* Title */}
+              <h1 style={{
+                fontSize: isMobile ? '3rem' : '4.5rem',
+                fontWeight: '900',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                margin: '0 0 24px 0',
+                letterSpacing: '-0.02em',
+                lineHeight: '1.1'
+              }}>
+                AI Travel Assistant
+              </h1>
+
+              {/* Description */}
+              <p style={{
+                fontSize: isMobile ? '1.2rem' : '1.5rem',
+                color: isDarkMode ? '#94a3b8' : '#64748b',
+                margin: '0 auto 48px auto',
+                maxWidth: '700px',
+                lineHeight: '1.6',
+                fontWeight: '400'
+              }}>
+                Your intelligent travel companion powered by advanced AI. 
+                Plan trips, discover destinations, and get personalized recommendations.
+              </p>
+
+              {/* Start Chat Button */}
+              <button
+                onClick={handleStartChat}
+                style={{
+                  padding: isMobile ? '18px 40px' : '24px 48px',
+                  fontSize: isMobile ? '1.1rem' : '1.3rem',
+                  fontWeight: '700',
+                  color: 'white',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  backgroundSize: '200% 200%',
+                  backgroundPosition: '100% 100%',
+                  border: 'none',
+                  borderRadius: '50px',
+                  cursor: 'pointer',
+                  transition: 'background-position 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease, transform 0.3s ease',
+                  boxShadow: '0 20px 40px rgba(102, 126, 234, 0.4)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  transform: 'scale(1)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #667eea 0%, #5b68e6 30%, #8b5cf6 70%, #9333ea 100%)';
+                  e.currentTarget.style.backgroundSize = '200% 200%';
+                  e.currentTarget.style.backgroundPosition = '0% 0%';
+                  e.currentTarget.style.boxShadow = '0 25px 50px rgba(139, 92, 246, 0.6)';
+                  e.currentTarget.style.transform = 'scale(1.01)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                  e.currentTarget.style.backgroundSize = '200% 200%';
+                  e.currentTarget.style.backgroundPosition = '100% 100%';
+                  e.currentTarget.style.boxShadow = '0 20px 40px rgba(102, 126, 234, 0.4)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                Start Chat
+              </button>
+
+              {/* Features */}
+              <div style={{
+                marginTop: '80px',
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
+                gap: '32px',
+                maxWidth: '900px',
+                margin: '80px auto 0'
+              }}>
+                {[
+                  { icon: '✈️', title: 'Flight Planning', desc: 'Find best flights and routes' },
+                  { icon: '🏨', title: 'Hotel Booking', desc: 'Discover perfect accommodations' },
+                  { icon: '🗺️', title: 'Itinerary Creation', desc: 'Plan detailed travel schedules' }
+                ].map((feature, idx) => (
+                  <div key={idx} style={{
+                    textAlign: 'center',
+                    padding: '24px',
+                    background: isDarkMode 
+                      ? 'rgba(30, 41, 59, 0.4)' 
+                      : 'rgba(255, 255, 255, 0.6)',
+                    borderRadius: '20px',
+                    border: isDarkMode 
+                      ? '1px solid rgba(148, 163, 184, 0.1)' 
+                      : '1px solid rgba(226, 232, 240, 0.6)',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: isDarkMode 
+                      ? '0 8px 32px rgba(0, 0, 0, 0.3)'
+                      : '0 8px 32px rgba(0, 0, 0, 0.1)'
+                  }}>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '16px' }}>
+                      {feature.icon}
+                    </div>
+                    <h3 style={{
+                      fontSize: '1.1rem',
+                      fontWeight: '600',
+                      color: isDarkMode ? '#f1f5f9' : '#1e293b',
+                      margin: '0 0 8px 0'
+                    }}>
+                      {feature.title}
+                    </h3>
+                    <p style={{
+                      fontSize: '0.95rem',
+                      color: isDarkMode ? '#94a3b8' : '#64748b',
+                      margin: 0,
+                      lineHeight: '1.4'
+                    }}>
+                      {feature.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Chat Interface */
+          <div style={{
+            position: 'relative',
+            zIndex: 1,
             display: 'flex',
             flexDirection: 'column',
-            color: isDarkMode ? '#e0e0e0' : undefined,
-            maxWidth: '1200px',
-            margin: '0 auto'
+            minHeight: 'calc(100vh - 80px)',
+            maxWidth: '1400px',
+            margin: '0 auto',
+            padding: isMobile ? '20px 16px' : '40px 24px'
           }}>
-            {/* Header */}
+
+          {/* Chat Container */}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            background: isDarkMode ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.9)',
+            borderRadius: '24px',
+            border: isDarkMode 
+              ? '1px solid rgba(148, 163, 184, 0.1)' 
+              : '1px solid rgba(226, 232, 240, 0.8)',
+            boxShadow: isDarkMode 
+              ? '0 25px 50px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(148, 163, 184, 0.1)'
+              : '0 25px 50px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(20px)',
+            overflow: 'hidden',
+            minHeight: '600px'
+          }}>
+            {/* Chat Header */}
             <div style={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              padding: isMobile ? '20px' : '28px 48px',
-              color: 'white',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+              padding: isMobile ? '24px' : '32px 40px',
+              borderBottom: isDarkMode 
+                ? '1px solid rgba(148, 163, 184, 0.1)' 
+                : '1px solid rgba(226, 232, 240, 0.8)',
+              background: isDarkMode 
+                ? 'rgba(15, 23, 42, 0.5)' 
+                : 'rgba(248, 250, 252, 0.8)',
+              backdropFilter: 'blur(10px)'
             }}>
-              <h1 style={{ 
-                margin: 0, 
-                fontSize: isMobile ? '1.5rem' : '1.8rem', 
-                fontWeight: '700',
+              <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px'
+                justifyContent: 'space-between',
+                marginBottom: '8px'
               }}>
-                <span style={{ fontSize: isMobile ? '1.8rem' : '2rem' }}>🤖</span>
-                <span>AI Travel Assistant</span>
-              </h1>
-              <p style={{ 
-                margin: '5px 0 0 0', 
-                opacity: 0.9, 
-                fontSize: '0.9rem' 
+                <button
+                  onClick={() => setShowChat(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    border: isDarkMode 
+                      ? '1px solid rgba(148, 163, 184, 0.2)' 
+                      : '1px solid rgba(226, 232, 240, 0.8)',
+                    borderRadius: '12px',
+                    color: isDarkMode ? '#94a3b8' : '#64748b',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '500',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = isDarkMode 
+                      ? 'rgba(30, 41, 59, 0.5)' 
+                      : 'rgba(241, 245, 249, 0.8)';
+                    e.currentTarget.style.borderColor = '#6366f1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.borderColor = isDarkMode 
+                      ? 'rgba(148, 163, 184, 0.2)' 
+                      : 'rgba(226, 232, 240, 0.8)';
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="m15 18-6-6 6-6"/>
+                  </svg>
+                  Back
+                </button>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <div style={{
+                    width: '12px',
+                    height: '12px',
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    boxShadow: '0 0 0 2px rgba(16, 185, 129, 0.2)',
+                    animation: 'pulse 2s infinite'
+                  }} />
+                  <span style={{
+                    fontSize: isMobile ? '1.1rem' : '1.3rem',
+                    fontWeight: '700',
+                    color: isDarkMode ? '#f1f5f9' : '#0f172a'
+                  }}>
+                    AI Assistant Online
+                  </span>
+                </div>
+                
+                <div style={{
+                  fontSize: '0.875rem',
+                  color: isDarkMode ? '#94a3b8' : '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2Z"/>
+                  </svg>
+                  Powered by Nova AI
+                </div>
+              </div>
+              <p style={{
+                margin: 0,
+                fontSize: '0.95rem',
+                color: isDarkMode ? '#94a3b8' : '#64748b',
+                lineHeight: '1.5'
               }}>
-                Your intelligent travel planning assistant • AI-Powered
+                Ask me anything about travel planning, destinations, flights, or accommodations
               </p>
             </div>
 
@@ -1542,90 +1830,185 @@ What would you like to explore?`,
             <div style={{
               flex: 1,
               overflowY: 'auto',
-              padding: '20px',
-              background: isDarkMode ? '#252d3d' : '#fafafa',
-              color: isDarkMode ? '#e0e0e0' : undefined
+              padding: isMobile ? '20px' : '32px 40px',
+              background: isDarkMode 
+                ? 'linear-gradient(to bottom, rgba(15, 23, 42, 0.3) 0%, rgba(30, 41, 59, 0.3) 100%)' 
+                : 'linear-gradient(to bottom, rgba(248, 250, 252, 0.5) 0%, rgba(241, 245, 249, 0.5) 100%)',
+              minHeight: '400px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '24px'
             }}>
-              {messages.map(renderMessage)}
-              {isLoading && (
-                <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '16px', animation: 'fadeIn 0.3s ease-in' }}>
+              {messages.length === 0 && (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '60px 20px',
+                  opacity: 0.7
+                }}>
                   <div style={{
-                    padding: '18px 24px',
-                    borderRadius: '20px',
-                    background: 'linear-gradient(135deg, #f0f2f5 0%, #e8eaf0 100%)',
-                    color: '#667eea',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    width: '120px',
+                    height: '120px',
+                    margin: '0 auto 24px',
+                    background: isDarkMode 
+                      ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)'
+                      : 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)',
+                    borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    fontSize: '0.95rem',
-                    fontWeight: '500'
+                    justifyContent: 'center',
+                    border: isDarkMode ? '2px solid rgba(99, 102, 241, 0.2)' : '2px solid rgba(99, 102, 241, 0.1)'
                   }}>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <svg width="60" height="60" viewBox="0 0 24 24" fill={isDarkMode ? '#6366f1' : '#8b5cf6'}>
+                      <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.9 1 3 1.9 3 3V19C3 20.1 3.9 21 5 21H11V19H5V3H14L20 9H21Z"/>
+                    </svg>
+                  </div>
+                  <h3 style={{
+                    fontSize: '1.5rem',
+                    fontWeight: '600',
+                    color: isDarkMode ? '#e2e8f0' : '#1e293b',
+                    margin: '0 0 12px 0'
+                  }}>
+                    Welcome to AI Travel Assistant
+                  </h3>
+                  <p style={{
+                    color: isDarkMode ? '#94a3b8' : '#64748b',
+                    margin: 0,
+                    fontSize: '1rem',
+                    lineHeight: '1.5'
+                  }}>
+                    Start a conversation to get personalized travel recommendations, 
+                    plan itineraries, or ask about destinations worldwide.
+                  </p>
+                </div>
+              )}
+
+              {messages.map(renderMessage)}
+              
+              {isLoading && (
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'flex-start', 
+                  animation: 'fadeInUp 0.5s ease-out' 
+                }}>
+                  <div style={{
+                    background: isDarkMode 
+                      ? 'rgba(30, 41, 59, 0.8)' 
+                      : 'rgba(255, 255, 255, 0.9)',
+                    border: isDarkMode 
+                      ? '1px solid rgba(148, 163, 184, 0.1)' 
+                      : '1px solid rgba(226, 232, 240, 0.6)',
+                    borderRadius: '24px',
+                    padding: '20px 28px',
+                    boxShadow: isDarkMode 
+                      ? '0 10px 30px rgba(0, 0, 0, 0.3)'
+                      : '0 10px 30px rgba(0, 0, 0, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    maxWidth: '320px'
+                  }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      gap: '6px', 
+                      alignItems: 'center' 
+                    }}>
                       {[0, 1, 2].map((i) => (
                         <div
                           key={i}
                           style={{
-                            width: '8px',
-                            height: '8px',
+                            width: '10px',
+                            height: '10px',
                             borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                            animation: `bounce 1.4s ease-in-out ${i * 0.16}s infinite`,
+                            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                            animation: `bounce 1.6s ease-in-out ${i * 0.2}s infinite`,
                           }}
                         />
                       ))}
                     </div>
-                    Planning your adventure...
+                    <span style={{
+                      color: isDarkMode ? '#e2e8f0' : '#1e293b',
+                      fontSize: '1rem',
+                      fontWeight: '500'
+                    }}>
+                      Thinking...
+                    </span>
                   </div>
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Suggested Prompts (show when no messages except welcome) */}
-            {messages.length <= 1 && (
+            {/* Suggested Prompts (show when no messages) */}
+            {messages.length === 0 && (
               <div style={{
-                padding: '16px 20px',
-                background: isDarkMode ? '#252d3d' : 'white',
-                borderTop: isDarkMode ? '1px solid #444' : '1px solid #e0e0e0',
-                color: isDarkMode ? '#e0e0e0' : '#666'
+                padding: isMobile ? '20px 24px' : '24px 40px',
+                borderTop: isDarkMode 
+                  ? '1px solid rgba(148, 163, 184, 0.1)' 
+                  : '1px solid rgba(226, 232, 240, 0.8)',
+                background: isDarkMode 
+                  ? 'rgba(15, 23, 42, 0.5)' 
+                  : 'rgba(248, 250, 252, 0.8)',
+                backdropFilter: 'blur(10px)'
               }}>
-                <div style={{
-                  fontSize: '0.85rem',
-                  color: '#666',
-                  marginBottom: '8px',
-                  fontWeight: '500'
-                }}>
-                  💡 Try asking:
-                </div>
-                <div style={{
+                <h4 style={{
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: isDarkMode ? '#f1f5f9' : '#334155',
+                  margin: '0 0 16px 0',
                   display: 'flex',
-                  flexWrap: 'wrap',
+                  alignItems: 'center',
                   gap: '8px'
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  Popular Questions
+                </h4>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+                  gap: '12px'
                 }}>
                   {suggestedPrompts.map((prompt, idx) => (
                     <button
                       key={idx}
                       onClick={() => handlePromptClick(prompt)}
                       style={{
-                        padding: '10px 20px',
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        border: 'none',
-                        borderRadius: '24px',
-                        fontSize: '0.9rem',
+                        padding: '16px 20px',
+                        background: isDarkMode 
+                          ? 'rgba(30, 41, 59, 0.6)' 
+                          : 'rgba(255, 255, 255, 0.7)',
+                        border: isDarkMode 
+                          ? '1px solid rgba(148, 163, 184, 0.1)' 
+                          : '1px solid rgba(226, 232, 240, 0.6)',
+                        borderRadius: '16px',
+                        fontSize: '0.95rem',
                         cursor: 'pointer',
-                        transition: 'all 0.3s ease',
-                        color: 'white',
-                        fontWeight: '600',
-                        boxShadow: '0 4px 12px rgba(59,130,246,0.3)'
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        color: isDarkMode ? '#e2e8f0' : '#334155',
+                        fontWeight: '500',
+                        textAlign: 'left',
+                        backdropFilter: 'blur(10px)',
+                        boxShadow: isDarkMode 
+                          ? '0 4px 12px rgba(0, 0, 0, 0.2)'
+                          : '0 4px 12px rgba(0, 0, 0, 0.05)'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-3px) scale(1.05)';
-                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(59,130,246,0.5)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = isDarkMode 
+                          ? '0 8px 25px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.3)'
+                          : '0 8px 25px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(99, 102, 241, 0.2)';
+                        e.currentTarget.style.borderColor = '#6366f1';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(59,130,246,0.3)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = isDarkMode 
+                          ? '0 4px 12px rgba(0, 0, 0, 0.2)'
+                          : '0 4px 12px rgba(0, 0, 0, 0.05)';
+                        e.currentTarget.style.borderColor = isDarkMode 
+                          ? 'rgba(148, 163, 184, 0.1)' 
+                          : 'rgba(226, 232, 240, 0.6)';
                       }}
                     >
                       {prompt}
@@ -1637,99 +2020,187 @@ What would you like to explore?`,
 
             {/* Input Area */}
             <div style={{
-              padding: '20px',
-              background: isDarkMode ? '#232526' : 'white',
-              borderTop: isDarkMode ? '1px solid #444' : '1px solid #e0e0e0'
+              padding: isMobile ? '20px 24px' : '24px 40px',
+              borderTop: isDarkMode 
+                ? '1px solid rgba(148, 163, 184, 0.1)' 
+                : '1px solid rgba(226, 232, 240, 0.8)',
+              background: isDarkMode 
+                ? 'rgba(15, 23, 42, 0.7)' 
+                : 'rgba(248, 250, 252, 0.9)',
+              backdropFilter: 'blur(20px)'
             }}>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="Ask me anything about your travel plans..."
-                  disabled={isLoading}
-                  style={{
-                    flex: 1,
-                    padding: '14px 20px',
-                    borderRadius: '25px',
-                    border: isDarkMode ? '2px solid #444' : '2px solid #e0e0e0',
-                    fontSize: '1rem',
-                    outline: 'none',
-                    transition: 'border-color 0.2s',
-                    backgroundColor: isLoading ? (isDarkMode ? '#333' : '#f5f5f5') : (isDarkMode ? '#232526' : 'white'),
-                    color: isDarkMode ? '#e0e0e0' : undefined
-                  }}
-                  onFocus={(e) => e.currentTarget.style.borderColor = isDarkMode ? '#667eea' : '#667eea'}
-                  onBlur={(e) => e.currentTarget.style.borderColor = isDarkMode ? '#444' : '#e0e0e0'}
-                />
+              <div style={{ 
+                display: 'flex', 
+                gap: '16px', 
+                alignItems: 'flex-end',
+                maxWidth: '1000px',
+                margin: '0 auto'
+              }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <textarea
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder="Ask me about destinations, flights, hotels, or anything travel-related..."
+                    disabled={isLoading}
+                    rows={1}
+                    style={{
+                      width: '100%',
+                      padding: '18px 24px',
+                      paddingRight: '60px',
+                      borderRadius: '24px',
+                      fontSize: '1rem',
+                      outline: 'none',
+                      resize: 'none',
+                      fontFamily: 'inherit',
+                      lineHeight: '1.5',
+                      background: isDarkMode 
+                        ? 'rgba(30, 41, 59, 0.8)' 
+                        : 'rgba(255, 255, 255, 0.9)',
+                      color: isDarkMode ? '#f1f5f9' : '#0f172a',
+                      border: isDarkMode 
+                        ? '2px solid rgba(148, 163, 184, 0.2)' 
+                        : '2px solid rgba(226, 232, 240, 0.8)',
+                      backdropFilter: 'blur(10px)',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: isDarkMode 
+                        ? '0 4px 20px rgba(0, 0, 0, 0.2)'
+                        : '0 4px 20px rgba(0, 0, 0, 0.08)',
+                      minHeight: '56px',
+                      maxHeight: '120px'
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = '#6366f1';
+                      e.currentTarget.style.boxShadow = isDarkMode 
+                        ? '0 8px 30px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(99, 102, 241, 0.1)'
+                        : '0 8px 30px rgba(0, 0, 0, 0.12), 0 0 0 3px rgba(99, 102, 241, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = isDarkMode 
+                        ? 'rgba(148, 163, 184, 0.2)' 
+                        : 'rgba(226, 232, 240, 0.8)';
+                      e.currentTarget.style.boxShadow = isDarkMode 
+                        ? '0 4px 20px rgba(0, 0, 0, 0.2)'
+                        : '0 4px 20px rgba(0, 0, 0, 0.08)';
+                    }}
+                  />
+                  
+                  {/* Character counter */}
+                  {inputMessage.length > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '8px',
+                      right: '24px',
+                      fontSize: '0.75rem',
+                      color: isDarkMode ? '#64748b' : '#94a3b8',
+                      background: isDarkMode ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                      padding: '2px 6px',
+                      borderRadius: '6px',
+                      backdropFilter: 'blur(5px)'
+                    }}>
+                      {inputMessage.length}
+                    </div>
+                  )}
+                </div>
+                
                 <button
                   onClick={handleSendMessage}
                   disabled={!inputMessage.trim() || isLoading}
                   style={{
-                    padding: '14px 28px',
-                    background: inputMessage.trim() && !isLoading
-                      ? (isDarkMode ? 'linear-gradient(135deg, #232526 0%, #414345 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)')
-                      : (isDarkMode ? '#444' : '#ccc'),
-                    color: 'white',
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '18px',
                     border: 'none',
-                    borderRadius: '25px',
-                    fontSize: '1rem',
-                    fontWeight: 'bold',
+                    background: inputMessage.trim() && !isLoading
+                      ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
+                      : (isDarkMode ? 'rgba(71, 85, 105, 0.5)' : 'rgba(148, 163, 184, 0.5)'),
+                    color: 'white',
                     cursor: inputMessage.trim() && !isLoading ? 'pointer' : 'not-allowed',
-                    transition: 'all 0.3s ease',
-                    boxShadow: inputMessage.trim() && !isLoading ? (isDarkMode ? '0 4px 12px rgba(30,30,30,0.5)' : '0 4px 12px rgba(102, 126, 234, 0.3)') : 'none',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    minWidth: '120px',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    boxShadow: inputMessage.trim() && !isLoading 
+                      ? '0 8px 25px rgba(99, 102, 241, 0.4)'
+                      : 'none',
+                    position: 'relative',
+                    overflow: 'hidden'
                   }}
                   onMouseEnter={(e) => {
                     if (inputMessage.trim() && !isLoading) {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = isDarkMode ? '0 6px 16px rgba(30,30,30,0.7)' : '0 6px 16px rgba(102, 126, 234, 0.4)';
+                      e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
+                      e.currentTarget.style.boxShadow = '0 12px 35px rgba(99, 102, 241, 0.6)';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = inputMessage.trim() && !isLoading ? (isDarkMode ? '0 4px 12px rgba(30,30,30,0.5)' : '0 4px 12px rgba(102, 126, 234, 0.3)') : 'none';
+                    e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                    e.currentTarget.style.boxShadow = inputMessage.trim() && !isLoading 
+                      ? '0 8px 25px rgba(99, 102, 241, 0.4)'
+                      : 'none';
                   }}
                 >
                   {isLoading ? (
-                    <>
-                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                        {[0, 1, 2].map((i) => (
-                          <div
-                            key={i}
-                            style={{
-                              width: '6px',
-                              height: '6px',
-                              borderRadius: '50%',
-                              background: 'white',
-                              animation: `bounce 1.4s ease-in-out ${i * 0.16}s infinite`,
-                            }}
-                          />
-                        ))}
-                      </div>
-                      Processing...
-                    </>
+                    <div style={{ 
+                      display: 'flex', 
+                      gap: '3px', 
+                      alignItems: 'center' 
+                    }}>
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          style={{
+                            width: '4px',
+                            height: '4px',
+                            borderRadius: '50%',
+                            background: 'currentColor',
+                            animation: `bounce 1.4s ease-in-out ${i * 0.16}s infinite`,
+                          }}
+                        />
+                      ))}
+                    </div>
                   ) : (
-                    <>
-                      Send 📤
-                    </>
+                    <svg 
+                      width="24" 
+                      height="24" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m22 2-7 20-4-9-9-4Z"/>
+                      <path d="M22 2 11 13"/>
+                    </svg>
                   )}
                 </button>
               </div>
             </div>
+            </div>
           </div>
-        </main>
+        )}
 
         <style jsx>{`
           @keyframes fadeIn {
             from {
               opacity: 0;
-              transform: translateY(10px);
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          @keyframes fadeInUp {
+            from {
+              opacity: 0;
+              transform: translateY(30px);
             }
             to {
               opacity: 1;
@@ -1743,42 +2214,67 @@ What would you like to explore?`,
               opacity: 0.7;
             }
             40% {
-              transform: translateY(-10px);
+              transform: translateY(-8px);
               opacity: 1;
             }
           }
 
-          .typing-indicator {
-            display: flex;
-            gap: 4px;
-            align-items: center;
+          @keyframes pulse {
+            0%, 100% {
+              transform: scale(1);
+              opacity: 1;
+            }
+            50% {
+              transform: scale(1.05);
+              opacity: 0.8;
+            }
           }
 
-          .typing-indicator span {
+          @keyframes float {
+            0%, 100% {
+              transform: translateY(0px) rotate(0deg);
+            }
+            33% {
+              transform: translateY(-30px) rotate(2deg);
+            }
+            66% {
+              transform: translateY(-20px) rotate(-2deg);
+            }
+          }
+
+          /* Smooth scrollbar styling */
+          div::-webkit-scrollbar {
             width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #667eea;
-            animation: typing 1.4s infinite;
           }
 
-          .typing-indicator span:nth-child(2) {
-            animation-delay: 0.2s;
+          div::-webkit-scrollbar-track {
+            background: transparent;
           }
 
-          .typing-indicator span:nth-child(3) {
-            animation-delay: 0.4s;
+          div::-webkit-scrollbar-thumb {
+            background: ${isDarkMode ? 'rgba(148, 163, 184, 0.3)' : 'rgba(148, 163, 184, 0.4)'};
+            border-radius: 20px;
           }
 
-          @keyframes typing {
-            0%, 60%, 100% {
-              transform: translateY(0);
-              opacity: 0.7;
-            }
-            30% {
-              transform: translateY(-10px);
-              opacity: 1;
-            }
+          div::-webkit-scrollbar-thumb:hover {
+            background: ${isDarkMode ? 'rgba(148, 163, 184, 0.5)' : 'rgba(148, 163, 184, 0.6)'};
+          }
+
+          /* Auto-resize textarea */
+          textarea {
+            resize: none;
+            overflow: hidden;
+          }
+
+          /* Glass morphism effect */
+          .glass {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+          }
+
+          /* Smooth transitions for all elements */
+          * {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           }
         `}</style>
       </div>
