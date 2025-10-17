@@ -30,6 +30,7 @@ export default function AIAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -306,22 +307,23 @@ In the meantime, I can still help you with general travel advice and planning!`,
       <div key={message.id} style={{ 
         display: 'flex', 
         justifyContent: isUser ? 'flex-end' : 'flex-start',
-        animation: 'fadeInUp 0.5s ease-out'
+        animation: 'fadeInUp 0.5s ease-out',
+        marginBottom: '24px' // Better spacing between messages
       }}>
         <div style={{
-          maxWidth: '85%',
+          maxWidth: isMobile ? '95%' : '80%',
           background: isUser 
             ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
             : (isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.9)'),
           color: isUser ? 'white' : (isDarkMode ? '#e2e8f0' : '#1e293b'),
-          borderRadius: isUser ? '24px 24px 8px 24px' : '24px 24px 24px 8px',
-          padding: '20px 28px',
+          borderRadius: isUser ? '20px 20px 6px 20px' : '20px 20px 20px 6px',
+          padding: isMobile ? '18px 22px' : '24px 32px',
           border: isUser 
             ? 'none'
             : (isDarkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)'),
           boxShadow: isUser
-            ? '0 10px 30px rgba(99, 102, 241, 0.4)'
-            : (isDarkMode ? '0 10px 30px rgba(0, 0, 0, 0.3)' : '0 10px 30px rgba(0, 0, 0, 0.1)'),
+            ? '0 8px 25px rgba(99, 102, 241, 0.3)'
+            : (isDarkMode ? '0 8px 25px rgba(0, 0, 0, 0.2)' : '0 8px 25px rgba(0, 0, 0, 0.08)'),
           backdropFilter: 'blur(10px)',
           position: 'relative'
         }}>
@@ -395,9 +397,10 @@ In the meantime, I can still help you with general travel advice and planning!`,
             // Default text content with enhanced formatting
             <div style={{ 
               whiteSpace: 'pre-wrap',
-              fontSize: '16px',
-              lineHeight: '1.6',
-              color: isUser ? 'white' : (isDarkMode ? '#e0e0e0' : '#333')
+              fontSize: isMobile ? '15px' : '17px',
+              lineHeight: '1.7',
+              color: isUser ? 'white' : (isDarkMode ? '#e2e8f0' : '#2d3748'),
+              letterSpacing: '0.3px'
             }}>
               {renderFormattedText(typeof message.content === 'string' ? message.content : JSON.stringify(message.content))}
             </div>
@@ -499,6 +502,8 @@ In the meantime, I can still help you with general travel advice and planning!`,
             renderMessage={renderMessage}
             suggestedPrompts={suggestedPrompts}
             onPromptClick={handlePromptClick}
+            showSidebar={showSidebar}
+            onToggleSidebar={() => setShowSidebar(!showSidebar)}
           />
         )}
 

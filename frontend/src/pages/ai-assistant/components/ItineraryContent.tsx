@@ -1,8 +1,6 @@
 import React from 'react';
 import { renderFormattedText, parseTextItinerary } from '../utils/textRendering';
-import { FlightRecommendations } from './FlightRecommendations';
-import { HotelRecommendations } from './HotelRecommendations';
-import { DailyItinerary } from './DailyItinerary';
+import { FlightRecommendations, HotelRecommendations, DailyItinerary } from './';
 
 interface ItineraryContentProps {
   content: any;

@@ -220,15 +220,16 @@ export const renderFormattedText = (text: string | any) => {
           marginTop: '20px', 
           display: 'flex', 
           flexDirection: 'column', 
-          gap: '10px',
-          borderTop: '2px solid rgba(102, 126, 234, 0.2)',
+          gap: '8px',
+          borderTop: '1px solid rgba(99, 102, 241, 0.15)',
           paddingTop: '16px'
         }}>
           <div style={{ 
-            fontSize: '0.9rem', 
-            fontWeight: '600', 
-            color: '#667eea',
-            marginBottom: '4px'
+            fontSize: '0.85rem', 
+            fontWeight: '500', 
+            color: '#64748b',
+            marginBottom: '6px',
+            opacity: 0.9
           }}>
             🔍 Search More Options
           </div>
@@ -242,33 +243,34 @@ export const renderFormattedText = (text: string | any) => {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '12px 24px',
-                background: 'linear-gradient(135deg, #4285f4 0%, #357ae8 100%)',
-                color: 'white',
-                borderRadius: '12px',
+                padding: '12px 20px',
+                background: 'rgba(99, 102, 241, 0.1)',
+                color: '#6366f1',
+                borderRadius: '10px',
                 textDecoration: 'none',
-                fontWeight: '600',
-                fontSize: '1rem',
-                boxShadow: '0 4px 16px rgba(66, 133, 244, 0.35)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                fontWeight: '500',
+                fontSize: '0.95rem',
+                border: '1px solid rgba(99, 102, 241, 0.2)',
+                transition: 'all 0.2s ease',
                 cursor: 'pointer',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                position: 'relative',
-                overflow: 'hidden'
+                backdropFilter: 'blur(10px)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 24px rgba(66, 133, 244, 0.5)';
+                e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
               }}
               onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.2)';
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 16px rgba(66, 133, 244, 0.35)';
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M21 16V8C21 7.45 20.55 7 20 7H13L11 5H4C3.45 5 3 5.45 3 6V18C3 18.55 3.45 19 4 19H20C20.55 19 21 18.55 21 18V16ZM8 13L10.5 15.5L14.5 10L18.5 15H5.5L8 13Z" fill="white"/>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
               </svg>
-              ✈️ View {btn.city} on Google Flights
+              ✈️ View on Google Flights
             </a>
           ))}
         </div>
