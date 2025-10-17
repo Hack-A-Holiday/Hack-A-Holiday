@@ -1073,14 +1073,14 @@ export default function FlightSearchPage() {
         minHeight: '100vh',
         background: isDarkMode
           ? 'linear-gradient(135deg, #1a1f2e 0%, #16213e 100%)'
-          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: isMobile ? '10px' : '16px'
+          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
       }}>
         <Navbar />
 
         <div style={{
           maxWidth: '1400px',
           margin: '0 auto',
+          padding: isMobile ? '10px' : '16px',
           paddingTop: isMobile ? '16px' : '24px'
         }}>
           {/* Page Header */}
