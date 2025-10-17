@@ -1785,34 +1785,96 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="adults">Adults</label>
-          <input 
-            type="number" 
-            id="adults" 
-            name="adults" 
-            min="1" 
-            value={searchRequest.passengers.adults} 
-            onChange={(e) => setSearchRequest(prev => ({
-              ...prev,
-              passengers: { ...prev.passengers, adults: parseInt(e.target.value) }
-            }))} 
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="children">Children</label>
-          <input 
-            type="number" 
-            id="children" 
-            name="children" 
-            min="0" 
-            value={searchRequest.passengers.children || 0} 
-            onChange={(e) => setSearchRequest(prev => ({
-              ...prev,
-              passengers: { ...prev.passengers, children: parseInt(e.target.value) }
-            }))} 
-          />
+        <div style={{ marginBottom: '30px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '12px',
+            fontWeight: '600',
+            color: isDarkMode ? '#e8eaed' : '#495057',
+            fontSize: '14px'
+          }}>
+            👥 Passengers
+          </label>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '16px'
+          }}>
+            <div>
+              <label htmlFor="adults" style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '13px',
+                color: isDarkMode ? '#9ca3af' : '#6b7280',
+                fontWeight: '500'
+              }}>
+                Adults (18+)
+              </label>
+              <input 
+                type="number" 
+                id="adults" 
+                name="adults" 
+                min="1" 
+                max="9"
+                value={searchRequest.passengers.adults} 
+                onChange={(e) => setSearchRequest(prev => ({
+                  ...prev,
+                  passengers: { ...prev.passengers, adults: parseInt(e.target.value) || 1 }
+                }))} 
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
+                  borderRadius: '10px',
+                  background: isDarkMode ? '#1a1f2e' : '#fafbfc',
+                  color: isDarkMode ? '#e8eaed' : '#000',
+                  fontSize: '16px',
+                  outline: 'none',
+                  transition: 'all 0.3s ease',
+                  colorScheme: isDarkMode ? 'dark' : 'light'
+                }}
+                onFocus={(e) => e.currentTarget.style.borderColor = isDarkMode ? '#667eea' : '#007bff'}
+                onBlur={(e) => e.currentTarget.style.borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9'}
+              />
+            </div>
+            <div>
+              <label htmlFor="children" style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '13px',
+                color: isDarkMode ? '#9ca3af' : '#6b7280',
+                fontWeight: '500'
+              }}>
+                Children (0-17)
+              </label>
+              <input 
+                type="number" 
+                id="children" 
+                name="children" 
+                min="0" 
+                max="9"
+                value={searchRequest.passengers.children || 0} 
+                onChange={(e) => setSearchRequest(prev => ({
+                  ...prev,
+                  passengers: { ...prev.passengers, children: parseInt(e.target.value) || 0 }
+                }))} 
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
+                  borderRadius: '10px',
+                  background: isDarkMode ? '#1a1f2e' : '#fafbfc',
+                  color: isDarkMode ? '#e8eaed' : '#000',
+                  fontSize: '16px',
+                  outline: 'none',
+                  transition: 'all 0.3s ease',
+                  colorScheme: isDarkMode ? 'dark' : 'light'
+                }}
+                onFocus={(e) => e.currentTarget.style.borderColor = isDarkMode ? '#667eea' : '#007bff'}
+                onBlur={(e) => e.currentTarget.style.borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9'}
+              />
+            </div>
+          </div>
         </div>
 
         <div style={{ marginBottom: '30px' }}>
@@ -1907,28 +1969,6 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
             </>
           )}
         </button>
-
-        {/* Real-Time Data Indicator (always enabled) */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '12px 16px',
-          background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
-          borderRadius: '12px',
-          marginTop: '20px',
-          border: '2px solid #28a745',
-          transition: 'all 0.3s ease'
-        }}>
-          <div style={{
-            fontWeight: '600',
-            color: 'white',
-            fontSize: '14px',
-            textAlign: 'center'
-          }}>
-            🌐 Real-Time Flight Data • Live pricing and availability
-          </div>
-        </div>
       </div>
 
       {showFilters && (
