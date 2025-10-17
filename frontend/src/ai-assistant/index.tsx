@@ -300,6 +300,46 @@ In the meantime, I can still help you with general travel advice and planning!`,
     };
   };
 
+  // Helper function to format timestamps
+  const formatMessageTime = (timestamp: number) => {
+    const now = Date.now();
+    const messageTime = new Date(timestamp);
+    const diffInMinutes = Math.floor((now - timestamp) / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    // If message is from today, show time only
+    if (diffInDays === 0) {
+      if (diffInMinutes < 1) {
+        return 'Just now';
+      } else if (diffInMinutes < 60) {
+        return `${diffInMinutes}m ago`;
+      } else {
+        return messageTime.toLocaleTimeString([], { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        });
+      }
+    }
+    // If older, show date and time
+    else if (diffInDays === 1) {
+      return `Yesterday ${messageTime.toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      })}`;
+    } else {
+      return messageTime.toLocaleDateString([], { 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    }
+  };
+
   const renderMessage = (message: ChatMessage) => {
     const isUser = message.role === 'user';
     
@@ -317,7 +357,7 @@ In the meantime, I can still help you with general travel advice and planning!`,
             : (isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.9)'),
           color: isUser ? 'white' : (isDarkMode ? '#e2e8f0' : '#1e293b'),
           borderRadius: isUser ? '20px 20px 6px 20px' : '20px 20px 20px 6px',
-          padding: isMobile ? '18px 22px' : '24px 32px',
+          padding: isMobile ? '18px 22px 12px 22px' : '24px 32px 16px 32px', // Less bottom padding for timestamp
           border: isUser 
             ? 'none'
             : (isDarkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)'),
@@ -405,6 +445,17 @@ In the meantime, I can still help you with general travel advice and planning!`,
               {renderFormattedText(typeof message.content === 'string' ? message.content : JSON.stringify(message.content))}
             </div>
           )}
+          
+          {/* Timestamp */}
+          <div style={{
+            fontSize: '0.75rem',
+            opacity: 0.6,
+            marginTop: '8px',
+            textAlign: isUser ? 'right' : 'left',
+            color: isUser ? 'rgba(255, 255, 255, 0.7)' : (isDarkMode ? 'rgba(148, 163, 184, 0.8)' : 'rgba(100, 116, 139, 0.8)')
+          }}>
+            {formatMessageTime(message.timestamp)}
+          </div>
         </div>
       </div>
     );
