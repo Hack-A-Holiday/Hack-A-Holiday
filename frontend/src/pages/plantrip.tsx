@@ -474,7 +474,15 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 			console.log('AI Chat Response:', data);
 
 			// Parse AI response to extract daily itinerary
-			const aiResponseText = data.data?.response || data.message || 'Trip planned successfully!';
+			// Handle both single response and multi-message response
+			let aiResponseText;
+			if (Array.isArray(data.data?.response)) {
+				// Multi-message response - use the first message (itinerary)
+				aiResponseText = data.data.response[0]?.content || 'Trip planned successfully!';
+			} else {
+				// Single response
+				aiResponseText = data.data?.response || data.message || 'Trip planned successfully!';
+			}
 			const dailyPlans = parseItineraryFromAI(aiResponseText, tripPreferences.duration);
 
 			// Build itinerary object from AI response
@@ -503,14 +511,26 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 
 			setResult({ success: true, itinerary });
 			
-			// Redirect to ai-agent with the itinerary and conversation ID
-			router.push({ 
-				pathname: '/ai-agent', 
-				query: { 
-					itinerary: JSON.stringify(itinerary),
-					conversationId: data.data?.conversationId || `trip_${Date.now()}`
-				} 
-			});
+			// Check if we have a multi-message response
+			if (Array.isArray(data.data?.response)) {
+				// Multi-message response - pass all messages
+				router.push({ 
+					pathname: '/ai-assistant', 
+					query: { 
+						messages: JSON.stringify(data.data.response),
+						conversationId: data.data?.conversationId || `trip_${Date.now()}`
+					} 
+				});
+			} else {
+				// Single response - pass itinerary as before
+				router.push({ 
+					pathname: '/ai-assistant', 
+					query: { 
+						itinerary: JSON.stringify(itinerary),
+						conversationId: data.data?.conversationId || `trip_${Date.now()}`
+					} 
+				});
+			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Network error');
 		} finally {

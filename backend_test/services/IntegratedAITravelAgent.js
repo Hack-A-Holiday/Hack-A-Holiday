@@ -1109,6 +1109,183 @@ class IntegratedAITravelAgent {
   }
 
   /**
+   * Generate 3 separate messages for trip planning
+   */
+  async generateMultiMessageResponse(bedrockResponse, realData, tripAdvisorData, queryIntent, userPreferences, sessionId, userId) {
+    const messages = [];
+    
+    // Message 1: Detailed Itinerary
+    const itineraryMessage = {
+      id: `msg_${Date.now()}_itinerary`,
+      role: 'assistant',
+      content: bedrockResponse,
+      timestamp: Date.now(),
+      type: 'text'
+    };
+    messages.push(itineraryMessage);
+    
+    // Message 2: Flight Recommendations with individual Google Flights buttons
+    if (realData && realData.type === 'flight' && realData.results && realData.results.length > 0) {
+      const topFlights = realData.results.slice(0, 3); // Top 3 flights
+      const origin = queryIntent.extractedInfo?.origin || '';
+      const destination = queryIntent.extractedInfo?.destination || '';
+      const depDate = queryIntent.extractedInfo?.departureDate || '';
+      const retDate = queryIntent.extractedInfo?.returnDate || '';
+      
+      let flightContent = `## ✈️ Flight Recommendations\n\nBased on your preferences, here are the best flight options:\n\n`;
+      
+      topFlights.forEach((flight, index) => {
+        flightContent += `**${index + 1}. ${flight.airline} (${flight.flightNumber})**\n`;
+        flightContent += `- **Price:** $${flight.price}\n`;
+        flightContent += `- **Route:** ${flight.origin} → ${flight.destination}\n`;
+        flightContent += `- **Departure:** ${flight.departureTime}\n`;
+        flightContent += `- **Arrival:** ${flight.arrivalTime}\n`;
+        flightContent += `- **Duration:** ${flight.duration}\n`;
+        flightContent += `- **Stops:** ${flight.stops}\n\n`;
+      });
+      
+      // Add individual Google Flights buttons for each flight
+      topFlights.forEach((flight, index) => {
+        let individualUrl = 'https://www.google.com/travel/flights';
+        if (retDate) {
+          individualUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}%20returning%20${retDate}`;
+        } else if (depDate) {
+          individualUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}`;
+        } else {
+          individualUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}`;
+        }
+        
+        flightContent += `[✈️ Book ${flight.airline} ${flight.flightNumber}](${individualUrl})\n\n`;
+      });
+      
+      // Add general Google Flights search button
+      let googleFlightsUrl = 'https://www.google.com/travel/flights';
+      if (retDate) {
+        googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}%20returning%20${retDate}`;
+      } else if (depDate) {
+        googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}`;
+      } else {
+        googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}`;
+      }
+      
+      flightContent += `[🔍 Explore More Options](${googleFlightsUrl})\n\n`;
+      flightContent += `*Click any button above to search and book flights directly on Google Flights.*`;
+      
+      const flightMessage = {
+        id: `msg_${Date.now()}_flights`,
+        role: 'assistant',
+        content: flightContent,
+        timestamp: Date.now(),
+        type: 'text',
+        data: {
+          flights: topFlights,
+          googleFlightsUrl: googleFlightsUrl
+        }
+      };
+      messages.push(flightMessage);
+    }
+    
+    // Message 3: Hotel Recommendations as cards
+    if (realData && (realData.type === 'hotel' || realData.type === 'combined') && realData.results && realData.results.length > 0) {
+      const topHotels = realData.results.slice(0, 3); // Top 3 hotels
+      const destination = queryIntent.extractedInfo?.destination || '';
+      const checkIn = queryIntent.extractedInfo?.checkIn || '';
+      const checkOut = queryIntent.extractedInfo?.checkOut || '';
+      const guests = queryIntent.extractedInfo?.guests || 2;
+      
+      let hotelContent = `## 🏨 Hotel Recommendations\n\nHere are the best hotels in ${destination} that fit your budget:\n\n`;
+      
+      // Add Booking.com search button
+      let bookingUrl = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`;
+      if (checkIn) bookingUrl += `&checkin=${checkIn}`;
+      if (checkOut) bookingUrl += `&checkout=${checkOut}`;
+      if (guests) bookingUrl += `&group_adults=${guests}`;
+      
+      hotelContent += `[🏨 Search More Hotels on Booking.com](${bookingUrl})\n\n`;
+      hotelContent += `*Click the link above to search for more hotel options and book directly on Booking.com.*`;
+      
+      const hotelMessage = {
+        id: `msg_${Date.now()}_hotels`,
+        role: 'assistant',
+        content: hotelContent,
+        timestamp: Date.now(),
+        type: 'hotel_cards',
+        data: {
+          hotels: topHotels,
+          bookingUrl: bookingUrl
+        }
+      };
+      messages.push(hotelMessage);
+    } else {
+      // Fallback: Create hotel message with mock data when no hotel data is available
+      const destination = queryIntent.extractedInfo?.destination || 'your destination';
+      const checkIn = queryIntent.extractedInfo?.checkIn || '';
+      const checkOut = queryIntent.extractedInfo?.checkOut || '';
+      const guests = queryIntent.extractedInfo?.guests || 2;
+      
+      // Create mock hotel data
+      const mockHotels = [
+        {
+          name: 'The Lalit Mumbai',
+          price: 100,
+          rating: 4.2,
+          review_count: 1250,
+          location: 'Mumbai, Maharashtra',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa'],
+          description: 'Modern luxury hotel with excellent city views and amenities',
+          address: 'Sahar Airport Road, Mumbai'
+        },
+        {
+          name: 'Trident, Bandra Kurla',
+          price: 120,
+          rating: 4.4,
+          review_count: 980,
+          location: 'Bandra Kurla Complex, Mumbai',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Fitness Center'],
+          description: 'Elegant business hotel in the heart of the financial district',
+          address: 'Bandra Kurla Complex, Mumbai'
+        },
+        {
+          name: 'Taj Lands End',
+          price: 150,
+          rating: 4.6,
+          review_count: 2100,
+          location: 'Bandra West, Mumbai',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Beach Access'],
+          description: 'Luxury beachfront hotel with stunning Arabian Sea views',
+          address: 'Bandra West, Mumbai'
+        }
+      ];
+      
+      let hotelContent = `## 🏨 Hotel Recommendations\n\nHere are some recommended hotels in ${destination}:\n\n`;
+      
+      // Add Booking.com search button
+      let bookingUrl = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`;
+      if (checkIn) bookingUrl += `&checkin=${checkIn}`;
+      if (checkOut) bookingUrl += `&checkout=${checkOut}`;
+      if (guests) bookingUrl += `&group_adults=${guests}`;
+      
+      hotelContent += `[🏨 Search More Hotels on Booking.com](${bookingUrl})\n\n`;
+      hotelContent += `*Click the link above to search for more hotel options and book directly on Booking.com.*`;
+      
+      const hotelMessage = {
+        id: `msg_${Date.now()}_hotels`,
+        role: 'assistant',
+        content: hotelContent,
+        timestamp: Date.now(),
+        type: 'hotel_cards',
+        data: {
+          hotels: mockHotels,
+          bookingUrl: bookingUrl
+        }
+      };
+      messages.push(hotelMessage);
+    }
+    
+    return messages;
+  }
+
+  /**
    * Main entry point - Process user message with full context
    */
   async processMessage(messageData) {
@@ -1234,7 +1411,25 @@ class IntegratedAITravelAgent {
       else if (queryIntent.needsFlightData && queryIntent.needsHotelData) {
         console.log('   📞 Fetching both flight and hotel data from APIs...');
         const flightData = await this.fetchFlightData(queryIntent.extractedInfo, userPreferences);
-        const hotelData = await this.fetchHotelData(queryIntent.extractedInfo, userPreferences);
+        
+        // Calculate hotel check-in/check-out dates from trip duration
+        const hotelInfo = { ...queryIntent.extractedInfo };
+        if (hotelInfo.departureDate && !hotelInfo.checkIn) {
+          // Check-in is the day after arrival (assuming 1 day travel time)
+          const arrivalDate = new Date(hotelInfo.departureDate);
+          arrivalDate.setDate(arrivalDate.getDate() + 1);
+          hotelInfo.checkIn = arrivalDate.toISOString().split('T')[0];
+          
+          // Check-out is based on trip duration
+          const tripDuration = userPreferences?.currentTripDuration || 5; // Default 5 days
+          const checkoutDate = new Date(arrivalDate);
+          checkoutDate.setDate(checkoutDate.getDate() + tripDuration);
+          hotelInfo.checkOut = checkoutDate.toISOString().split('T')[0];
+          
+          console.log(`   🏨 Calculated hotel dates: Check-in ${hotelInfo.checkIn}, Check-out ${hotelInfo.checkOut}`);
+        }
+        
+        const hotelData = await this.fetchHotelData(hotelInfo, userPreferences);
         
         // Combine both if available
         if (flightData && hotelData) {
@@ -1343,7 +1538,25 @@ class IntegratedAITravelAgent {
           }
         } else {
           console.log('   📞 Fetching hotel data from API...');
-          realData = await this.fetchHotelData(queryIntent.extractedInfo, userPreferences);
+          
+          // Calculate hotel check-in/check-out dates from trip duration
+          const hotelInfo = { ...queryIntent.extractedInfo };
+          if (hotelInfo.departureDate && !hotelInfo.checkIn) {
+            // Check-in is the day after arrival (assuming 1 day travel time)
+            const arrivalDate = new Date(hotelInfo.departureDate);
+            arrivalDate.setDate(arrivalDate.getDate() + 1);
+            hotelInfo.checkIn = arrivalDate.toISOString().split('T')[0];
+            
+            // Check-out is based on trip duration
+            const tripDuration = userPreferences?.currentTripDuration || 5; // Default 5 days
+            const checkoutDate = new Date(arrivalDate);
+            checkoutDate.setDate(checkoutDate.getDate() + tripDuration);
+            hotelInfo.checkOut = checkoutDate.toISOString().split('T')[0];
+            
+            console.log(`   🏨 Calculated hotel dates: Check-in ${hotelInfo.checkIn}, Check-out ${hotelInfo.checkOut}`);
+          }
+          
+          realData = await this.fetchHotelData(hotelInfo, userPreferences);
         }
       }
 
@@ -1475,7 +1688,43 @@ class IntegratedAITravelAgent {
         }
       }
       
-      // 12. Return comprehensive response with learned context
+      // 12. Generate 3 separate messages for trip planning
+      if (queryIntent.type === 'trip_planning' && realData) {
+        const multiMessages = await this.generateMultiMessageResponse(
+          bedrockResponse,
+          realData,
+          tripAdvisorData,
+          queryIntent,
+          userPreferences,
+          effectiveSessionId,
+          effectiveUserId
+        );
+        
+        return {
+          role: 'ai',
+          content: multiMessages,
+          metadata: {
+            model: this.modelId,
+            sessionId: effectiveSessionId,
+            userId: effectiveUserId,
+            intent: queryIntent.type,
+            apiCallsMade: realData ? true : false,
+            dataSource: realData ? (queryIntent.needsFlightData ? 'flight-api' : 'hotel-api') : 'bedrock-only',
+            conversationTurn: conversationHistory.length + 1,
+            preferencesApplied: Object.keys(userPreferences).length > 0,
+            preferencesLearned: Object.keys(extractedPrefs).length,
+            timestamp: new Date().toISOString(),
+            multiMessage: true
+          },
+          realData,
+          userPreferences,
+          googleFlightsButton,
+          learnedContext: this.getContextSummary(effectiveSessionId),
+          conversationHistory: conversationHistory.slice(-5)
+        };
+      }
+
+      // 12. Return comprehensive response with learned context (for non-trip planning)
       return {
         role: 'ai',
         content: bedrockResponse,
@@ -3458,14 +3707,22 @@ Return ONLY the JSON array:`;
         contextPrompt += `Your role is to:\n`;
         contextPrompt += `1. RECOMMEND the best 2-3 flights from the options above\n`;
         contextPrompt += `2. RECOMMEND the best 2-3 hotels from the options above\n`;
-        contextPrompt += `3. Create a detailed day-by-day ITINERARY that:\n`;
+        contextPrompt += `3. Create a DETAILED and DESCRIPTIVE day-by-day ITINERARY that:\n`;
         contextPrompt += `   - INCLUDES the seasonal must-do activities listed above (if any)\n`;
         contextPrompt += `   - MATCHES their interests and travel style from preferences\n`;
         contextPrompt += `   - Balances popular attractions with local experiences\n`;
-        contextPrompt += `4. Suggest activities, attractions, restaurants for each day based on their interests\n`;
-        contextPrompt += `5. Provide budget estimates and travel tips\n`;
-        contextPrompt += `6. Format with clear day-by-day structure (#### Day 1: Title, etc.)\n`;
-        contextPrompt += `7. Use ALL the data provided above - don't make up flight/hotel info\n\n`;
+        contextPrompt += `   - Uses specific restaurants and attractions from TripAdvisor data above\n`;
+        contextPrompt += `   - Provides detailed descriptions of each activity and location\n`;
+        contextPrompt += `   - Includes practical details like opening hours, best times to visit, and tips\n`;
+        contextPrompt += `4. For EACH DAY, provide:\n`;
+        contextPrompt += `   - Morning, Afternoon, and Evening activities with specific times\n`;
+        contextPrompt += `   - Detailed restaurant recommendations with cuisine types and specialties\n`;
+        contextPrompt += `   - Specific attractions with descriptions and why they're worth visiting\n`;
+        contextPrompt += `   - Transportation tips between locations\n`;
+        contextPrompt += `   - Budget estimates for meals and activities\n`;
+        contextPrompt += `5. Format with clear day-by-day structure (#### Day 1: Title, etc.)\n`;
+        contextPrompt += `6. Use ALL the data provided above - don't make up flight/hotel info\n`;
+        contextPrompt += `7. Make it engaging and descriptive - help them visualize their trip!\n\n`;
       } else {
         contextPrompt += `🗺️ TRIP PLANNING MODE - No real-time data available\n\n`;
         
@@ -3494,14 +3751,20 @@ Return ONLY the JSON array:`;
           }
           
           contextPrompt += `Your role is to:\n`;
-          contextPrompt += `1. Create an excellent day-by-day ITINERARY that:\n`;
+          contextPrompt += `1. Create a DETAILED and DESCRIPTIVE day-by-day ITINERARY that:\n`;
           contextPrompt += `   - INCLUDES the seasonal must-do activities listed above (if any)\n`;
           contextPrompt += `   - MATCHES their interests and travel style from preferences\n`;
           contextPrompt += `   - Balances iconic sights with unique local experiences\n`;
-          contextPrompt += `2. Suggest activities, attractions, restaurants based on their specific interests\n`;
-          contextPrompt += `3. Provide budget estimates for activities and meals that match their travel style\n`;
-          contextPrompt += `4. Give practical travel tips and local insights\n`;
-          contextPrompt += `5. Format with clear day-by-day structure (#### Day 1: Title, etc.)\n`;
+          contextPrompt += `   - Uses specific restaurants and attractions from TripAdvisor data above\n`;
+          contextPrompt += `   - Provides detailed descriptions of each activity and location\n`;
+          contextPrompt += `2. For EACH DAY, provide:\n`;
+          contextPrompt += `   - Morning, Afternoon, and Evening activities with specific times\n`;
+          contextPrompt += `   - Detailed restaurant recommendations with cuisine types and specialties\n`;
+          contextPrompt += `   - Specific attractions with descriptions and why they're worth visiting\n`;
+          contextPrompt += `   - Transportation tips between locations\n`;
+          contextPrompt += `   - Budget estimates for meals and activities\n`;
+          contextPrompt += `3. Give practical travel tips and local insights\n`;
+          contextPrompt += `4. Format with clear day-by-day structure (#### Day 1: Title, etc.)\n`;
           contextPrompt += `6. DO NOT make up specific flight prices or hotel names - focus on the experience\n`;
           contextPrompt += `7. NEVER hallucinate specific flight numbers, prices, or hotel details\n`;
           contextPrompt += `8. If user needs flights/hotels, suggest they ask me separately for real-time data\n\n`;

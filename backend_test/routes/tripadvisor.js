@@ -283,6 +283,125 @@ router.get('/location/:locationId/photos', async (req, res) => {
 });
 
 /**
+ * Get location reviews using TripAdvisor Content API
+ * GET /api/tripadvisor/location/:locationId/reviews
+ */
+router.get('/location/:locationId/reviews', async (req, res) => {
+  try {
+    const { locationId } = req.params;
+    const { limit = 5, language = 'en' } = req.query;
+    
+    // Validate locationId
+    if (!locationId || locationId.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'Location ID is required',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Validate limit
+    const reviewLimit = parseInt(limit);
+    if (isNaN(reviewLimit) || reviewLimit < 1 || reviewLimit > 20) {
+      return res.status(400).json({
+        success: false,
+        error: 'Limit must be between 1 and 20',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    console.log(`📝 Getting reviews for location: ${locationId} (limit: ${reviewLimit})`);
+    
+    const reviews = await tripAdvisorService.getLocationReviews(locationId, reviewLimit, language);
+    
+    res.json({
+      success: true,
+      data: reviews,
+      count: reviews.length,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error getting location reviews:', error);
+    
+    // Determine appropriate status code
+    let statusCode = 500;
+    if (error.message.includes('not found')) {
+      statusCode = 404;
+    } else if (error.message.includes('Rate limit')) {
+      statusCode = 429;
+    } else if (error.message.includes('timeout')) {
+      statusCode = 504;
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Error retrieving location reviews',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Search for locations using TripAdvisor Content API
+ * GET /api/tripadvisor/location/search
+ */
+router.get('/location/search', async (req, res) => {
+  try {
+    const { searchQuery, limit = 10, language = 'en' } = req.query;
+    
+    // Validate searchQuery
+    if (!searchQuery || searchQuery.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query is required',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Validate limit
+    const searchLimit = parseInt(limit);
+    if (isNaN(searchLimit) || searchLimit < 1 || searchLimit > 20) {
+      return res.status(400).json({
+        success: false,
+        error: 'Limit must be between 1 and 20',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    console.log(`🔍 Searching locations for: ${searchQuery} (limit: ${searchLimit})`);
+    
+    const locations = await tripAdvisorService.searchLocations(searchQuery, searchLimit, language);
+    
+    res.json({
+      success: true,
+      data: locations,
+      count: locations.length,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error searching locations:', error);
+    
+    // Determine appropriate status code
+    let statusCode = 500;
+    if (error.message.includes('not found')) {
+      statusCode = 404;
+    } else if (error.message.includes('Rate limit')) {
+      statusCode = 429;
+    } else if (error.message.includes('timeout')) {
+      statusCode = 504;
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Error searching locations',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
  * Health check endpoint
  */
 router.get('/health', (req, res) => {
@@ -294,6 +413,7 @@ router.get('/health', (req, res) => {
     features: {
       locationDetails: !!process.env.TRIPADVISOR_API_KEY,
       locationPhotos: !!process.env.TRIPADVISOR_API_KEY,
+      locationSearch: !!process.env.TRIPADVISOR_API_KEY,
       attractions: true,
       restaurants: true
     }

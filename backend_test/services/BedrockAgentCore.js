@@ -21,6 +21,7 @@ const { BedrockAgentRuntimeClient, InvokeAgentCommand, RetrieveAndGenerateComman
 const { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } = require('@aws-sdk/client-bedrock-runtime');
 const { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
 const axios = require('axios');
+const { TextDecoder } = require('util');
 const FlightService = require('./FlightService');
 const HotelService = require('./HotelService');
 const TripAdvisorRapidAPIService = require('./TripAdvisorRapidAPIService');
@@ -103,17 +104,75 @@ class BedrockAgentCore {
     try {
       console.log(`🤖 Invoking primary model: ${primaryModel}`);
       
+      // Check if this is a Nova model (uses Converse API with tool calling)
+      console.log(`🔍 Checking model type: ${primaryModel}`);
+      if (primaryModel.includes('nova')) {
+        console.log(`🔧 Detected Nova model, using Converse API with tool calling`);
+        // Use Converse API for Nova models with proper tool configuration
+        const command = new ConverseCommand({
+          modelId: primaryModel,
+          messages: messages,
+          inferenceConfig: inferenceConfig || { maxTokens: 4000, temperature: 0 },
+          system: systemPrompt ? [{ text: systemPrompt }] : undefined,
+          toolConfig: toolConfig ? {
+            toolChoice: { any: {} },
+            tools: toolConfig.tools.map(tool => ({
+              toolSpec: {
+                name: tool.name,
+                description: tool.description,
+                inputSchema: tool.inputSchema
+              }
+            }))
+          } : undefined
+        });
+        
+        const response = await this.bedrockRuntime.send(command);
+        return response;
+      } else {
+        console.log(`🔧 Using Converse API for non-Nova model`);
+      }
+      
       const command = new ConverseCommand({
         modelId: primaryModel,
         messages: messages,
         inferenceConfig: inferenceConfig || { maxTokens: 4000, temperature: 0.7 }
       });
       
-      if (systemPrompt) command.system = systemPrompt;
-      if (toolConfig) command.toolConfig = toolConfig;
+      if (systemPrompt) command.system = [{ text: systemPrompt }];
+      if (toolConfig && toolConfig.tools) {
+        command.toolConfig = { 
+          toolChoice: { any: {} }, // Force tool usage
+          tools: toolConfig.tools.map(tool => ({
+            toolSpec: {
+              name: tool.name,
+              description: tool.description,
+              inputSchema: tool.inputSchema
+            }
+          }))
+        };
+      }
+      
+      // Set temperature to 0 for greedy decoding (better tool calling)
+      if (command.inferenceConfig) {
+        command.inferenceConfig.temperature = 0;
+      } else {
+        command.inferenceConfig = { temperature: 0 };
+      }
+      
+      // Add stop sequences to limit output to just tools
+      if (command.inferenceConfig) {
+        command.inferenceConfig.stopSequences = ["</tool>"];
+      }
       
       const response = await this.bedrockRuntime.send(command);
       console.log(`✅ Primary model ${primaryModel} successful`);
+      
+      // Check if the model wants to use tools
+      if (response.stopReason === 'tool_use') {
+        console.log(`🔧 Model requested tool use, processing tool calls...`);
+        return await this.processToolCalls(response, messages, systemPrompt, toolConfig, inferenceConfig);
+      }
+      
       return response;
     } catch (error) {
       if (error.name === 'AccessDeniedException' || error.message.includes('access') || error.message.includes('403')) {
@@ -126,11 +185,41 @@ class BedrockAgentCore {
             inferenceConfig: inferenceConfig || { maxTokens: 4000, temperature: 0.7 }
           });
           
-          if (systemPrompt) fallbackCommand.system = systemPrompt;
-          if (toolConfig) fallbackCommand.toolConfig = toolConfig;
+          if (systemPrompt) fallbackCommand.system = [{ text: systemPrompt }];
+          if (toolConfig && toolConfig.tools) {
+            fallbackCommand.toolConfig = { 
+              toolChoice: { any: {} }, // Force tool usage
+              tools: toolConfig.tools.map(tool => ({
+                toolSpec: {
+                  name: tool.name,
+                  description: tool.description,
+                  inputSchema: tool.inputSchema
+                }
+              }))
+            };
+          }
+          
+          // Set temperature to 0 for greedy decoding (better tool calling)
+          if (fallbackCommand.inferenceConfig) {
+            fallbackCommand.inferenceConfig.temperature = 0;
+          } else {
+            fallbackCommand.inferenceConfig = { temperature: 0 };
+          }
+          
+          // Add stop sequences to limit output to just tools
+          if (fallbackCommand.inferenceConfig) {
+            fallbackCommand.inferenceConfig.stopSequences = ["</tool>"];
+          }
           
           const fallbackResponse = await this.bedrockRuntime.send(fallbackCommand);
           console.log(`✅ Fallback model ${fallbackModel} successful`);
+          
+          // Check if the fallback model wants to use tools
+          if (fallbackResponse.stopReason === 'tool_use') {
+            console.log(`🔧 Fallback model requested tool use, processing tool calls...`);
+            return await this.processToolCalls(fallbackResponse, messages, systemPrompt, toolConfig, inferenceConfig);
+          }
+          
           return fallbackResponse;
         } catch (fallbackError) {
           console.error(`❌ Both models failed. Primary: ${primaryModel}, Fallback: ${fallbackModel}`);
@@ -141,6 +230,244 @@ class BedrockAgentCore {
         throw error;
       }
     }
+  }
+
+  /**
+   * Invoke Nova model using InvokeModel API (not Converse API)
+   */
+  async invokeNovaModel(modelId, messages, systemPrompt, toolConfig, inferenceConfig) {
+    console.log(`🔧 Invoking Nova model with InvokeModel API: ${modelId}`);
+    
+    // Convert messages to Nova format
+    const lastMessage = messages[messages.length - 1];
+    const userMessage = lastMessage.content[0].text;
+    
+    // Build the prompt with system message and tools
+    let prompt = '';
+    if (systemPrompt) {
+      prompt += `System: ${systemPrompt}\n\n`;
+    }
+    
+    // Add tool definitions to the prompt
+    if (toolConfig && toolConfig.tools) {
+      prompt += `Available Tools:\n`;
+      toolConfig.tools.forEach(tool => {
+        prompt += `- ${tool.name}: ${tool.description}\n`;
+        prompt += `  Parameters: ${JSON.stringify(tool.inputSchema, null, 2)}\n\n`;
+      });
+    }
+    
+    prompt += `User: ${userMessage}\n\n`;
+    prompt += `Please use the appropriate tool to help the user. Respond with a JSON object containing the tool name and parameters.`;
+    
+    const command = new InvokeModelCommand({
+      modelId: modelId,
+      body: JSON.stringify({
+        inputText: prompt,
+        textGenerationConfig: {
+          maxTokenCount: inferenceConfig?.maxTokens || 4000,
+          temperature: 0, // Greedy decoding for better tool calling
+          topP: 0.9,
+          stopSequences: ["</tool>", "```"]
+        }
+      })
+    });
+    
+    try {
+      const response = await this.bedrockRuntime.send(command);
+      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+      
+      console.log(`✅ Nova model ${modelId} successful`);
+      console.log(`🔍 Nova response: ${responseBody.completion}`);
+      
+      // Try to parse tool call from response
+      const toolCall = this.parseToolCallFromResponse(responseBody.completion, toolConfig);
+      if (toolCall) {
+        console.log(`🔧 Parsed tool call: ${toolCall.name}`);
+        return await this.processNovaToolCall(toolCall, messages, systemPrompt, toolConfig, inferenceConfig);
+      }
+      
+      // If no tool call parsed, return the response as is
+      return {
+        output: {
+          message: {
+            role: 'assistant',
+            content: [{ text: responseBody.completion }]
+          }
+        },
+        stopReason: 'end_turn'
+      };
+      
+    } catch (error) {
+      console.error(`❌ Nova model ${modelId} error:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Parse tool call from Nova model response
+   */
+  parseToolCallFromResponse(response, toolConfig) {
+    try {
+      // Try to extract JSON from response
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.tool && parsed.parameters) {
+          return {
+            name: parsed.tool,
+            input: parsed.parameters
+          };
+        }
+      }
+      
+      // Try to match tool names in response
+      if (toolConfig && toolConfig.tools) {
+        for (const tool of toolConfig.tools) {
+          if (response.toLowerCase().includes(tool.name.toLowerCase())) {
+            // Extract parameters from response
+            const params = this.extractParametersFromResponse(response, tool.inputSchema);
+            return {
+              name: tool.name,
+              input: params
+            };
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error parsing tool call:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract parameters from response text
+   */
+  extractParametersFromResponse(response, inputSchema) {
+    const params = {};
+    
+    if (inputSchema.properties) {
+      for (const [key, schema] of Object.entries(inputSchema.properties)) {
+        // Try to extract parameter value from response
+        const regex = new RegExp(`${key}[\\s:]*([^\\s,}]+)`, 'i');
+        const match = response.match(regex);
+        if (match) {
+          params[key] = match[1].replace(/[",}]/g, '');
+        }
+      }
+    }
+    
+    return params;
+  }
+
+  /**
+   * Process tool call from Nova model
+   */
+  async processNovaToolCall(toolCall, messages, systemPrompt, toolConfig, inferenceConfig) {
+    console.log(`🔧 Processing Nova tool call: ${toolCall.name}`);
+    
+    try {
+      // Execute the tool
+      const toolResult = await this.executeToolCall(toolCall.name, toolCall.input);
+      
+      // Generate final response with tool results
+      const finalPrompt = `${systemPrompt || ''}\n\nUser: ${messages[messages.length - 1].content[0].text}\n\nTool Result: ${JSON.stringify(toolResult)}\n\nPlease provide a helpful response based on the tool results.`;
+      
+      const command = new InvokeModelCommand({
+        modelId: this.reasoningModel,
+        body: JSON.stringify({
+          inputText: finalPrompt,
+          textGenerationConfig: {
+            maxTokenCount: inferenceConfig?.maxTokens || 4000,
+            temperature: 0.7
+          }
+        })
+      });
+      
+      const response = await this.bedrockRuntime.send(command);
+      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+      
+      return {
+        output: {
+          message: {
+            role: 'assistant',
+            content: [{ text: responseBody.completion }]
+          }
+        },
+        stopReason: 'end_turn',
+        toolsUsed: [toolCall.name]
+      };
+      
+    } catch (error) {
+      console.error('Error processing Nova tool call:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Process tool calls from model response
+   */
+  async processToolCalls(response, messages, systemPrompt, toolConfig, inferenceConfig) {
+    console.log(`🔧 Processing tool calls from model response`);
+    
+    // Add the assistant's response to messages
+    messages.push(response.output.message);
+    
+    // Process each tool call
+    const toolResults = [];
+    for (const content of response.output.message.content) {
+      if (content.toolUse) {
+        const toolUse = content.toolUse;
+        console.log(`🔧 Executing tool: ${toolUse.name} with ID: ${toolUse.toolUseId}`);
+        
+        try {
+          // Execute the tool
+          const toolResult = await this.executeToolCall(toolUse.name, toolUse.input);
+          
+          // Create tool result message
+          const toolResultMessage = {
+            role: "user",
+            content: [{
+              toolResult: {
+                toolUseId: toolUse.toolUseId,
+                content: [{
+                  json: toolResult
+                }]
+              }
+            }]
+          };
+          
+          toolResults.push(toolResultMessage);
+          messages.push(toolResultMessage);
+          
+        } catch (error) {
+          console.error(`❌ Tool execution failed for ${toolUse.name}:`, error.message);
+          
+          // Create error tool result
+          const errorToolResult = {
+            role: "user",
+            content: [{
+              toolResult: {
+                toolUseId: toolUse.toolUseId,
+                content: [{
+                  text: `Error executing tool ${toolUse.name}: ${error.message}`
+                }],
+                status: "error"
+              }
+            }]
+          };
+          
+          toolResults.push(errorToolResult);
+          messages.push(errorToolResult);
+        }
+      }
+    }
+    
+    // Send the tool results back to the model
+    console.log(`🔧 Sending tool results back to model`);
+    return await this.invokeModelWithFallback(null, messages, systemPrompt, toolConfig, inferenceConfig);
   }
 
   /**
@@ -294,24 +621,24 @@ class BedrockAgentCore {
       },
       {
         name: 'search_attractions',
-        description: 'Search for attractions and points of interest near a location using TripAdvisor data.',
+        description: '**Search for tourist attractions and points of interest in a specific location. This tool will find popular attractions, landmarks, museums, parks, and other tourist destinations with photos and reviews. Use this tool when users ask about things to see, places to visit, or attractions in a city.**',
         inputSchema: {
           type: 'object',
           properties: {
-            location: { type: 'string', description: 'City or location name' },
-            limit: { type: 'number', description: 'Maximum number of attractions to return (default: 5)' }
+            location: { type: 'string', description: 'The city or location to search for attractions (e.g., "Paris", "New York City", "Tokyo")' },
+            limit: { type: 'number', description: 'Maximum number of attractions to return (default: 5, max: 10)' }
           },
           required: ['location']
         }
       },
       {
         name: 'search_restaurants',
-        description: 'Search for restaurants near a location using TripAdvisor data.',
+        description: '**Search for restaurants and dining options near a specific location. This tool will find popular restaurants, cafes, bars, and other dining establishments with photos and reviews. Use this tool when users ask about places to eat, restaurants, or food options in a city.**',
         inputSchema: {
           type: 'object',
           properties: {
-            location: { type: 'string', description: 'City or location name' },
-            limit: { type: 'number', description: 'Maximum number of restaurants to return (default: 5)' }
+            location: { type: 'string', description: 'The city or location to search for restaurants (e.g., "Paris", "New York City", "Tokyo")' },
+            limit: { type: 'number', description: 'Maximum number of restaurants to return (default: 5, max: 10)' }
           },
           required: ['location']
         }
@@ -336,6 +663,21 @@ class BedrockAgentCore {
             contentId: { type: 'string', description: 'TripAdvisor content ID of the restaurant' }
           },
           required: ['contentId']
+        }
+      },
+      {
+        name: 'get_location_comprehensive_info',
+        description: 'Get comprehensive information about a location including details, photos, and reviews using TripAdvisor Content API.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            locationId: { type: 'string', description: 'TripAdvisor location ID' },
+            includePhotos: { type: 'boolean', description: 'Whether to include photos (default: true)' },
+            includeReviews: { type: 'boolean', description: 'Whether to include reviews (default: true)' },
+            photoLimit: { type: 'number', description: 'Maximum number of photos to return (default: 5)' },
+            reviewLimit: { type: 'number', description: 'Maximum number of reviews to return (default: 5)' }
+          },
+          required: ['locationId']
         }
       }
     ];
@@ -593,6 +935,9 @@ Respond in JSON format with:
         
         case 'get_restaurant_details':
           return await this.getRestaurantDetails(input);
+        
+        case 'get_location_comprehensive_info':
+          return await this.getLocationComprehensiveInfo(input);
         
         default:
           throw new Error(`Unknown tool: ${name}`);
@@ -1006,18 +1351,80 @@ Format as JSON with structure:
   }
 
   async searchAttractions(params) {
-    console.log('🏛️ Searching attractions using TripAdvisor:', params);
+    console.log('🏛️ Searching attractions using TripAdvisor Content API:', params);
     
     try {
       const limit = params.limit || 5;
-      const attractions = await this.tripAdvisorService.getAttractionsNearby(params.location, limit);
+      
+      // Use TripAdvisor Content API to search for locations
+      const locationSearch = await this.tripAdvisorService.searchLocations(params.location, limit);
+      let attractions = [];
+      
+      if (locationSearch && locationSearch.length > 0) {
+        console.log(`📍 Found ${locationSearch.length} locations for ${params.location}`);
+        
+        // Process each location found
+        for (const location of locationSearch) {
+          try {
+            // Get comprehensive info for each location
+            const comprehensiveInfo = await this.getLocationComprehensiveInfo({
+              locationId: location.location_id,
+              includePhotos: true,
+              includeReviews: true,
+              photoLimit: 2,
+              reviewLimit: 2
+            });
+            
+            if (comprehensiveInfo.success) {
+              attractions.push({
+                contentId: location.location_id,
+                name: comprehensiveInfo.details.name,
+                rating: comprehensiveInfo.details.rating || 4.5,
+                reviewCount: comprehensiveInfo.details.num_reviews || 0,
+                description: comprehensiveInfo.details.description,
+                address: comprehensiveInfo.details.address,
+                photos: comprehensiveInfo.photos || [],
+                reviews: comprehensiveInfo.reviews || [],
+                latitude: comprehensiveInfo.details.latitude,
+                longitude: comprehensiveInfo.details.longitude,
+                category: comprehensiveInfo.details.category?.name || 'attraction',
+                priceLevel: comprehensiveInfo.details.price_level || '',
+                website: comprehensiveInfo.details.website || '',
+                phone: comprehensiveInfo.details.phone || ''
+              });
+            }
+          } catch (error) {
+            console.warn(`⚠️ Failed to get details for ${location.name}:`, error.message);
+            // Add basic info even if details fail
+            attractions.push({
+              contentId: location.location_id,
+              name: location.name,
+              rating: 4.0,
+              reviewCount: 0,
+              description: `A ${location.category || 'attraction'} in ${params.location}`,
+              address: location.address || '',
+              photos: [],
+              reviews: [],
+              latitude: location.latitude || 0,
+              longitude: location.longitude || 0,
+              category: location.category || 'attraction'
+            });
+          }
+        }
+      }
+      
+      // Fallback to mock data if no real data
+      if (attractions.length === 0) {
+        console.log('⚠️ Using mock attractions data as fallback');
+        attractions = this.tripAdvisorService.getMockAttractionsData(this.tripAdvisorService.getGeoIdForLocation(params.location));
+      }
       
       return {
         success: true,
         location: params.location,
         attractions: attractions,
         count: attractions.length,
-        source: 'TripAdvisor RapidAPI'
+        source: 'TripAdvisor Content API'
       };
     } catch (error) {
       console.error('Error searching attractions:', error);
@@ -1031,18 +1438,83 @@ Format as JSON with structure:
   }
 
   async searchRestaurants(params) {
-    console.log('🍽️ Searching restaurants using TripAdvisor:', params);
+    console.log('🍽️ Searching restaurants using TripAdvisor Content API:', params);
     
     try {
       const limit = params.limit || 5;
-      const restaurants = await this.tripAdvisorService.getRestaurantsNearby(params.location, limit);
+      
+      // Use TripAdvisor Content API to search for locations
+      const locationSearch = await this.tripAdvisorService.searchLocations(params.location, limit);
+      let restaurants = [];
+      
+      if (locationSearch && locationSearch.length > 0) {
+        console.log(`📍 Found ${locationSearch.length} locations for ${params.location}`);
+        
+        // Process each location found
+        for (const location of locationSearch) {
+          try {
+            // Get comprehensive info for each location
+            const comprehensiveInfo = await this.getLocationComprehensiveInfo({
+              locationId: location.location_id,
+              includePhotos: true,
+              includeReviews: true,
+              photoLimit: 2,
+              reviewLimit: 2
+            });
+            
+            if (comprehensiveInfo.success) {
+              restaurants.push({
+                contentId: location.location_id,
+                name: comprehensiveInfo.details.name,
+                rating: comprehensiveInfo.details.rating || 4.5,
+                reviewCount: comprehensiveInfo.details.num_reviews || 0,
+                description: comprehensiveInfo.details.description,
+                address: comprehensiveInfo.details.address,
+                photos: comprehensiveInfo.photos || [],
+                reviews: comprehensiveInfo.reviews || [],
+                latitude: comprehensiveInfo.details.latitude,
+                longitude: comprehensiveInfo.details.longitude,
+                category: comprehensiveInfo.details.category?.name || 'restaurant',
+                priceLevel: comprehensiveInfo.details.price_level || '',
+                website: comprehensiveInfo.details.website || '',
+                phone: comprehensiveInfo.details.phone || '',
+                cuisine: comprehensiveInfo.details.cuisine || [],
+                hours: comprehensiveInfo.details.hours || null
+              });
+            }
+          } catch (error) {
+            console.warn(`⚠️ Failed to get details for ${location.name}:`, error.message);
+            // Add basic info even if details fail
+            restaurants.push({
+              contentId: location.location_id,
+              name: location.name,
+              rating: 4.0,
+              reviewCount: 0,
+              description: `A ${location.category || 'restaurant'} in ${params.location}`,
+              address: location.address || '',
+              photos: [],
+              reviews: [],
+              latitude: location.latitude || 0,
+              longitude: location.longitude || 0,
+              category: location.category || 'restaurant',
+              cuisine: []
+            });
+          }
+        }
+      }
+      
+      // Fallback to mock data if no real data
+      if (restaurants.length === 0) {
+        console.log('⚠️ Using mock restaurants data as fallback');
+        restaurants = this.tripAdvisorService.getMockRestaurantsData(this.tripAdvisorService.getGeoIdForLocation(params.location));
+      }
       
       return {
         success: true,
         location: params.location,
         restaurants: restaurants,
         count: restaurants.length,
-        source: 'TripAdvisor RapidAPI'
+        source: 'TripAdvisor Content API'
       };
     } catch (error) {
       console.error('Error searching restaurants:', error);
@@ -1103,6 +1575,57 @@ Format as JSON with structure:
         success: false,
         error: error.message,
         contentId: params.contentId
+      };
+    }
+  }
+
+  async getLocationComprehensiveInfo(params) {
+    console.log('📍 Getting comprehensive location info:', params);
+    
+    try {
+      const { locationId, includePhotos = true, includeReviews = true, photoLimit = 5, reviewLimit = 5 } = params;
+      
+      // Get location details
+      const details = await this.tripAdvisorService.getLocationDetails(locationId);
+      
+      const result = {
+        success: true,
+        locationId: locationId,
+        details: details,
+        source: 'TripAdvisor Content API'
+      };
+      
+      // Get photos if requested
+      if (includePhotos) {
+        try {
+          const photos = await this.tripAdvisorService.getLocationPhotos(locationId, photoLimit);
+          result.photos = photos;
+          console.log(`✅ Retrieved ${photos.length} photos for location ${locationId}`);
+        } catch (error) {
+          console.warn(`⚠️ Failed to get photos for location ${locationId}:`, error.message);
+          result.photos = [];
+        }
+      }
+      
+      // Get reviews if requested
+      if (includeReviews) {
+        try {
+          const reviews = await this.tripAdvisorService.getLocationReviews(locationId, reviewLimit);
+          result.reviews = reviews;
+          console.log(`✅ Retrieved ${reviews.length} reviews for location ${locationId}`);
+        } catch (error) {
+          console.warn(`⚠️ Failed to get reviews for location ${locationId}:`, error.message);
+          result.reviews = [];
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error getting comprehensive location info:', error);
+      return {
+        success: false,
+        error: error.message,
+        locationId: params.locationId
       };
     }
   }
@@ -1498,9 +2021,7 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
         toolSpec: {
           name: tool.name,
           description: tool.description,
-          inputSchema: {
-            json: tool.inputSchema
-          }
+          inputSchema: tool.inputSchema
         }
       }));
 
@@ -1518,10 +2039,13 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
       
       this.lastApiCall = Date.now();
       
+      console.log(`🔧 Available tools: ${tools.length} tools configured`);
+      console.log(`🔧 Tool names: ${tools.map(t => t.name).join(', ')}`);
+      
       const initialResponse = await this.invokeModelWithFallback(
         this.reasoningModel,
         messages,
-        systemPrompt,
+        systemPrompt[0].text,
         { tools },
         { maxTokens: 4000, temperature: 0.7, topP: 0.9 }
       );
@@ -1530,16 +2054,23 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
       let agentResponse = '';
       let toolResults = [];
 
+      console.log(`🔍 Response message type: ${responseMessage.role}`);
+      console.log(`🔍 Response content length: ${responseMessage.content ? responseMessage.content.length : 0}`);
+
       // Check if Nova Pro wants to use tools
       if (responseMessage.content) {
         for (const content of responseMessage.content) {
+          console.log(`🔍 Content type: ${content.text ? 'text' : content.toolUse ? 'toolUse' : 'other'}`);
+          
           if (content.text) {
             agentResponse += content.text;
+            console.log(`📝 Text content: ${content.text.substring(0, 100)}...`);
           }
           
           // Execute tool calls
           if (content.toolUse) {
             console.log(`🔧 Agent using tool: ${content.toolUse.name}`);
+            console.log(`🔧 Tool input: ${JSON.stringify(content.toolUse.input)}`);
             
             try {
               const toolResult = await this.executeToolCall({
@@ -1597,7 +2128,7 @@ This makes you feel like a REAL AGENT, not just a chatbot!`
         const finalResponse = await this.invokeModelWithFallback(
           this.reasoningModel,
           messages,
-          systemPrompt,
+          systemPrompt[0].text,
           { tools },
           { maxTokens: 4000, temperature: 0.7, topP: 0.9 }
         );

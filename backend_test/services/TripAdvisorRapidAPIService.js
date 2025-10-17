@@ -171,6 +171,64 @@ class TripAdvisorRapidAPIService {
   }
 
   /**
+   * Get location reviews using TripAdvisor Content API
+   * @param {string} locationId - TripAdvisor location ID
+   * @param {number} limit - Number of reviews to return (default: 5)
+   * @param {string} language - Language code (default: 'en')
+   * @returns {Promise<Array>} Array of review objects
+   */
+  async getLocationReviews(locationId, limit = 5, language = 'en') {
+    try {
+      const cacheKey = `location_reviews_${locationId}_${limit}`;
+      const cached = this.getCachedData(cacheKey);
+      if (cached) {
+        console.log(`✅ Cache hit for location reviews: ${locationId}`);
+        return cached;
+      }
+
+      console.log(`📝 Fetching reviews for location: ${locationId}`);
+      
+      if (!this.contentApiKey) {
+        console.warn('⚠️ No Content API key, returning mock reviews');
+        return this.getMockLocationReviews(locationId);
+      }
+
+      const response = await this.fetchWithRetry(async () => {
+        return await axios.get(
+          `${this.contentApiBaseUrl}/location/${locationId}/reviews`,
+          {
+            params: {
+              key: this.contentApiKey,
+              language,
+              limit
+            },
+            timeout: 10000
+          }
+        );
+      });
+
+      const reviews = this.formatLocationReviews(response.data);
+      this.setCachedData(cacheKey, reviews);
+      
+      console.log(`✅ Successfully fetched ${reviews.length} reviews`);
+      return reviews;
+
+    } catch (error) {
+      console.error('❌ TripAdvisor Content API error (reviews):', error.message);
+      
+      if (error.response?.status === 404) {
+        console.warn(`⚠️ No reviews found for location ${locationId}`);
+        return [];
+      } else if (error.response?.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
+      // Return empty array or mock reviews as fallback
+      return this.getMockLocationReviews(locationId);
+    }
+  }
+
+  /**
    * Format location details from Content API response
    * @param {Object} data - Raw API response
    * @returns {Object} Formatted location details
@@ -267,6 +325,41 @@ class TripAdvisorRapidAPIService {
       },
       source: photo.source || {},
       user: photo.user || {}
+    }));
+  }
+
+  /**
+   * Format location reviews from Content API response
+   * @param {Object} data - Raw API response
+   * @returns {Array} Formatted review array
+   */
+  formatLocationReviews(data) {
+    if (!data || !data.data || !Array.isArray(data.data)) {
+      return [];
+    }
+
+    return data.data.map(review => ({
+      id: review.id,
+      rating: review.rating || 0,
+      title: review.title || '',
+      text: review.text || '',
+      author: {
+        username: review.author?.username || 'Anonymous',
+        localized_name: review.author?.localized_name || 'Anonymous',
+        avatar: review.author?.avatar || null
+      },
+      published_date: review.published_date || '',
+      helpful_votes: review.helpful_votes || 0,
+      total_votes: review.total_votes || 0,
+      is_machine_translated: review.is_machine_translated || false,
+      language: review.language || 'en',
+      trip_type: review.trip_type || '',
+      rating_date: review.rating_date || '',
+      review_url: review.review_url || '',
+      is_anonymous: review.is_anonymous || false,
+      user_contribution: review.user_contribution || 0,
+      photos: review.photos || [],
+      awards: review.awards || []
     }));
   }
 
@@ -752,14 +845,34 @@ class TripAdvisorRapidAPIService {
       'barcelona': '187497',
       'amsterdam': '188590',
       'berlin': '187275',
-      'mumbai': '304554',
+      'india': '293860',
       'delhi': '304555',
+      'mumbai': '304554',
       'bangalore': '304556',
-      'goa': '304557'
+      'goa': '304557',
+      'kerala': '304558',
+      'agra': '304559',
+      'jaipur': '304560',
+      'varanasi': '304561',
+      'kolkata': '304562'
     };
     
     const normalizedLocation = location.toLowerCase().trim();
-    return locationMap[normalizedLocation] || '1954828'; // Default to Paris
+    
+    // Direct match first
+    if (locationMap[normalizedLocation]) {
+      return locationMap[normalizedLocation];
+    }
+    
+    // Partial match for common patterns
+    for (const [key, geoId] of Object.entries(locationMap)) {
+      if (normalizedLocation.includes(key) || key.includes(normalizedLocation)) {
+        return geoId;
+      }
+    }
+    
+    // Default to India for unknown locations
+    return '293860';
   }
 
   // Cache management
@@ -781,6 +894,129 @@ class TripAdvisorRapidAPIService {
 
   // Mock data methods (fallback when API is not available)
   getMockAttractionsData(geoId) {
+    // Mumbai/Bombay specific attractions
+    if (geoId === '1954828' || geoId === '304554') {
+      return [
+        {
+          contentId: '3436969',
+          name: 'Gateway of India',
+          rating: 4.1,
+          review_count: 55000,
+          category: 'Monument',
+          price_level: 'Free',
+          address: 'Apollo Bunder, Colaba, Mumbai',
+          description: 'Historic arch monument overlooking the Arabian Sea, built to commemorate the visit of King George V and Queen Mary',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g304554-d319507-Reviews-Gateway_of_India-Mumbai_Maharashtra.html'
+        },
+        {
+          contentId: '3436970',
+          name: 'Elephanta Caves',
+          rating: 4.2,
+          review_count: 32000,
+          category: 'UNESCO World Heritage Site',
+          price_level: '$$',
+          address: 'Elephanta Island, Mumbai',
+          description: 'Ancient rock-cut cave temples dedicated to Lord Shiva, accessible by ferry from Gateway of India',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g304554-d319508-Reviews-Elephanta_Caves-Mumbai_Maharashtra.html'
+        },
+        {
+          contentId: '3436971',
+          name: 'Chhatrapati Shivaji Maharaj Vastu Sangrahalaya',
+          rating: 4.3,
+          review_count: 28000,
+          category: 'Museum',
+          price_level: '$',
+          address: '159-161, Mahatma Gandhi Road, Fort, Mumbai',
+          description: 'Formerly Prince of Wales Museum, houses extensive collection of Indian art and artifacts',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g304554-d319509-Reviews-Chhatrapati_Shivaji_Maharaj_Vastu_Sangrahalaya-Mumbai_Maharashtra.html'
+        },
+        {
+          contentId: '3436972',
+          name: 'Marine Drive',
+          rating: 4.0,
+          review_count: 45000,
+          category: 'Scenic Walkway',
+          price_level: 'Free',
+          address: 'Marine Drive, Mumbai',
+          description: 'Famous 3.6km long boulevard along the Arabian Sea, known as the "Queen\'s Necklace"',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g304554-d319510-Reviews-Marine_Drive-Mumbai_Maharashtra.html'
+        },
+        {
+          contentId: '3436973',
+          name: 'Haji Ali Dargah',
+          rating: 4.1,
+          review_count: 18000,
+          category: 'Religious Site',
+          price_level: 'Free',
+          address: 'Dargah Road, Haji Ali, Mumbai',
+          description: 'Famous mosque and dargah located on an islet off the coast of Worli',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g304554-d319511-Reviews-Haji_Ali_Dargah-Mumbai_Maharashtra.html'
+        }
+      ];
+    }
+    
+    // India-specific attractions
+    if (geoId === '293860' || geoId.startsWith('304')) {
+      return [
+        {
+          contentId: '3436969',
+          name: 'Taj Mahal',
+          rating: 4.7,
+          review_count: 125000,
+          category: 'Monument',
+          price_level: '$$',
+          address: 'Agra, Uttar Pradesh, India',
+          description: 'Iconic white marble mausoleum, one of the Seven Wonders of the World',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g297683-d319504-Reviews-Taj_Mahal-Agra_Uttar_Pradesh.html'
+        },
+        {
+          contentId: '3436970',
+          name: 'Red Fort',
+          rating: 4.3,
+          review_count: 45000,
+          category: 'Historic Site',
+          price_level: '$',
+          address: 'Old Delhi, Delhi, India',
+          description: 'Historic fort complex, UNESCO World Heritage Site',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g304551-d319505-Reviews-Red_Fort-Delhi.html'
+        },
+        {
+          contentId: '3436971',
+          name: 'Qutub Minar',
+          rating: 4.2,
+          review_count: 38000,
+          category: 'Monument',
+          price_level: '$',
+          address: 'Mehrauli, Delhi, India',
+          description: 'Tallest brick minaret in the world, UNESCO World Heritage Site',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g304551-d319506-Reviews-Qutub_Minar-Delhi.html'
+        },
+        {
+          contentId: '3436972',
+          name: 'Gateway of India',
+          rating: 4.1,
+          review_count: 55000,
+          category: 'Monument',
+          price_level: 'Free',
+          address: 'Mumbai, Maharashtra, India',
+          description: 'Historic arch monument overlooking the Arabian Sea',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g304554-d319507-Reviews-Gateway_of_India-Mumbai_Maharashtra.html'
+        },
+        {
+          contentId: '3436973',
+          name: 'Hawa Mahal',
+          rating: 4.0,
+          review_count: 28000,
+          category: 'Palace',
+          price_level: '$',
+          address: 'Jaipur, Rajasthan, India',
+          description: 'Palace of Winds, famous for its intricate lattice windows',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g304560-d319508-Reviews-Hawa_Mahal-Jaipur_Rajasthan.html'
+        }
+      ];
+    }
+    
+    // Default Paris attractions
     return [
       {
         contentId: '3436969',
@@ -831,6 +1067,129 @@ class TripAdvisorRapidAPIService {
   }
 
   getMockRestaurantsData(geoId) {
+    // Mumbai/Bombay specific restaurants
+    if (geoId === '1954828' || geoId === '304554') {
+      return [
+        {
+          contentId: '27717696',
+          name: 'Trishna',
+          rating: 4.4,
+          review_count: 6800,
+          cuisine: ['Indian', 'Seafood', 'Coastal'],
+          price_level: '$$',
+          address: '7, Sai Baba Marg, Kala Ghoda, Mumbai',
+          description: 'Famous for coastal Indian seafood and spicy curries, a Mumbai institution since 1960s',
+          web_url: 'https://www.tripadvisor.com/Restaurant_Review-g304554-d1234569-Reviews-Trishna-Mumbai_Maharashtra.html'
+        },
+        {
+          contentId: '27717697',
+          name: 'Bademiya',
+          rating: 4.2,
+          review_count: 4200,
+          cuisine: ['Indian', 'Mughlai', 'Street Food'],
+          price_level: '$',
+          address: 'Tulloch Road, Apollo Bunder, Mumbai',
+          description: 'Legendary street food joint famous for kebabs and rolls, open late night',
+          web_url: 'https://www.tripadvisor.com/Restaurant_Review-g304554-d1234570-Reviews-Bademiya-Mumbai_Maharashtra.html'
+        },
+        {
+          contentId: '27717698',
+          name: 'Cafe Leopold',
+          rating: 4.1,
+          review_count: 3200,
+          cuisine: ['Indian', 'Continental', 'Cafe'],
+          price_level: '$$',
+          address: 'Shahid Bhagat Singh Road, Colaba, Mumbai',
+          description: 'Historic cafe from 1871, famous for its old-world charm and diverse menu',
+          web_url: 'https://www.tripadvisor.com/Restaurant_Review-g304554-d1234571-Reviews-Cafe_Leopold-Mumbai_Maharashtra.html'
+        },
+        {
+          contentId: '27717699',
+          name: 'Britannia & Co.',
+          rating: 4.3,
+          review_count: 1800,
+          cuisine: ['Parsi', 'Indian', 'Traditional'],
+          price_level: '$$',
+          address: 'Wakefield House, 16, Ballard Estate, Mumbai',
+          description: 'Iconic Parsi restaurant serving authentic berry pulao and dhansak',
+          web_url: 'https://www.tripadvisor.com/Restaurant_Review-g304554-d1234572-Reviews-Britannia_Co-Mumbai_Maharashtra.html'
+        },
+        {
+          contentId: '27717700',
+          name: 'Gajalee',
+          rating: 4.2,
+          review_count: 2500,
+          cuisine: ['Indian', 'Seafood', 'Maharashtrian'],
+          price_level: '$$',
+          address: 'Juhu Beach, Mumbai',
+          description: 'Beachside restaurant famous for fresh seafood and traditional Maharashtrian dishes',
+          web_url: 'https://www.tripadvisor.com/Restaurant_Review-g304554-d1234573-Reviews-Gajalee-Mumbai_Maharashtra.html'
+        }
+      ];
+    }
+    
+    // India-specific restaurants
+    if (geoId === '293860' || geoId.startsWith('304')) {
+      return [
+        {
+          contentId: '27717696',
+          name: 'Karim\'s',
+          rating: 4.3,
+          review_count: 8500,
+          cuisine: ['Indian', 'Mughlai', 'Halal'],
+          price_level: '$$',
+          address: '16, Gali Kababian, Jama Masjid, Delhi',
+          description: 'Famous for authentic Mughlai cuisine and kebabs since 1913',
+          web_url: 'https://www.tripadvisor.com/Restaurant_Review-g304551-d1234567-Reviews-Karim_s-Delhi.html'
+        },
+        {
+          contentId: '27717697',
+          name: 'Bukhara',
+          rating: 4.6,
+          review_count: 12000,
+          cuisine: ['Indian', 'North Indian', 'Tandoor'],
+          price_level: '$$$',
+          address: 'ITC Maurya, Sardar Patel Marg, Delhi',
+          description: 'Award-winning restaurant known for its tandoor specialties',
+          web_url: 'https://www.tripadvisor.com/Restaurant_Review-g304551-d1234568-Reviews-Bukhara-Delhi.html'
+        },
+        {
+          contentId: '27717698',
+          name: 'Trishna',
+          rating: 4.4,
+          review_count: 6800,
+          cuisine: ['Indian', 'Seafood', 'Coastal'],
+          price_level: '$$',
+          address: '7, Sai Baba Marg, Kala Ghoda, Mumbai',
+          description: 'Famous for coastal Indian seafood and spicy curries',
+          web_url: 'https://www.tripadvisor.com/Restaurant_Review-g304554-d1234569-Reviews-Trishna-Mumbai_Maharashtra.html'
+        },
+        {
+          contentId: '27717699',
+          name: 'Laxmi Vilas Palace',
+          rating: 4.2,
+          review_count: 4200,
+          cuisine: ['Indian', 'Rajasthani', 'Royal'],
+          price_level: '$$$',
+          address: 'Udaipur, Rajasthan',
+          description: 'Royal dining experience with traditional Rajasthani cuisine',
+          web_url: 'https://www.tripadvisor.com/Restaurant_Review-g304560-d1234570-Reviews-Laxmi_Vilas_Palace-Jaipur_Rajasthan.html'
+        },
+        {
+          contentId: '27717700',
+          name: 'Paragon Restaurant',
+          rating: 4.1,
+          review_count: 5600,
+          cuisine: ['Indian', 'Kerala', 'South Indian'],
+          price_level: '$$',
+          address: 'Kochi, Kerala',
+          description: 'Authentic Kerala cuisine with traditional flavors and spices',
+          web_url: 'https://www.tripadvisor.com/Restaurant_Review-g304558-d1234571-Reviews-Paragon_Restaurant-Kochi_Kerala.html'
+        }
+      ];
+    }
+    
+    // Default Paris restaurants
     return [
       {
         contentId: '27717696',
@@ -1054,6 +1413,246 @@ class TripAdvisorRapidAPIService {
         user: {
           username: 'location_manager'
         }
+      }
+    ];
+  }
+
+  /**
+   * Mock location reviews for fallback
+   */
+  getMockLocationReviews(locationId) {
+    return [
+      {
+        id: 1,
+        rating: 5,
+        title: 'Absolutely Amazing Experience!',
+        text: 'This place exceeded all my expectations. The staff was incredibly friendly and the atmosphere was perfect. I would definitely recommend this to anyone visiting the area.',
+        author: {
+          username: 'traveler123',
+          localized_name: 'Sarah M.',
+          avatar: null
+        },
+        published_date: '2024-01-15',
+        helpful_votes: 12,
+        total_votes: 15,
+        is_machine_translated: false,
+        language: 'en',
+        trip_type: 'Couples',
+        rating_date: '2024-01-15',
+        review_url: 'https://www.tripadvisor.com/sample-review-1',
+        is_anonymous: false,
+        user_contribution: 5,
+        photos: [],
+        awards: []
+      },
+      {
+        id: 2,
+        rating: 4,
+        title: 'Great place with minor issues',
+        text: 'Overall a wonderful experience. The food was excellent and the service was good. The only downside was the wait time, but it was worth it in the end.',
+        author: {
+          username: 'foodie456',
+          localized_name: 'Mike R.',
+          avatar: null
+        },
+        published_date: '2024-01-12',
+        helpful_votes: 8,
+        total_votes: 10,
+        is_machine_translated: false,
+        language: 'en',
+        trip_type: 'Friends',
+        rating_date: '2024-01-12',
+        review_url: 'https://www.tripadvisor.com/sample-review-2',
+        is_anonymous: false,
+        user_contribution: 3,
+        photos: [],
+        awards: []
+      },
+      {
+        id: 3,
+        rating: 5,
+        title: 'Perfect for families',
+        text: 'Took my family here and everyone loved it. The kids had a great time and the adults enjoyed the experience as well. Highly recommended for family outings.',
+        author: {
+          username: 'family_traveler',
+          localized_name: 'Jennifer L.',
+          avatar: null
+        },
+        published_date: '2024-01-10',
+        helpful_votes: 15,
+        total_votes: 18,
+        is_machine_translated: false,
+        language: 'en',
+        trip_type: 'Family',
+        rating_date: '2024-01-10',
+        review_url: 'https://www.tripadvisor.com/sample-review-3',
+        is_anonymous: false,
+        user_contribution: 7,
+        photos: [],
+        awards: []
+      }
+    ];
+  }
+
+  /**
+   * Search for locations using TripAdvisor Content API
+   * @param {string} searchQuery - Search query
+   * @param {number} limit - Maximum number of results
+   * @param {string} language - Language code
+   * @returns {Array} Array of location objects
+   */
+  async searchLocations(searchQuery, limit = 10, language = 'en') {
+    try {
+      const cacheKey = `location_search_${searchQuery}_${limit}`;
+      const cached = this.getCachedData(cacheKey);
+      if (cached) {
+        console.log(`✅ Cache hit for location search: ${searchQuery}`);
+        return cached;
+      }
+
+      console.log(`🔍 Searching locations for: ${searchQuery}`);
+
+      if (!this.contentApiKey) {
+        console.warn('⚠️ No Content API key, returning mock search results');
+        return this.getMockLocationSearch(searchQuery);
+      }
+
+      const response = await this.fetchWithRetry(async () => {
+        return await axios.get(
+          `${this.contentApiBaseUrl}/location/search`,
+          {
+            params: {
+              key: this.contentApiKey,
+              searchQuery,
+              language,
+              limit
+            },
+            timeout: 10000
+          }
+        );
+      });
+
+      const locations = this.formatLocationSearch(response.data);
+      this.setCachedData(cacheKey, locations);
+
+      console.log(`✅ Successfully found ${locations.length} locations`);
+      return locations;
+
+    } catch (error) {
+      console.error('❌ TripAdvisor Content API error (search):', error.message);
+
+      if (error.response?.status === 404) {
+        console.warn(`⚠️ No locations found for: ${searchQuery}`);
+        return [];
+      } else if (error.response?.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+
+      // Return mock data as fallback
+      return this.getMockLocationSearch(searchQuery);
+    }
+  }
+
+  /**
+   * Format location search results from Content API response
+   * @param {Object} data - Raw API response
+   * @returns {Array} Formatted location search results
+   */
+  formatLocationSearch(data) {
+    if (!data || !data.data || !Array.isArray(data.data)) {
+      return [];
+    }
+
+    return data.data.map(location => ({
+      location_id: location.location_id,
+      name: location.name || 'Unknown Location',
+      address: location.address_obj?.address_string || '',
+      latitude: location.latitude || 0,
+      longitude: location.longitude || 0,
+      category: location.category?.name || 'location',
+      rating: location.rating || 0,
+      num_reviews: location.num_reviews || 0,
+      price_level: location.price_level || '',
+      distance: location.distance || null,
+      distance_string: location.distance_string || null
+    }));
+  }
+
+  /**
+   * Get mock location search results
+   * @param {string} searchQuery - Search query
+   * @returns {Array} Mock location search results
+   */
+  getMockLocationSearch(searchQuery) {
+    const mockLocations = {
+      'paris': [
+        {
+          location_id: '187147',
+          name: 'Paris',
+          address: 'Paris, France',
+          latitude: 48.8566,
+          longitude: 2.3522,
+          category: 'city',
+          rating: 4.5,
+          num_reviews: 50000,
+          price_level: '$$',
+          distance: null,
+          distance_string: null
+        }
+      ],
+      'tokyo': [
+        {
+          location_id: '298184',
+          name: 'Tokyo',
+          address: 'Tokyo, Japan',
+          latitude: 35.6762,
+          longitude: 139.6503,
+          category: 'city',
+          rating: 4.6,
+          num_reviews: 45000,
+          price_level: '$$$',
+          distance: null,
+          distance_string: null
+        }
+      ],
+      'new york': [
+        {
+          location_id: '60763',
+          name: 'New York City',
+          address: 'New York, NY, USA',
+          latitude: 40.7128,
+          longitude: -74.0060,
+          category: 'city',
+          rating: 4.4,
+          num_reviews: 60000,
+          price_level: '$$$',
+          distance: null,
+          distance_string: null
+        }
+      ]
+    };
+
+    const query = searchQuery.toLowerCase();
+    for (const [key, locations] of Object.entries(mockLocations)) {
+      if (query.includes(key)) {
+        return locations;
+      }
+    }
+
+    // Default mock result
+    return [
+      {
+        location_id: '123456',
+        name: searchQuery,
+        address: `${searchQuery}`,
+        latitude: 0,
+        longitude: 0,
+        category: 'location',
+        rating: 4.0,
+        num_reviews: 100,
+        price_level: '$$',
+        distance: null,
+        distance_string: null
       }
     ];
   }

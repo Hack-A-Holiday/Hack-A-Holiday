@@ -111,31 +111,62 @@ router.post('/chat', optionalAuth, async (req, res) => {
       }
     }
 
-    res.json({
-      success: true,
-      data: {
-        response: response.content,
-        role: response.role,
-        type: response.metadata.intent || 'general',
-        recommendations: recommendations,
-        intent: response.metadata.intent || 'general',
-        conversationId: response.metadata.sessionId,
-        timestamp: response.metadata.timestamp,
-        // Additional data for enhanced UI
-        realData: response.realData,
-        userPreferences: response.userPreferences,
-        apiCallsMade: response.metadata.apiCallsMade,
-        dataSource: response.metadata.dataSource,
-        // AI Agent context metadata
-        agentContext: {
-          usedHomeCity: agentContext.preferences?.homeCity,
-          totalSearches: agentContext.searchHistory?.length || 0,
-          totalTrips: agentContext.tripHistory?.length || 0,
-          learnedInterests: agentContext.preferences?.interests || [],
-          personalizedResponse: Object.keys(agentContext.preferences || {}).length > 0
+    // Handle multi-message response (trip planning) or single message
+    if (response.metadata?.multiMessage && Array.isArray(response.content)) {
+      // Multi-message response (trip planning)
+      res.json({
+        success: true,
+        data: {
+          response: response.content, // Array of messages
+          role: response.role,
+          type: response.metadata.intent || 'general',
+          recommendations: recommendations,
+          intent: response.metadata.intent || 'general',
+          conversationId: response.metadata.sessionId,
+          timestamp: response.metadata.timestamp,
+          // Additional data for enhanced UI
+          realData: response.realData,
+          userPreferences: response.userPreferences,
+          apiCallsMade: response.metadata.apiCallsMade,
+          dataSource: response.metadata.dataSource,
+          // AI Agent context metadata
+          agentContext: {
+            usedHomeCity: agentContext.preferences?.homeCity,
+            totalSearches: agentContext.searchHistory?.length || 0,
+            totalTrips: agentContext.tripHistory?.length || 0,
+            learnedInterests: agentContext.preferences?.interests || [],
+            personalizedResponse: Object.keys(agentContext.preferences || {}).length > 0
+          }
         }
-      }
-    });
+      });
+    } else {
+      // Single message response (regular chat)
+      res.json({
+        success: true,
+        data: {
+          response: response.content,
+          role: response.role,
+          type: response.metadata.intent || 'general',
+          recommendations: recommendations,
+          intent: response.metadata.intent || 'general',
+          conversationId: response.metadata.sessionId,
+          timestamp: response.metadata.timestamp,
+          // Additional data for enhanced UI
+          realData: response.realData,
+          userPreferences: response.userPreferences,
+          apiCallsMade: response.metadata.apiCallsMade,
+          dataSource: response.metadata.dataSource,
+          // AI Agent context metadata
+          agentContext: {
+            usedHomeCity: agentContext.preferences?.homeCity,
+            totalSearches: agentContext.searchHistory?.length || 0,
+            totalTrips: agentContext.tripHistory?.length || 0,
+            learnedInterests: agentContext.preferences?.interests || [],
+            personalizedResponse: Object.keys(agentContext.preferences || {}).length > 0
+          }
+        }
+      });
+    }
 
   } catch (error) {
     console.error('❌ AI chat error:', error);

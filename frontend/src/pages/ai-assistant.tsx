@@ -10,12 +10,117 @@ import Swal from 'sweetalert2';
 // Utility function to render formatted text (bold support)
 // Helper to render inline bold within text
 const renderInlineBold = (text: string) => {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
+  if (!text || typeof text !== 'string') return text;
+  
+  // Handle multiple markdown patterns
+  const patterns = [
+    // Bold text: **text**
+    { regex: /(\*\*)(.*?)\1/g, replacement: (match: string, p1: string, p2: string) => `<strong>${p2}</strong>` },
+    // Italic text: *text*
+    { regex: /(\*)([^*]+)\1/g, replacement: (match: string, p1: string, p2: string) => `<em>${p2}</em>` },
+    // Bold text: __text__
+    { regex: /(__)(.*?)\1/g, replacement: (match: string, p1: string, p2: string) => `<strong>${p2}</strong>` },
+    // Italic text: _text_
+    { regex: /(_)([^_]+)\1/g, replacement: (match: string, p1: string, p2: string) => `<em>${p2}</em>` }
+  ];
+  
+  let processedText = text;
+  
+  // Apply all patterns
+  patterns.forEach(pattern => {
+    processedText = processedText.replace(pattern.regex, pattern.replacement);
+  });
+  
+  // Split by HTML tags and render
+  const parts = processedText.split(/(<strong>.*?<\/strong>|<em>.*?<\/em>)/g);
+  
   return parts.map((part, idx) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={idx} className="font-bold text-white">{part.slice(2, -2)}</strong>;
+    if (part.startsWith('<strong>') && part.endsWith('</strong>')) {
+      return <strong key={idx} style={{ fontWeight: 'bold' }}>{part.replace(/<\/?strong>/g, '')}</strong>;
+    } else if (part.startsWith('<em>') && part.endsWith('</em>')) {
+      return <em key={idx} style={{ fontStyle: 'italic' }}>{part.replace(/<\/?em>/g, '')}</em>;
     }
     return <span key={idx}>{part}</span>;
+  });
+};
+
+// Helper to render markdown headers and formatting
+const renderMarkdownText = (text: string) => {
+  if (!text || typeof text !== 'string') return text;
+  
+  // Split by lines to handle headers
+  const lines = text.split('\n');
+  
+  return lines.map((line, lineIdx) => {
+    // Handle headers
+    if (line.startsWith('### ')) {
+      return (
+        <div key={lineIdx} style={{ 
+          fontSize: '1.3rem', 
+          fontWeight: 'bold', 
+          margin: '16px 0 8px 0',
+          color: '#2563eb',
+          borderBottom: '2px solid #e5e7eb',
+          paddingBottom: '4px'
+        }}>
+          {renderInlineBold(line.replace('### ', ''))}
+        </div>
+      );
+    } else if (line.startsWith('#### ')) {
+      return (
+        <div key={lineIdx} style={{ 
+          fontSize: '1.1rem', 
+          fontWeight: 'bold', 
+          margin: '12px 0 6px 0',
+          color: '#374151'
+        }}>
+          {renderInlineBold(line.replace('#### ', ''))}
+        </div>
+      );
+    } else if (line.startsWith('## ')) {
+      return (
+        <div key={lineIdx} style={{ 
+          fontSize: '1.4rem', 
+          fontWeight: 'bold', 
+          margin: '20px 0 10px 0',
+          color: '#1d4ed8',
+          borderBottom: '3px solid #d1d5db',
+          paddingBottom: '6px'
+        }}>
+          {renderInlineBold(line.replace('## ', ''))}
+        </div>
+      );
+    } else if (line.startsWith('# ')) {
+      return (
+        <div key={lineIdx} style={{ 
+          fontSize: '1.5rem', 
+          fontWeight: 'bold', 
+          margin: '24px 0 12px 0',
+          color: '#1e40af'
+        }}>
+          {renderInlineBold(line.replace('# ', ''))}
+        </div>
+      );
+    } else if (line.startsWith('- ')) {
+      return (
+        <div key={lineIdx} style={{ 
+          margin: '4px 0',
+          paddingLeft: '16px',
+          position: 'relative'
+        }}>
+          <span style={{ position: 'absolute', left: '0', color: '#6b7280' }}>•</span>
+          <span style={{ marginLeft: '8px' }}>{renderInlineBold(line.replace('- ', ''))}</span>
+        </div>
+      );
+    } else if (line.trim() === '') {
+      return <div key={lineIdx} style={{ height: '8px' }} />;
+    } else {
+      return (
+        <div key={lineIdx} style={{ margin: '4px 0', lineHeight: '1.6' }}>
+          {renderInlineBold(line)}
+        </div>
+      );
+    }
   });
 };
 
@@ -111,38 +216,10 @@ const renderFormattedText = (text: string | any) => {
     }
   }
 
-  // Split by markdown links [text](url) and ** for bold
-  const parts = textWithoutGoogleFlights.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/g);
-  
+  // Use the new markdown renderer for the main text
   return (
     <>
-      {parts.map((part, idx) => {
-        // Markdown link
-        const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
-        if (linkMatch) {
-          return (
-            <a 
-              key={idx} 
-              href={linkMatch[2]} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              style={{
-                color: '#667eea',
-                textDecoration: 'underline',
-                fontWeight: '600'
-              }}
-            >
-              {linkMatch[1]}
-            </a>
-          );
-        }
-        
-        // Bold text
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={idx}>{part.slice(2, -2)}</strong>;
-        }
-        return <span key={idx}>{part}</span>;
-      })}
+      {renderMarkdownText(textWithoutGoogleFlights)}
       
       {/* Render Google Flights buttons */}
       {googleFlightsButtons.length > 0 && (
@@ -207,12 +284,363 @@ const renderFormattedText = (text: string | any) => {
   );
 };
 
+// Parse plain text itinerary into structured format
+const parseTextItinerary = (text: string): any[] | null => {
+  if (!text) return null;
+  
+  const dayRegex = /Day\s+(\d+)\s*\n\s*([^\n]+)\s*\n\s*🎯\s*Activities:\s*([\s\S]*?)(?=Day\s+\d+|$)/gi;
+  const days = [];
+  let match;
+  
+  while ((match = dayRegex.exec(text)) !== null) {
+    const dayNumber = parseInt(match[1]);
+    const dayTitle = match[2].trim();
+    const activitiesText = match[3].trim();
+    
+    // Parse activities (split by newlines and clean up)
+    const activities = activitiesText
+      .split('\n')
+      .map(activity => activity.trim())
+      .filter(activity => activity.length > 0)
+      .map(activity => ({
+        name: activity.replace(/^[•\-\*]\s*/, ''), // Remove bullet points
+        description: activity
+      }));
+    
+    days.push({
+      day: dayNumber,
+      title: dayTitle,
+      activities: activities
+    });
+  }
+  
+  return days.length > 0 ? days : null;
+};
+
+// Itinerary Content Component with Enhanced UI
+const ItineraryContent: React.FC<{ content: any; role: string; isDarkMode?: boolean }> = ({ content, role, isDarkMode = false }) => {
+  // Parse plain text itinerary if it exists
+  const parsedItinerary = content.aiResponse ? parseTextItinerary(content.aiResponse) : null;
+  
+  return (
+    <div style={{ width: '100%' }}>
+      {/* AI Response Text - always show if available, but use formatted text */}
+      {content.aiResponse && (
+        <div style={{ 
+          marginBottom: '20px',
+          whiteSpace: 'pre-wrap',
+          fontSize: '16px',
+          lineHeight: '1.6',
+          color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#333')
+        }}>
+          {renderFormattedText(content.aiResponse)}
+        </div>
+      )}
+      
+      {/* Flight Recommendations */}
+      {content.flights && (
+        <FlightRecommendations flights={content.flights} role={role} isDarkMode={isDarkMode} />
+      )}
+      
+      {/* Hotel Recommendations */}
+      {content.hotels && (
+        <HotelRecommendations hotels={content.hotels} role={role} isDarkMode={isDarkMode} />
+      )}
+      
+      
+      {/* Daily Itinerary - use parsed if available */}
+      {(content.dailyItinerary || content.dailyPlans || parsedItinerary) && (
+        <DailyItinerary 
+          dailyData={content.dailyItinerary || content.dailyPlans || parsedItinerary} 
+          role={role}
+          isDarkMode={isDarkMode}
+        />
+      )}
+    </div>
+  );
+};
+
+// Flight Recommendations Component
+const FlightRecommendations: React.FC<{ flights: any; role: string; isDarkMode?: boolean }> = ({ flights, role, isDarkMode = false }) => (
+  <div style={{ marginBottom: '20px' }}>
+    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span>✈️</span>
+      <span>Flight Options</span>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {flights.slice(0, 3).map((flight: any, idx: number) => (
+        <div key={idx} style={{
+          padding: '12px',
+          backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+          borderRadius: '8px',
+          border: isDarkMode ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+            {flight.airline} {flight.flightNumber}
+          </div>
+          <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
+            {flight.departure} → {flight.arrival} • {flight.duration} • ${flight.price}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// Hotel Recommendations Component
+const HotelRecommendations: React.FC<{ hotels: any; role: string; isDarkMode?: boolean }> = ({ hotels, role, isDarkMode = false }) => (
+  <div style={{ marginBottom: '20px' }}>
+    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span>🏨</span>
+      <span>Hotel Recommendations</span>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {hotels.slice(0, 3).map((hotel: any, idx: number) => (
+        <div key={idx} style={{
+          padding: '12px',
+          backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+          borderRadius: '8px',
+          border: isDarkMode ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+            {hotel.name}
+          </div>
+          <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
+            {hotel.rating && `⭐ ${hotel.rating} • `}{hotel.price && `$${hotel.price}/night • `}{hotel.location}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// Hotel Cards Component (similar to search pages)
+const HotelCards: React.FC<{ hotels: any[]; role: string; isDarkMode?: boolean; bookingUrl?: string }> = ({ hotels, role, isDarkMode = false, bookingUrl }) => (
+  <div style={{ marginBottom: '20px' }}>
+    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span>🏨</span>
+      <span>Hotel Recommendations</span>
+    </div>
+    
+    {bookingUrl && (
+      <div style={{ marginBottom: '16px' }}>
+        <a
+          href={bookingUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 16px',
+            backgroundColor: '#1d4ed8',
+            color: 'white',
+            borderRadius: '8px',
+            textDecoration: 'none',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#1e40af';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#1d4ed8';
+          }}
+        >
+          🏨 Search More Hotels on Booking.com
+        </a>
+      </div>
+    )}
+    
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+      {hotels.slice(0, 3).map((hotel: any, idx: number) => (
+        <div key={idx} style={{
+          backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'white',
+          borderRadius: '12px',
+          border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0',
+          overflow: 'hidden',
+          boxShadow: isDarkMode ? '0 4px 6px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
+          transition: 'transform 0.2s, box-shadow 0.2s'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = isDarkMode ? '0 8px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.15)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = isDarkMode ? '0 4px 6px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)';
+        }}
+        >
+          {/* Hotel Image Placeholder */}
+          <div style={{
+            height: '200px',
+            backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#f5f5f5',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '48px',
+            color: isDarkMode ? 'rgba(255,255,255,0.3)' : '#ccc'
+          }}>
+            🏨
+          </div>
+          
+          {/* Hotel Content */}
+          <div style={{ padding: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+              <h3 style={{ 
+                margin: 0, 
+                fontSize: '1.1rem', 
+                fontWeight: '600', 
+                color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'),
+                lineHeight: '1.3'
+              }}>
+                {hotel.name}
+              </h3>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ 
+                  fontWeight: '700', 
+                  fontSize: '1.2rem', 
+                  color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50') 
+                }}>
+                  ${hotel.price}
+                </div>
+                <div style={{ 
+                  fontSize: '0.8rem', 
+                  color: role === 'user' ? 'rgba(255,255,255,0.7)' : (isDarkMode ? 'rgba(255,255,255,0.6)' : '#888') 
+                }}>
+                  per night
+                </div>
+              </div>
+            </div>
+            
+            {/* Rating */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
+              <span style={{ color: '#ffc107', fontSize: '14px' }}>⭐</span>
+              <span style={{ 
+                fontSize: '0.9rem', 
+                fontWeight: '500', 
+                color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? 'rgba(255,255,255,0.8)' : '#666') 
+              }}>
+                {hotel.rating}/5
+              </span>
+              <span style={{ 
+                fontSize: '0.8rem', 
+                color: role === 'user' ? 'rgba(255,255,255,0.6)' : (isDarkMode ? 'rgba(255,255,255,0.5)' : '#999') 
+              }}>
+                ({hotel.review_count || 'N/A'} reviews)
+              </span>
+            </div>
+            
+            {/* Location */}
+            <div style={{ 
+              fontSize: '0.9rem', 
+              color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666'),
+              marginBottom: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              📍 {hotel.location || hotel.address || 'Location not specified'}
+            </div>
+            
+            {/* Amenities */}
+            {hotel.amenities && hotel.amenities.length > 0 && (
+              <div style={{ 
+                fontSize: '0.8rem', 
+                color: role === 'user' ? 'rgba(255,255,255,0.7)' : (isDarkMode ? 'rgba(255,255,255,0.6)' : '#888'),
+                marginBottom: '12px'
+              }}>
+                {hotel.amenities.slice(0, 3).join(' • ')}
+                {hotel.amenities.length > 3 && ` +${hotel.amenities.length - 3} more`}
+              </div>
+            )}
+            
+            {/* Description */}
+            {hotel.description && (
+              <div style={{ 
+                fontSize: '0.85rem', 
+                color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666'),
+                lineHeight: '1.4',
+                marginBottom: '12px'
+              }}>
+                {hotel.description.length > 100 ? `${hotel.description.substring(0, 100)}...` : hotel.description}
+              </div>
+            )}
+            
+            {/* Book Now Button */}
+            <button
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                backgroundColor: '#1d4ed8',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#1e40af';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#1d4ed8';
+              }}
+            >
+              View on Booking.com
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// Daily Itinerary Component with Enhanced UI
+const DailyItinerary: React.FC<{ dailyData: any[]; role: string; isDarkMode?: boolean }> = ({ dailyData, role, isDarkMode = false }) => (
+  <div style={{ marginBottom: '16px' }}>
+    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span>📋</span>
+      <span>Daily Itinerary</span>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {dailyData.map((day: any, idx: number) => (
+        <div key={idx} style={{
+          padding: '16px',
+          backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+          borderRadius: '12px',
+          border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ fontWeight: '600', fontSize: '1.1rem', marginBottom: '8px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50') }}>
+            Day {day.day}: {renderFormattedText(day.title)}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {day.activities.map((activity: any, actIdx: number) => (
+              <div key={actIdx} style={{
+                padding: '8px 12px',
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                borderRadius: '6px',
+                fontSize: '14px',
+                color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? 'rgba(255,255,255,0.8)' : '#555')
+              }}>
+                • {renderFormattedText(activity.name || activity)}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
-  content: string;
+  content: string | Record<string, any>;
   timestamp: number;
-  type?: 'text' | 'recommendation' | 'link';
+  type?: 'text' | 'recommendation' | 'link' | 'itinerary' | 'hotel_cards';
   data?: any;
 }
 
@@ -270,14 +698,86 @@ export default function AIAssistant() {
   };
 
   const initializeConversation = () => {
-    const convId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    setConversationId(convId);
+    // Check for messages or itinerary data from URL query parameters
+    let initialMessages: ChatMessage[] = [];
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const messagesStr = params.get('messages');
+      const itineraryStr = params.get('itinerary');
+      const convId = params.get('conversationId');
+      
+      if (convId) {
+        setConversationId(convId);
+      }
+      
+      if (messagesStr) {
+        // Multi-message response from trip planning
+        try {
+          const messages = JSON.parse(messagesStr);
+          initialMessages = messages.map((msg: any, index: number) => ({
+            id: msg.id || `msg_${Date.now()}_${index}`,
+            role: msg.role || 'assistant',
+            content: msg.content,
+            timestamp: msg.timestamp || Date.now(),
+            type: msg.type || 'text',
+            data: msg.data
+          }));
+        } catch (e) {
+          console.error('Error parsing messages:', e);
+        }
+      } else if (itineraryStr) {
+        // Single itinerary response (backward compatibility)
+        try {
+          const itineraryObj = JSON.parse(itineraryStr);
+          // Convert itinerary object to formatted text for display in chat
+          let itineraryText = `🎉 Here's your personalized travel itinerary!\n\n`;
+          
+          if (itineraryObj.aiResponse) {
+            itineraryText += itineraryObj.aiResponse;
+          } else {
+            // Fallback: create a basic itinerary from the object
+            itineraryText += `**Trip Details:**\n`;
+            if (itineraryObj.destination) {
+              itineraryText += `📍 Destination: ${itineraryObj.destination}\n`;
+            }
+            if (itineraryObj.duration) {
+              itineraryText += `⏱️ Duration: ${itineraryObj.duration} days\n`;
+            }
+            if (itineraryObj.budget) {
+              itineraryText += `💰 Budget: $${itineraryObj.budget}\n`;
+            }
+            itineraryText += `\nI've prepared a detailed itinerary for your trip. Feel free to ask me any questions about your travel plans!`;
+          }
+          
+          initialMessages = [{ 
+            role: 'assistant', 
+            content: itineraryText, 
+            timestamp: Date.now(),
+            id: `msg_${Date.now()}_itinerary`,
+            type: 'text'
+          }];
+        } catch (e) {
+          console.error('Error parsing itinerary:', e);
+        }
+      }
+    }
 
-    // Welcome message with user's preferences
-    const welcomeMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'assistant',
-      content: `👋 Hello ${state.user?.name || 'there'}! I'm your AI Travel Assistant.
+    // If no conversation ID set, create a new one
+    if (!conversationId) {
+      const convId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      setConversationId(convId);
+    }
+
+    // Set initial messages
+    if (initialMessages.length > 0) {
+      // We have messages from trip planning - use them directly
+      setMessages(initialMessages);
+    } else {
+      // No initial messages - show welcome message
+      const welcomeMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `👋 Hello ${state.user?.name || 'there'}! I'm your AI Travel Assistant.
 
 I can help you with:
 ✈️ **Flight Search** - Real-time flight availability and pricing from our API
@@ -288,11 +788,11 @@ I can help you with:
 🧠 **Smart Context** - I remember our conversation and your preferences
 
 Just tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!`,
-      timestamp: Date.now(),
-      type: 'text'
-    };
-
-    setMessages([welcomeMessage]);
+        timestamp: Date.now(),
+        type: 'text'
+      };
+      setMessages([welcomeMessage]);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -358,28 +858,48 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
 
       console.log('Backend response:', data); // Debug log
 
-      // Add AI response from Integrated AI Travel Agent
-      const aiMessage: ChatMessage = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: data.success ? (data.data?.response || data.message) : (data.message || 'I apologize, but I encountered an error.'),
-        timestamp: Date.now(),
-        type: data.data?.recommendations?.length > 0 ? 'recommendation' : 'text',
-        data: {
-          recommendations: data.data?.recommendations || [],
-          realData: data.data?.realData,
-          intent: data.data?.intent,
-          conversationId: data.data?.conversationId,
-          sessionId: data.data?.conversationId
+      // Handle multi-message response (trip planning) or single message
+      if (data.success && data.data?.response && Array.isArray(data.data.response)) {
+        // Multiple messages (trip planning)
+        const aiMessages: ChatMessage[] = data.data.response.map((msg: any) => ({
+          id: msg.id || Date.now().toString(),
+          role: msg.role || 'assistant',
+          content: msg.content || '',
+          timestamp: msg.timestamp || Date.now(),
+          type: msg.type || 'text',
+          data: msg.data
+        }));
+        
+        // Update conversation ID if returned from backend
+        if (data.data?.conversationId && data.data.conversationId !== conversationId) {
+          setConversationId(data.data.conversationId);
         }
-      };
+        
+        setMessages(prev => [...prev, ...aiMessages]);
+      } else {
+        // Single message (regular chat)
+        const aiMessage: ChatMessage = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: data.success ? (data.data?.response || data.message) : (data.message || 'I apologize, but I encountered an error.'),
+          timestamp: Date.now(),
+          type: data.data?.recommendations?.length > 0 ? 'recommendation' : 'text',
+          data: {
+            recommendations: data.data?.recommendations || [],
+            realData: data.data?.realData,
+            intent: data.data?.intent,
+            conversationId: data.data?.conversationId,
+            sessionId: data.data?.conversationId
+          }
+        };
 
-      // Update conversation ID if returned from backend
-      if (data.data?.conversationId && data.data.conversationId !== conversationId) {
-        setConversationId(data.data.conversationId);
+        // Update conversation ID if returned from backend
+        if (data.data?.conversationId && data.data.conversationId !== conversationId) {
+          setConversationId(data.data.conversationId);
+        }
+
+        setMessages(prev => [...prev, aiMessage]);
       }
-
-      setMessages(prev => [...prev, aiMessage]);
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -608,6 +1128,13 @@ What would you like to explore?`,
                 ))}
               </div>
             </div>
+          ) : message.type === 'hotel_cards' && message.data?.hotels ? (
+            <HotelCards 
+              hotels={message.data.hotels} 
+              role={message.role} 
+              isDarkMode={isDarkMode} 
+              bookingUrl={message.data.bookingUrl}
+            />
           ) : (
             <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{renderFormattedText(message.content)}</div>
           )}
