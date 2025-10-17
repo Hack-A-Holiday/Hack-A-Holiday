@@ -712,8 +712,11 @@ export default function AIAssistant() {
       
       if (messagesStr) {
         // Multi-message response from trip planning
+        console.log('Found messages in URL:', messagesStr);
         try {
           const messages = JSON.parse(messagesStr);
+          console.log('Parsed messages:', messages);
+          console.log('Number of messages:', messages.length);
           initialMessages = messages.map((msg: any, index: number) => ({
             id: msg.id || `msg_${Date.now()}_${index}`,
             role: msg.role || 'assistant',
@@ -722,6 +725,7 @@ export default function AIAssistant() {
             type: msg.type || 'text',
             data: msg.data
           }));
+          console.log('Mapped initial messages:', initialMessages);
         } catch (e) {
           console.error('Error parsing messages:', e);
         }
@@ -769,8 +773,10 @@ export default function AIAssistant() {
     }
 
     // Set initial messages
+    console.log('Setting initial messages. Count:', initialMessages.length);
     if (initialMessages.length > 0) {
       // We have messages from trip planning - use them directly
+      console.log('Setting messages from trip planning:', initialMessages);
       setMessages(initialMessages);
     } else {
       // No initial messages - show welcome message

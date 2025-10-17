@@ -1125,8 +1125,23 @@ class IntegratedAITravelAgent {
     messages.push(itineraryMessage);
     
     // Message 2: Flight Recommendations with individual Google Flights buttons
-    if (realData && realData.type === 'flight' && realData.results && realData.results.length > 0) {
-      const topFlights = realData.results.slice(0, 3); // Top 3 flights
+    console.log('🔍 DEBUG: Checking flight message condition...');
+    console.log('🔍 DEBUG: realData exists:', !!realData);
+    console.log('🔍 DEBUG: realData.type:', realData?.type);
+    console.log('🔍 DEBUG: realData.results exists:', !!realData?.results);
+    console.log('🔍 DEBUG: realData.results length:', realData?.results?.length);
+    
+    // Check for flight data in different possible structures
+    let flightResults = null;
+    if (realData && realData.type === 'flight' && realData.results) {
+      flightResults = realData.results;
+    } else if (realData && realData.type === 'combined' && realData.flights && realData.flights.results) {
+      flightResults = realData.flights.results;
+    }
+    
+    if (flightResults && flightResults.length > 0) {
+      console.log('🔍 DEBUG: Using real flight data');
+      const topFlights = flightResults.slice(0, 3); // Top 3 flights
       const origin = queryIntent.extractedInfo?.origin || '';
       const destination = queryIntent.extractedInfo?.destination || '';
       const depDate = queryIntent.extractedInfo?.departureDate || '';
@@ -1186,8 +1201,27 @@ class IntegratedAITravelAgent {
     }
     
     // Message 3: Hotel Recommendations as cards
-    if (realData && (realData.type === 'hotel' || realData.type === 'combined') && realData.results && realData.results.length > 0) {
-      const topHotels = realData.results.slice(0, 3); // Top 3 hotels
+    console.log('🔍 DEBUG: Checking hotel message condition...');
+    console.log('🔍 DEBUG: realData exists:', !!realData);
+    console.log('🔍 DEBUG: realData.type:', realData?.type);
+    console.log('🔍 DEBUG: realData.results exists:', !!realData?.results);
+    console.log('🔍 DEBUG: realData.results length:', realData?.results?.length);
+    console.log('🔍 DEBUG: realData structure:', JSON.stringify(realData, null, 2));
+    
+    // Check for hotel data in different possible structures
+    let hotelResults = null;
+    if (realData && realData.type === 'hotel' && realData.results) {
+      hotelResults = realData.results;
+    } else if (realData && realData.type === 'combined' && realData.hotels && realData.hotels.results) {
+      hotelResults = realData.hotels.results;
+    }
+    
+    console.log('🔍 DEBUG: hotelResults:', hotelResults);
+    console.log('🔍 DEBUG: hotelResults length:', hotelResults?.length);
+    
+    if (hotelResults && hotelResults.length > 0) {
+      console.log('🔍 DEBUG: Using real hotel data');
+      const topHotels = hotelResults.slice(0, 3); // Top 3 hotels
       const destination = queryIntent.extractedInfo?.destination || '';
       const checkIn = queryIntent.extractedInfo?.checkIn || '';
       const checkOut = queryIntent.extractedInfo?.checkOut || '';
@@ -1217,6 +1251,7 @@ class IntegratedAITravelAgent {
       };
       messages.push(hotelMessage);
     } else {
+      console.log('🔍 DEBUG: Using mock hotel data');
       // Fallback: Create hotel message with mock data when no hotel data is available
       const destination = queryIntent.extractedInfo?.destination || 'your destination';
       const checkIn = queryIntent.extractedInfo?.checkIn || '';

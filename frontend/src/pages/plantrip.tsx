@@ -472,6 +472,9 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 			const data = await response.json();
 			
 			console.log('AI Chat Response:', data);
+			console.log('Response type:', typeof data.data?.response);
+			console.log('Is array:', Array.isArray(data.data?.response));
+			console.log('Response length:', data.data?.response?.length);
 
 			// Parse AI response to extract daily itinerary
 			// Handle both single response and multi-message response
@@ -512,8 +515,13 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 			setResult({ success: true, itinerary });
 			
 			// Check if we have a multi-message response
+			console.log('About to redirect...');
+			console.log('Is array check:', Array.isArray(data.data?.response));
+			
 			if (Array.isArray(data.data?.response)) {
 				// Multi-message response - pass all messages
+				console.log('Redirecting with multi-message response');
+				console.log('Messages to pass:', data.data.response.length);
 				router.push({ 
 					pathname: '/ai-assistant', 
 					query: { 
@@ -523,6 +531,7 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 				});
 			} else {
 				// Single response - pass itinerary as before
+				console.log('Redirecting with single response');
 				router.push({ 
 					pathname: '/ai-assistant', 
 					query: { 
