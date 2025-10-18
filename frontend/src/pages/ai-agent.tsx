@@ -1022,31 +1022,48 @@ const ItineraryContent: React.FC<{ content: any; role: string; isDarkMode?: bool
     
     {/* Flight Information */}
     {content.flights && (
-      <FlightRecommendations 
-        flights={content.flights} 
-        role={role} 
-        isDarkMode={isDarkMode}
-        googleFlightsUrl={content.googleFlightsUrl}
-        inHouseFlightUrl={content.inHouseFlightUrl}
-        origin={content.origin}
-        destination={content.destination}
-        depDate={content.depDate}
-        retDate={content.retDate}
-        message={content.message}
-      />
+      <>
+        {console.log('🔍 Rendering FlightRecommendations with props:', {
+          flights: content.flights,
+          googleFlightsUrl: content.googleFlightsUrl,
+          inHouseFlightUrl: content.inHouseFlightUrl,
+          origin: content.origin,
+          destination: content.destination
+        })}
+        <FlightRecommendations 
+          flights={content.flights} 
+          role={role} 
+          isDarkMode={isDarkMode}
+          googleFlightsUrl={content.googleFlightsUrl}
+          inHouseFlightUrl={content.inHouseFlightUrl}
+          origin={content.origin}
+          destination={content.destination}
+          depDate={content.depDate}
+          retDate={content.retDate}
+          message={content.message}
+        />
+      </>
     )}
     
     {/* Hotel Recommendations */}
     {content.hotels && (
-      <HotelRecommendations 
-        hotels={content.hotels} 
-        role={role} 
-        isDarkMode={isDarkMode}
-        hotelSearchUrl={content.hotelSearchUrl}
-        bookingComUrl={content.bookingComUrl}
-        showMoreText={content.showMoreText}
-        message={content.message}
-      />
+      <>
+        {console.log('🔍 Rendering HotelRecommendations with props:', {
+          hotels: content.hotels,
+          hotelSearchUrl: content.hotelSearchUrl,
+          bookingComUrl: content.bookingComUrl,
+          showMoreText: content.showMoreText
+        })}
+        <HotelRecommendations 
+          hotels={content.hotels} 
+          role={role} 
+          isDarkMode={isDarkMode}
+          hotelSearchUrl={content.hotelSearchUrl}
+          bookingComUrl={content.bookingComUrl}
+          showMoreText={content.showMoreText}
+          message={content.message}
+        />
+      </>
     )}
     
     {/* Daily Itinerary - use parsed if available */}
@@ -1112,7 +1129,18 @@ const FlightRecommendations: React.FC<{
   depDate, 
   retDate,
   message
-}) => (
+}) => {
+  console.log('🔍 FlightRecommendations component received props:', {
+    flights,
+    googleFlightsUrl,
+    inHouseFlightUrl,
+    origin,
+    destination,
+    hasGoogleFlights: !!googleFlightsUrl,
+    hasInHouse: !!inHouseFlightUrl
+  });
+  
+  return (
   <div style={{ marginBottom: '16px' }}>
     <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span>✈️</span>
@@ -1270,7 +1298,8 @@ const FlightRecommendations: React.FC<{
       ))}
     </div>
   </div>
-);
+  );
+  };
 
 // Hotel Recommendations Component
 const HotelRecommendations: React.FC<{ 
@@ -2264,6 +2293,9 @@ const AiAgentPage: React.FC = () => {
             hasFlights: !!msg.data?.flights,
             hasAttractions: !!msg.data?.attractions,
             hotelSearchUrl: msg.data?.hotelSearchUrl,
+            bookingComUrl: msg.data?.bookingComUrl,
+            googleFlightsUrl: msg.data?.googleFlightsUrl,
+            inHouseFlightUrl: msg.data?.inHouseFlightUrl,
             showMoreText: msg.data?.showMoreText
           });
           
