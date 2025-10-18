@@ -290,8 +290,8 @@ Response format: Just the 3-letter code (e.g., "BOM")`
 
     // Use the SAME parameters as the working frontend implementation
     const params = {
-      source: `City:${originCode}`,
-      destination: `City:${destinationCode}`,
+      source: originCode.length === 3 ? `Airport:${originCode}` : `City:${originCode}`,
+      destination: destinationCode.length === 3 ? `Airport:${destinationCode}` : `City:${destinationCode}`,
       departureDate: departureDate,
       currency: detectedCurrency.toLowerCase(),
       locale: 'en',
@@ -368,6 +368,86 @@ Response format: Just the 3-letter code (e.g., "BOM")`
       if (!response.data || itineraries.length === 0) {
         console.log('   ⚠️ No flights found in API response');
         console.log('   📄 Response metadata:', JSON.stringify(response.data?.metadata, null, 2));
+        
+        // Try fallback search with different parameters
+        console.log('   🔄 Trying fallback search with different parameters...');
+        const fallbackParams = { ...params };
+        
+        // Try with city codes instead of airport codes
+        if (originCode.length === 3) {
+          fallbackParams.source = `City:${originCode}`;
+        }
+        if (destinationCode.length === 3) {
+          fallbackParams.destination = `City:${destinationCode}`;
+        }
+        
+        try {
+          const fallbackResponse = await axios.get(apiUrl, {
+            params: fallbackParams,
+            headers,
+            timeout: 30000
+          });
+          
+          const fallbackItineraries = fallbackResponse.data?.itineraries || [];
+          if (fallbackItineraries.length > 0) {
+            console.log(`   ✅ Fallback search found ${fallbackItineraries.length} flights`);
+            // Process fallback results
+            const flights = fallbackItineraries.map((itinerary, index) => {
+              const outbound = itinerary.outbound;
+              const firstSegment = outbound?.sectorSegments?.[0]?.segment;
+              const lastSegment = outbound?.sectorSegments?.[outbound.sectorSegments.length - 1]?.segment;
+              const carrier = firstSegment?.carrier || {};
+              
+              const departureDateTimeStr = firstSegment?.source?.localDateTime || '';
+              const arrivalDateTimeStr = lastSegment?.destination?.localDateTime || '';
+              
+              return {
+                id: itinerary.id || `fallback_${index}`,
+                airline: carrier.name || 'Unknown Airline',
+                flightNumber: `${carrier.code || 'XX'}${firstSegment?.flightNumber || '000'}`,
+                origin: firstSegment?.source?.iata || originCode,
+                destination: lastSegment?.destination?.iata || destinationCode,
+                departureDate: departureDateTimeStr.split('T')[0],
+                departureTime: departureDateTimeStr,
+                arrivalTime: arrivalDateTimeStr,
+                duration: this.calculateDuration(departureDateTimeStr, arrivalDateTimeStr),
+                durationMinutes: this.calculateDurationMinutes(departureDateTimeStr, arrivalDateTimeStr),
+                stops: (outbound?.sectorSegments?.length || 1) - 1,
+                stopDetails: this.extractStopDetails(outbound?.sectorSegments || []),
+                price: itinerary.price?.amount || 0,
+                currency: itinerary.price?.currency || 'USD',
+                cabinClass: cabinClass.toLowerCase(),
+                baggage: {
+                  carry_on: '1 bag',
+                  checked: 'Not included'
+                },
+                bookingUrl: itinerary.bookingUrl || '#',
+                aircraft: 'Aircraft',
+                operatingAirline: carrier.name || 'Unknown Airline',
+                marketingAirline: carrier.name || 'Unknown Airline',
+                fareType: 'KIWI-BASIC',
+                refundable: false,
+                changeable: true,
+                seatSelection: false,
+                mealIncluded: false,
+                wifiAvailable: false,
+                powerOutlets: false,
+                entertainment: false
+              };
+            });
+            
+            console.log('🔵 ===== KIWI API CALL END (FALLBACK SUCCESS) =====\n');
+            return {
+              success: true,
+              flights,
+              totalResults: flights.length,
+              provider: 'kiwi',
+              currency: detectedCurrency.toUpperCase()
+            };
+          }
+        } catch (fallbackError) {
+          console.log('   ❌ Fallback search also failed:', fallbackError.message);
+        }
         
         // Generate Google Flights fallback URL
         const googleFlightsUrl = await this.buildGoogleFlightsUrl(searchRequest);
