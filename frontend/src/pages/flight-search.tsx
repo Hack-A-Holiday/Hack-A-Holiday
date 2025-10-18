@@ -31,6 +31,7 @@ export default function FlightSearchPage() {
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [flightSearchForm, setFlightSearchForm] = useState<any>(null);
   const [selectedPhotoGallery, setSelectedPhotoGallery] = useState<any>(null);
+  const [activeFilter, setActiveFilter] = useState<'All' | 'Top Rated' | 'Popular' | 'Hidden Gems'>('All');
 
   // Hotel search state
   const [hotelDestination, setHotelDestination] = useState('');
@@ -689,6 +690,26 @@ export default function FlightSearchPage() {
     window.open(bookingUrl, '_blank', 'noopener,noreferrer');
   };
 
+  // Filter recommendations based on active filter
+  const getFilteredRecommendations = () => {
+    if (!autoRecommendations || autoRecommendations.length === 0) return [];
+
+    switch (activeFilter) {
+      case 'Top Rated':
+        return autoRecommendations.filter(rec => parseFloat(rec.rating) >= 4.5);
+      case 'Popular':
+        return autoRecommendations.filter(rec => parseInt(rec.num_reviews) >= 1000);
+      case 'Hidden Gems':
+        // Hidden gems: good rating but fewer reviews (under 500)
+        return autoRecommendations.filter(rec =>
+          parseFloat(rec.rating) >= 4.0 && parseInt(rec.num_reviews) < 500
+        );
+      case 'All':
+      default:
+        return autoRecommendations;
+    }
+  };
+
   // Enhanced recommendation fetching with photos and details
   const fetchRecommendations = async (dest: string) => {
     if (!dest.trim()) {
@@ -1018,6 +1039,13 @@ export default function FlightSearchPage() {
     }
   };
 
+  // Auto-sync destination from hotel search
+  useEffect(() => {
+    if (hotelDestination && hotelDestination.trim().length >= 3) {
+      setDestination(hotelDestination);
+    }
+  }, [hotelDestination]);
+
   // Debounced search to avoid too many API calls
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -1265,6 +1293,11 @@ export default function FlightSearchPage() {
 
             <FlightSearch
               onFlightSelect={handleFlightSelect}
+              onDestinationChange={(dest: string) => {
+                if (dest && dest.trim().length >= 3) {
+                  setDestination(dest);
+                }
+              }}
               className="flight-search-page"
             />
           </div>
@@ -1757,28 +1790,11 @@ export default function FlightSearchPage() {
               }}>
                 🏛️ Discover Your Destination
               </h2>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                {autoRecommendations.length > 0 && (
-                  <button
-                    onClick={() => setShowTripAdvisor(!showTripAdvisor)}
-                    style={{
-                      background: showTripAdvisor ? '#ef4444' : '#3b82f6',
-                      color: 'white',
-                      border: 'none',
-                      padding: '10px 20px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '1rem',
-                      fontWeight: '500'
-                    }}
-                  >
-                    {showTripAdvisor ? 'Hide' : 'Show'} Recommendations
-                  </button>
-                )}
+              {autoRecommendations.length > 0 && (
                 <button
-                  onClick={() => fetchRecommendations('Dubai')}
+                  onClick={() => setShowTripAdvisor(!showTripAdvisor)}
                   style={{
-                    background: '#10b981',
+                    background: showTripAdvisor ? '#ef4444' : '#3b82f6',
                     color: 'white',
                     border: 'none',
                     padding: '10px 20px',
@@ -1788,9 +1804,9 @@ export default function FlightSearchPage() {
                     fontWeight: '500'
                   }}
                 >
-                  Test Dubai
+                  {showTripAdvisor ? 'Hide' : 'Show'} Recommendations
                 </button>
-              </div>
+              )}
             </div>
 
             <div style={{ marginBottom: '20px' }}>
@@ -1800,13 +1816,13 @@ export default function FlightSearchPage() {
                 fontWeight: '600',
                 color: isDarkMode ? '#e8eaed' : '#1f2937'
               }}>
-                Enter your destination to automatically see recommendations:
+                {destination ? `Showing recommendations for: ${destination}` : 'Destination will auto-populate from Flight or Hotel search above'}
               </label>
               <input
                 type="text"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
-                placeholder="e.g., Dubai, Paris, Tokyo, New York..."
+                placeholder="Or enter destination manually: e.g., Dubai, Paris, Tokyo..."
                 style={{
                   width: '100%',
                   padding: '12px 16px',
@@ -1853,36 +1869,232 @@ export default function FlightSearchPage() {
 
             {showTripAdvisor && autoRecommendations.length > 0 && (
               <div>
+                {/* Header Section */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   marginBottom: '24px',
                   paddingBottom: '16px',
-                  borderBottom: '1px solid #e5e7eb'
+                  borderBottom: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb'
                 }}>
-                  <h3 style={{
-                    fontSize: '1.5rem',
-                    fontWeight: '700',
-                    margin: 0,
-                    color: '#1f2937'
-                  }}>
-                    Things to do in {destination}
-                  </h3>
+                  <div>
+                    <h3 style={{
+                      fontSize: '1.8rem',
+                      fontWeight: '700',
+                      margin: '0 0 8px 0',
+                      color: isDarkMode ? '#e8eaed' : '#1f2937'
+                    }}>
+                      Explore {destination}
+                    </h3>
+                    <p style={{
+                      fontSize: '0.95rem',
+                      color: isDarkMode ? '#9ca3af' : '#6b7280',
+                      margin: 0
+                    }}>
+                      {autoRecommendations.length} top-rated places curated from TripAdvisor
+                    </p>
+                  </div>
                   {state.user?.preferences && Object.keys(state.user.preferences).length > 0 && (
                     <span style={{
                       fontSize: '0.9rem',
                       fontWeight: '500',
                       color: '#00aa6c',
                       background: '#f0fdf4',
-                      padding: '4px 12px',
+                      padding: '8px 16px',
                       borderRadius: '20px',
-                      border: '1px solid #bbf7d0'
+                      border: '1px solid #bbf7d0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
                     }}>
                       ✨ Personalized for you
                     </span>
                   )}
                 </div>
+
+                {/* Quick Stats Bar */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+                  gap: '12px',
+                  marginBottom: '32px'
+                }}>
+                  <div style={{
+                    background: isDarkMode ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: isDarkMode ? '1px solid rgba(59, 130, 246, 0.2)' : '1px solid #dbeafe'
+                  }}>
+                    <div style={{
+                      fontSize: '1.5rem',
+                      fontWeight: '700',
+                      color: isDarkMode ? '#60a5fa' : '#3b82f6',
+                      marginBottom: '4px'
+                    }}>
+                      {autoRecommendations.filter(r => parseFloat(r.rating) >= 4.5).length}
+                    </div>
+                    <div style={{
+                      fontSize: '0.8rem',
+                      color: isDarkMode ? '#9ca3af' : '#6b7280',
+                      fontWeight: '500'
+                    }}>
+                      Top Rated (4.5+)
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: isDarkMode ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: isDarkMode ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid #bbf7d0'
+                  }}>
+                    <div style={{
+                      fontSize: '1.5rem',
+                      fontWeight: '700',
+                      color: isDarkMode ? '#34d399' : '#10b981',
+                      marginBottom: '4px'
+                    }}>
+                      {autoRecommendations.filter(r => r.photos && r.photos.length > 0).length}
+                    </div>
+                    <div style={{
+                      fontSize: '0.8rem',
+                      color: isDarkMode ? '#9ca3af' : '#6b7280',
+                      fontWeight: '500'
+                    }}>
+                      With Photos
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: isDarkMode ? 'rgba(245, 158, 11, 0.1)' : '#fffbeb',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: isDarkMode ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid #fde68a'
+                  }}>
+                    <div style={{
+                      fontSize: '1.5rem',
+                      fontWeight: '700',
+                      color: isDarkMode ? '#fbbf24' : '#f59e0b',
+                      marginBottom: '4px'
+                    }}>
+                      {Math.round(autoRecommendations.reduce((sum, r) => sum + (parseFloat(r.rating) || 0), 0) / autoRecommendations.length * 10) / 10}
+                    </div>
+                    <div style={{
+                      fontSize: '0.8rem',
+                      color: isDarkMode ? '#9ca3af' : '#6b7280',
+                      fontWeight: '500'
+                    }}>
+                      Avg Rating
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: isDarkMode ? 'rgba(139, 92, 246, 0.1)' : '#faf5ff',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: isDarkMode ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid #e9d5ff'
+                  }}>
+                    <div style={{
+                      fontSize: '1.5rem',
+                      fontWeight: '700',
+                      color: isDarkMode ? '#a78bfa' : '#8b5cf6',
+                      marginBottom: '4px'
+                    }}>
+                      {autoRecommendations.reduce((sum, r) => sum + (parseInt(r.num_reviews) || 0), 0).toLocaleString()}
+                    </div>
+                    <div style={{
+                      fontSize: '0.8rem',
+                      color: isDarkMode ? '#9ca3af' : '#6b7280',
+                      fontWeight: '500'
+                    }}>
+                      Total Reviews
+                    </div>
+                  </div>
+                </div>
+
+                {/* Category Tabs */}
+                <div style={{
+                  display: 'flex',
+                  gap: '12px',
+                  marginBottom: '24px',
+                  flexWrap: 'wrap'
+                }}>
+                  {(['All', 'Top Rated', 'Popular', 'Hidden Gems'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveFilter(tab)}
+                      style={{
+                        padding: '10px 20px',
+                        borderRadius: '24px',
+                        border: isDarkMode ? '2px solid rgba(102, 126, 234, 0.3)' : '2px solid #e5e7eb',
+                        background: tab === activeFilter
+                          ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                          : isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#ffffff',
+                        color: tab === activeFilter ? '#ffffff' : isDarkMode ? '#e8eaed' : '#1f2937',
+                        fontSize: '0.9rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        boxShadow: tab === activeFilter ? '0 4px 12px rgba(102, 126, 234, 0.4)' : 'none'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (tab !== activeFilter) {
+                          e.currentTarget.style.borderColor = '#667eea';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (tab !== activeFilter) {
+                          e.currentTarget.style.borderColor = isDarkMode ? 'rgba(102, 126, 234, 0.3)' : '#e5e7eb';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }
+                      }}
+                    >
+                      {tab === 'Top Rated' && '⭐ '}
+                      {tab === 'Popular' && '🔥 '}
+                      {tab === 'Hidden Gems' && '💎 '}
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Filtered Results Info */}
+                {activeFilter !== 'All' && (
+                  <div style={{
+                    padding: '12px 20px',
+                    background: isDarkMode ? 'rgba(102, 126, 234, 0.1)' : '#eff6ff',
+                    borderRadius: '12px',
+                    marginBottom: '20px',
+                    border: isDarkMode ? '1px solid rgba(102, 126, 234, 0.2)' : '1px solid #dbeafe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <span style={{
+                      fontSize: '0.9rem',
+                      color: isDarkMode ? '#93c5fd' : '#1e40af',
+                      fontWeight: '500'
+                    }}>
+                      Showing {getFilteredRecommendations().length} {activeFilter.toLowerCase()} places
+                    </span>
+                    <button
+                      onClick={() => setActiveFilter('All')}
+                      style={{
+                        marginLeft: 'auto',
+                        background: 'transparent',
+                        border: 'none',
+                        color: isDarkMode ? '#93c5fd' : '#3b82f6',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      Clear filter
+                    </button>
+                  </div>
+                )}
 
                 <div style={{
                   display: 'grid',
@@ -1891,344 +2103,463 @@ export default function FlightSearchPage() {
                   maxWidth: '1000px',
                   margin: '0 auto'
                 }}>
-                  {autoRecommendations.map((location, index) => (
-                    <div key={location.location_id || index} style={{
-                      background: '#ffffff',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      border: '1px solid #e5e7eb',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                      transition: 'all 0.2s ease-in-out',
-                      cursor: 'pointer',
-                      position: 'relative'
-                    }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+                  {getFilteredRecommendations().length > 0 ? (
+                    getFilteredRecommendations().map((location, index) => (
+                      <div key={location.location_id || index} style={{
+                        background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#ffffff',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb',
+                        boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.3)' : '0 2px 4px rgba(0,0,0,0.1)',
+                        transition: 'all 0.3s ease-in-out',
+                        cursor: 'pointer',
+                        position: 'relative'
                       }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                      }}
-                    >
-                      {/* Photo Section - TripAdvisor Style */}
-                      {location.photos && location.photos.length > 0 ? (
-                        <div style={{
-                          height: '200px',
-                          position: 'relative',
-                          overflow: 'hidden',
-                          cursor: 'pointer'
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-4px)';
+                          e.currentTarget.style.boxShadow = isDarkMode ? '0 12px 30px rgba(0,0,0,0.5)' : '0 8px 25px rgba(0,0,0,0.15)';
                         }}
-                          onClick={() => {
-                            setSelectedPhotoGallery({
-                              location: location,
-                              photos: location.photos
-                            });
-                          }}
-                        >
-                          <img
-                            src={location.photos[0].images?.large?.url || location.photos[0].images?.medium?.url || location.photos[0].images?.original?.url || '/placeholder-image.jpg'}
-                            alt={location.photos[0].caption || location.name}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              transition: 'transform 0.3s'
-                            }}
-                            onError={(e) => {
-                              console.warn('Image failed to load, using placeholder');
-                              e.currentTarget.src = '/placeholder-image.jpg';
-                            }}
-                            onLoad={(e) => {
-                              // Additional safety check - if image seems inappropriate, replace with placeholder
-                              const img = e.currentTarget;
-                              const caption = (location.photos[0].caption || '').toLowerCase();
-                              const isInappropriate = caption.includes('underwear') ||
-                                caption.includes('diet') ||
-                                caption.includes('keto') ||
-                                caption.includes('product') ||
-                                caption.includes('model') ||
-                                caption.includes('person');
-
-                              if (isInappropriate) {
-                                console.warn('Inappropriate image detected, replacing with placeholder');
-                                img.src = '/placeholder-image.jpg';
-                              }
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = 'scale(1.05)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = 'scale(1)';
-                            }}
-                          />
-
-                          {/* Heart Icon - TripAdvisor Style */}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = isDarkMode ? '0 4px 12px rgba(0,0,0,0.3)' : '0 2px 4px rgba(0,0,0,0.1)';
+                        }}
+                      >
+                        {/* Photo Section - TripAdvisor Style */}
+                        {location.photos && location.photos.length > 0 ? (
                           <div style={{
-                            position: 'absolute',
-                            top: '12px',
-                            right: '12px',
-                            background: 'rgba(255, 255, 255, 0.9)',
-                            borderRadius: '50%',
-                            width: '32px',
-                            height: '32px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
+                            height: '200px',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            cursor: 'pointer'
                           }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = 'rgba(255, 255, 255, 1)';
-                              e.currentTarget.style.transform = 'scale(1.1)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
-                              e.currentTarget.style.transform = 'scale(1)';
+                            onClick={() => {
+                              setSelectedPhotoGallery({
+                                location: location,
+                                photos: location.photos
+                              });
                             }}
                           >
-                            <span style={{ fontSize: '16px' }}>♡</span>
-                          </div>
+                            <img
+                              src={location.photos[0].images?.large?.url || location.photos[0].images?.medium?.url || location.photos[0].images?.original?.url || '/placeholder-image.jpg'}
+                              alt={location.photos[0].caption || location.name}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                transition: 'transform 0.3s'
+                              }}
+                              onError={(e) => {
+                                console.warn('Image failed to load, using placeholder');
+                                e.currentTarget.src = '/placeholder-image.jpg';
+                              }}
+                              onLoad={(e) => {
+                                // Additional safety check - if image seems inappropriate, replace with placeholder
+                                const img = e.currentTarget;
+                                const caption = (location.photos[0].caption || '').toLowerCase();
+                                const isInappropriate = caption.includes('underwear') ||
+                                  caption.includes('diet') ||
+                                  caption.includes('keto') ||
+                                  caption.includes('product') ||
+                                  caption.includes('model') ||
+                                  caption.includes('person');
 
-                          {/* Badge - TripAdvisor Style */}
-                          <div style={{
-                            position: 'absolute',
-                            bottom: '12px',
-                            left: '12px',
-                            background: 'rgba(0, 0, 0, 0.8)',
-                            color: 'white',
-                            padding: '4px 8px',
-                            borderRadius: '12px',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}>
-                            <span style={{ color: '#00aa6c' }}>●</span>
-                            {new Date().getFullYear()}
-                          </div>
+                                if (isInappropriate) {
+                                  console.warn('Inappropriate image detected, replacing with placeholder');
+                                  img.src = '/placeholder-image.jpg';
+                                }
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'scale(1.05)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'scale(1)';
+                              }}
+                            />
 
-                          {/* Photo count indicator */}
-                          {location.photos.length > 1 && (
-                            <div style={{
-                              position: 'absolute',
-                              bottom: '12px',
-                              right: '12px',
-                              background: 'rgba(0, 0, 0, 0.7)',
-                              color: 'white',
-                              padding: '4px 8px',
-                              borderRadius: '12px',
-                              fontSize: '0.75rem',
-                              fontWeight: '500'
-                            }}>
-                              📸 {location.photos.length}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div style={{
-                          height: '200px',
-                          background: isDarkMode
-                            ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)'
-                            : 'linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: isDarkMode ? '#9ca3af' : '#6b7280',
-                          position: 'relative',
-                          border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb'
-                        }}>
-                          <div style={{ fontSize: '3rem', marginBottom: '8px' }}>
-                            {getCategoryName(location.category) === 'hotel' ? '🏨' :
-                              getCategoryName(location.category) === 'restaurant' ? '🍽️' :
-                                getCategoryName(location.category) === 'attraction' ? '🏛️' : '📍'}
-                          </div>
-                          <div style={{ fontSize: '0.9rem', fontWeight: '500', textAlign: 'center', marginBottom: '4px' }}>
-                            {location.name}
-                          </div>
-                          <div style={{ fontSize: '0.75rem', opacity: 0.7, textAlign: 'center' }}>
-                            {location.photos && location.photos.length === 0 ? 'No photos available' : 'Loading photos...'}
-                          </div>
-
-                          {/* Rating overlay for no-photo case */}
-                          {location.rating && location.rating > 0 && (
+                            {/* Heart Icon - TripAdvisor Style */}
                             <div style={{
                               position: 'absolute',
                               top: '12px',
                               right: '12px',
-                              background: 'rgba(0, 0, 0, 0.7)',
-                              color: 'white',
-                              padding: '4px 8px',
-                              borderRadius: '12px',
-                              fontSize: '0.8rem',
-                              fontWeight: '600',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}>
-                              ⭐ {parseFloat(location.rating).toFixed(1)}
-                            </div>
-                          )}
-
-                          {/* Personalization indicator for no-photo case */}
-                          {location.personalizationScore && location.personalizationScore > 0.3 && (
-                            <div style={{
-                              position: 'absolute',
-                              top: '12px',
-                              left: '12px',
-                              background: 'rgba(16, 185, 129, 0.9)',
-                              color: 'white',
-                              padding: '4px 8px',
-                              borderRadius: '12px',
-                              fontSize: '0.75rem',
-                              fontWeight: '600',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}>
-                              ✨ Perfect Match
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Content Section - TripAdvisor Style */}
-                      <div style={{ padding: '16px' }}>
-                        {/* Title */}
-                        <h4 style={{
-                          fontSize: '1rem',
-                          fontWeight: '600',
-                          margin: '0 0 8px 0',
-                          color: '#1f2937',
-                          lineHeight: '1.3',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden'
-                        }}>
-                          {location.name}
-                        </h4>
-
-                        {/* Rating and Reviews - TripAdvisor Style */}
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          marginBottom: '8px'
-                        }}>
-                          {location.rating && location.rating > 0 && (
-                            <div style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}>
-                              <span style={{ color: '#00aa6c', fontSize: '0.9rem' }}>★</span>
-                              <span style={{
-                                fontSize: '0.9rem',
-                                fontWeight: '600',
-                                color: '#1f2937'
-                              }}>
-                                {parseFloat(location.rating).toFixed(1)}
-                              </span>
-                            </div>
-                          )}
-
-                          {location.num_reviews && parseInt(location.num_reviews) > 0 && (
-                            <span style={{
-                              fontSize: '0.8rem',
-                              color: '#6b7280'
-                            }}>
-                              ({parseInt(location.num_reviews).toLocaleString()})
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Category - TripAdvisor Style */}
-                        <p style={{
-                          fontSize: '0.8rem',
-                          color: '#6b7280',
-                          margin: '0 0 8px 0',
-                          lineHeight: '1.3'
-                        }}>
-                          {getCategoryName(location.category)}
-                        </p>
-
-                        {/* Action Buttons - TripAdvisor Style */}
-                        <div style={{
-                          display: 'flex',
-                          gap: '8px',
-                          marginTop: '12px'
-                        }}>
-                          {/* TripAdvisor Button */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const tripAdvisorUrl = getTripAdvisorUrl(location, destination);
-                              window.open(tripAdvisorUrl, '_blank', 'noopener,noreferrer');
-                            }}
-                            style={{
-                              background: '#00aa6c',
-                              color: 'white',
-                              border: 'none',
-                              padding: '8px 16px',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              fontSize: '0.8rem',
-                              fontWeight: '600',
-                              transition: 'all 0.2s',
-                              flex: 1,
+                              background: 'rgba(255, 255, 255, 0.9)',
+                              borderRadius: '50%',
+                              width: '32px',
+                              height: '32px',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              gap: '4px'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#008f5a';
-                              e.currentTarget.style.transform = 'translateY(-1px)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = '#00aa6c';
-                              e.currentTarget.style.transform = 'translateY(0)';
-                            }}
-                          >
-                            🌟 View on TripAdvisor
-                          </button>
-
-                          {/* Add to Trip Button */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              console.log('Selected location:', location);
-                            }}
-                            style={{
-                              background: 'transparent',
-                              border: '1px solid #d1d5db',
-                              color: '#374151',
-                              padding: '8px 16px',
-                              borderRadius: '6px',
                               cursor: 'pointer',
-                              fontSize: '0.8rem',
-                              fontWeight: '500',
-                              transition: 'all 0.2s',
-                              flex: 1
+                              transition: 'all 0.2s'
                             }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#f3f4f6';
-                              e.currentTarget.style.borderColor = '#9ca3af';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = 'transparent';
-                              e.currentTarget.style.borderColor = '#d1d5db';
-                            }}
-                          >
-                            + Add to Trip
-                          </button>
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(255, 255, 255, 1)';
+                                e.currentTarget.style.transform = 'scale(1.1)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
+                                e.currentTarget.style.transform = 'scale(1)';
+                              }}
+                            >
+                              <span style={{ fontSize: '16px' }}>♡</span>
+                            </div>
+
+                            {/* Badge - TripAdvisor Style */}
+                            <div style={{
+                              position: 'absolute',
+                              bottom: '12px',
+                              left: '12px',
+                              background: 'rgba(0, 0, 0, 0.8)',
+                              color: 'white',
+                              padding: '4px 8px',
+                              borderRadius: '12px',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              <span style={{ color: '#00aa6c' }}>●</span>
+                              {new Date().getFullYear()}
+                            </div>
+
+                            {/* Photo count indicator */}
+                            {location.photos.length > 1 && (
+                              <div style={{
+                                position: 'absolute',
+                                bottom: '12px',
+                                right: '12px',
+                                background: 'rgba(0, 0, 0, 0.7)',
+                                color: 'white',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.75rem',
+                                fontWeight: '500'
+                              }}>
+                                📸 {location.photos.length}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{
+                            height: '200px',
+                            background: isDarkMode
+                              ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)'
+                              : 'linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: isDarkMode ? '#9ca3af' : '#6b7280',
+                            position: 'relative',
+                            border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb'
+                          }}>
+                            <div style={{ fontSize: '3rem', marginBottom: '8px' }}>
+                              {getCategoryName(location.category) === 'hotel' ? '🏨' :
+                                getCategoryName(location.category) === 'restaurant' ? '🍽️' :
+                                  getCategoryName(location.category) === 'attraction' ? '🏛️' : '📍'}
+                            </div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: '500', textAlign: 'center', marginBottom: '4px' }}>
+                              {location.name}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', opacity: 0.7, textAlign: 'center' }}>
+                              {location.photos && location.photos.length === 0 ? 'No photos available' : 'Loading photos...'}
+                            </div>
+
+                            {/* Rating overlay for no-photo case */}
+                            {location.rating && location.rating > 0 && (
+                              <div style={{
+                                position: 'absolute',
+                                top: '12px',
+                                right: '12px',
+                                background: 'rgba(0, 0, 0, 0.7)',
+                                color: 'white',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.8rem',
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                ⭐ {parseFloat(location.rating).toFixed(1)}
+                              </div>
+                            )}
+
+                            {/* Personalization indicator for no-photo case */}
+                            {location.personalizationScore && location.personalizationScore > 0.3 && (
+                              <div style={{
+                                position: 'absolute',
+                                top: '12px',
+                                left: '12px',
+                                background: 'rgba(16, 185, 129, 0.9)',
+                                color: 'white',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.75rem',
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                ✨ Perfect Match
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Content Section - TripAdvisor Style */}
+                        <div style={{ padding: '16px' }}>
+                          {/* Title */}
+                          <h4 style={{
+                            fontSize: '1.05rem',
+                            fontWeight: '600',
+                            margin: '0 0 10px 0',
+                            color: isDarkMode ? '#e8eaed' : '#1f2937',
+                            lineHeight: '1.4',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}>
+                            {location.name}
+                          </h4>
+
+                          {/* Rating and Reviews - TripAdvisor Style */}
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '10px'
+                          }}>
+                            {location.rating && location.rating > 0 && (
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4',
+                                padding: '4px 8px',
+                                borderRadius: '8px'
+                              }}>
+                                <span style={{ color: '#00aa6c', fontSize: '0.95rem' }}>★</span>
+                                <span style={{
+                                  fontSize: '0.95rem',
+                                  fontWeight: '700',
+                                  color: isDarkMode ? '#34d399' : '#059669'
+                                }}>
+                                  {parseFloat(location.rating).toFixed(1)}
+                                </span>
+                              </div>
+                            )}
+
+                            {location.num_reviews && parseInt(location.num_reviews) > 0 && (
+                              <span style={{
+                                fontSize: '0.85rem',
+                                color: isDarkMode ? '#9ca3af' : '#6b7280',
+                                fontWeight: '500'
+                              }}>
+                                {parseInt(location.num_reviews).toLocaleString()} reviews
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Category - TripAdvisor Style */}
+                          <p style={{
+                            fontSize: '0.8rem',
+                            color: isDarkMode ? '#9ca3af' : '#6b7280',
+                            margin: '0 0 8px 0',
+                            lineHeight: '1.3'
+                          }}>
+                            {getCategoryName(location.category)}
+                          </p>
+
+                          {/* Description */}
+                          {location.description && (
+                            <p style={{
+                              fontSize: '0.85rem',
+                              color: isDarkMode ? '#d1d5db' : '#4b5563',
+                              margin: '0 0 12px 0',
+                              lineHeight: '1.5',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden'
+                            }}>
+                              {location.description}
+                            </p>
+                          )}
+
+                          {/* Quick Info Tags */}
+                          <div style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '6px',
+                            marginBottom: '12px'
+                          }}>
+                            {parseFloat(location.rating) >= 4.5 && (
+                              <span style={{
+                                background: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7',
+                                color: isDarkMode ? '#34d399' : '#166534',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.7rem',
+                                fontWeight: '600'
+                              }}>
+                                ⭐ Top Rated
+                              </span>
+                            )}
+                            {parseInt(location.num_reviews) > 1000 && (
+                              <span style={{
+                                background: isDarkMode ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
+                                color: isDarkMode ? '#fbbf24' : '#92400e',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.7rem',
+                                fontWeight: '600'
+                              }}>
+                                🔥 Popular
+                              </span>
+                            )}
+                            {location.personalizationScore && location.personalizationScore > 0.5 && (
+                              <span style={{
+                                background: isDarkMode ? 'rgba(139, 92, 246, 0.2)' : '#f3e8ff',
+                                color: isDarkMode ? '#a78bfa' : '#6b21a8',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.7rem',
+                                fontWeight: '600'
+                              }}>
+                                ✨ For You
+                              </span>
+                            )}
+                            {location.photos && location.photos.length > 5 && (
+                              <span style={{
+                                background: isDarkMode ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe',
+                                color: isDarkMode ? '#60a5fa' : '#1e40af',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.7rem',
+                                fontWeight: '600'
+                              }}>
+                                📸 {location.photos.length} Photos
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Action Buttons - TripAdvisor Style */}
+                          <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            marginTop: '12px'
+                          }}>
+                            {/* TripAdvisor Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const tripAdvisorUrl = getTripAdvisorUrl(location, destination);
+                                window.open(tripAdvisorUrl, '_blank', 'noopener,noreferrer');
+                              }}
+                              style={{
+                                background: '#00aa6c',
+                                color: 'white',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.8rem',
+                                fontWeight: '600',
+                                transition: 'all 0.2s',
+                                flex: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#008f5a';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = '#00aa6c';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                              }}
+                            >
+                              🌟 View on TripAdvisor
+                            </button>
+
+                            {/* Add to Trip Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                console.log('Selected location:', location);
+                              }}
+                              style={{
+                                background: 'transparent',
+                                border: '1px solid #d1d5db',
+                                color: '#374151',
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.8rem',
+                                fontWeight: '500',
+                                transition: 'all 0.2s',
+                                flex: 1
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#f3f4f6';
+                                e.currentTarget.style.borderColor = '#9ca3af';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.borderColor = '#d1d5db';
+                              }}
+                            >
+                              + Add to Trip
+                            </button>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div style={{
+                      gridColumn: '1 / -1',
+                      textAlign: 'center',
+                      padding: '60px 20px',
+                      color: isDarkMode ? '#9ca3af' : '#6b7280'
+                    }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '16px' }}>
+                        {activeFilter === 'Top Rated' && '⭐'}
+                        {activeFilter === 'Popular' && '🔥'}
+                        {activeFilter === 'Hidden Gems' && '💎'}
+                      </div>
+                      <h3 style={{
+                        fontSize: '1.2rem',
+                        fontWeight: '600',
+                        margin: '0 0 8px 0',
+                        color: isDarkMode ? '#e8eaed' : '#1f2937'
+                      }}>
+                        No {activeFilter.toLowerCase()} places found
+                      </h3>
+                      <p style={{ margin: '0 0 16px 0' }}>
+                        Try selecting a different filter to see more options.
+                      </p>
+                      <button
+                        onClick={() => setActiveFilter('All')}
+                        style={{
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px 24px',
+                          borderRadius: '24px',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          fontWeight: '600',
+                          boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
+                        }}
+                      >
+                        View All Places
+                      </button>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
