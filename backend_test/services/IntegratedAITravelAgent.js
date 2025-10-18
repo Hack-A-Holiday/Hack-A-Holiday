@@ -2928,6 +2928,45 @@ class IntegratedAITravelAgent {
         }
       };
       messages.push(flightMessage);
+    } else {
+      console.log('🔍 DEBUG: No flight results found, creating fallback message');
+      // Fallback: Create flight message with Google Flights link when no results
+      const origin = queryIntent.extractedInfo?.origin || '';
+      const destination = queryIntent.extractedInfo?.destination || '';
+      const depDate = queryIntent.extractedInfo?.departureDate || '';
+      const retDate = queryIntent.extractedInfo?.returnDate || '';
+      
+      let flightContent = `## ✈️ Flight Recommendations\n\nNo flights found in our database for this route. You can search for flights directly on Google Flights:\n\n`;
+      
+      // Add Google Flights search button
+      let googleFlightsUrl = 'https://www.google.com/travel/flights';
+      if (retDate) {
+        googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}%20returning%20${retDate}`;
+      } else if (depDate) {
+        googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}`;
+      } else {
+        googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}`;
+      }
+      
+      flightContent += `[🔍 Search Flights on Google Flights](${googleFlightsUrl})\n\n`;
+      flightContent += `*Click the link above to search and book flights directly on Google Flights.*`;
+      
+      const flightMessage = {
+        id: `msg_${Date.now()}_flights`,
+        role: 'assistant',
+        content: flightContent,
+        timestamp: Date.now(),
+        type: 'flight_recommendations',
+        data: {
+          flights: [],
+          googleFlightsUrl: googleFlightsUrl,
+          origin: origin,
+          destination: destination,
+          depDate: depDate,
+          retDate: retDate
+        }
+      };
+      messages.push(flightMessage);
     }
     
     // Message 3: Hotel Recommendations as cards
