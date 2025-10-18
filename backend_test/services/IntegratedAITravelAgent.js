@@ -3235,7 +3235,11 @@ class IntegratedAITravelAgent {
             destination: destination,
             departureDate: queryIntent.extractedInfo.departureDate,
             returnDate: queryIntent.extractedInfo.returnDate,
-            passengers: queryIntent.extractedInfo.passengers || 1
+            passengers: {
+              adults: queryIntent.extractedInfo.passengers || 1,
+              children: 0,
+              infants: 0
+            }
           };
           
           const flightData = await this.fetchFlightData(flightInfo, userPreferences);
@@ -4333,6 +4337,12 @@ JSON:`;
     const passengerMatch = query.match(/(\d+)\s+(?:passenger|people|person|traveler)/i);
     if (passengerMatch) {
       info.passengers = parseInt(passengerMatch[1]);
+    }
+    
+    // Also check user context for travelers (from trip planning form)
+    if (userContext?.preferences?.travelers && !passengerMatch) {
+      info.passengers = userContext.preferences.travelers;
+      console.log('   👥 Using travelers from user context:', info.passengers);
     }
 
     // Use context origin if no origin was found in query
