@@ -112,9 +112,7 @@ export default function HomePage() {
       }}>
         <Navbar />
         
-        <main style={{ 
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-        }}>
+        <main>
           
           {/* Hero Banner */}
           <section style={{

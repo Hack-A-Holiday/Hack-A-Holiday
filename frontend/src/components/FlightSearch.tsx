@@ -39,6 +39,7 @@ if (typeof document !== 'undefined' && !document.querySelector('#spin-animation'
 
 interface FlightSearchProps {
   onFlightSelect?: (flight: FlightOption) => void;
+  onDestinationChange?: (destination: string) => void;
   initialSearch?: Partial<FlightSearchRequest>;
   className?: string;
 }
@@ -74,7 +75,7 @@ interface FlightPreferences {
   preferredDepartureTime?: 'morning' | 'afternoon' | 'evening' | 'any';
 }
 
-export default function FlightSearch({ onFlightSelect, initialSearch, className = '' }: Readonly<FlightSearchProps>) {
+export default function FlightSearch({ onFlightSelect, onDestinationChange, initialSearch, className = '' }: Readonly<FlightSearchProps>) {
   const { isDarkMode } = useDarkMode();
   const { state } = useAuth();
   const [searchRequest, setSearchRequest] = useState<FlightSearchRequest>({
@@ -1199,6 +1200,11 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
       const suggestions = filterAirports(value);
       setDestinationSuggestions(suggestions);
       setShowDestinationSuggestions(suggestions.length > 0);
+      
+      // Notify parent component of destination change
+      if (onDestinationChange && value.trim().length >= 3) {
+        onDestinationChange(value);
+      }
     }
     
     setSearchRequest(prev => ({
@@ -1218,6 +1224,11 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
       setShowOriginSuggestions(false);
     } else {
       setShowDestinationSuggestions(false);
+      
+      // Notify parent component of destination change
+      if (onDestinationChange && airportCode.trim().length >= 3) {
+        onDestinationChange(airportCode);
+      }
     }
   };
 
@@ -1446,8 +1457,7 @@ export default function FlightSearch({ onFlightSelect, initialSearch, className 
     <div style={{
       maxWidth: '1200px',
       margin: '0 auto',
-      padding: '20px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+      padding: '20px'
     }} className={className}>
       <div style={{
         display: 'flex',

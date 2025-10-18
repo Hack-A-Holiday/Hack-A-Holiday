@@ -771,7 +771,7 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 					: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
 			}}>
 				<Navbar />
-				<main style={{ padding: getContainerPadding(), fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+				<main style={{ padding: getContainerPadding() }}>
 					<div style={{ maxWidth: '800px', margin: '0 auto' }}>
 						<div style={{ textAlign: 'center', marginBottom: isMobile ? '30px' : '40px', color: 'white' }}>
 							<div style={{ 
@@ -1180,130 +1180,7 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 						</div>
 
 						{/* TripAdvisor Integration Section */}
-						{destinationLocation && (
-							<div style={{ 
-								background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#ffffff', 
-								borderRadius: '12px', 
-								padding: '24px', 
-								marginTop: '20px',
-								border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb'
-							}}>
-								<div style={{ 
-									display: 'flex', 
-									justifyContent: 'space-between', 
-									alignItems: 'center', 
-									marginBottom: '20px' 
-								}}>
-									<h3 style={{ 
-										fontSize: '1.5rem', 
-										fontWeight: 'bold', 
-										color: isDarkMode ? '#e8eaed' : '#1f2937',
-										margin: 0
-									}}>
-										🏛️ Discover {destinationLocation.name}
-									</h3>
-									<button
-										onClick={() => setShowTripAdvisor(!showTripAdvisor)}
-										style={{
-											background: showTripAdvisor ? '#ef4444' : '#3b82f6',
-											color: 'white',
-											border: 'none',
-											padding: '8px 16px',
-											borderRadius: '6px',
-											cursor: 'pointer',
-											fontSize: '0.9rem',
-											fontWeight: '500'
-										}}
-									>
-										{showTripAdvisor ? 'Hide' : 'Show'} Recommendations
-									</button>
-								</div>
 
-								{showTripAdvisor && (
-									<div style={{ marginTop: '20px' }}>
-										{/* Selected Items Summary */}
-										{(selectedAttractions.length > 0 || selectedRestaurants.length > 0) && (
-											<div style={{ 
-												background: isDarkMode ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff', 
-												border: `1px solid ${isDarkMode ? 'rgba(59, 130, 246, 0.3)' : '#dbeafe'}`, 
-												borderRadius: '8px', 
-												padding: '16px', 
-												marginBottom: '20px' 
-											}}>
-												<h4 style={{ 
-													color: isDarkMode ? '#93c5fd' : '#1e40af', 
-													margin: '0 0 12px 0', 
-													fontSize: '1.1rem' 
-												}}>
-													Selected for Your Trip
-												</h4>
-												<div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-													{selectedAttractions.map((attraction, index) => (
-														<span key={index} style={{
-															background: isDarkMode ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe',
-															color: isDarkMode ? '#93c5fd' : '#1e40af',
-															padding: '4px 8px',
-															borderRadius: '4px',
-															fontSize: '0.85rem'
-														}}>
-															🏛️ {attraction.name}
-														</span>
-													))}
-													{selectedRestaurants.map((restaurant, index) => (
-														<span key={index} style={{
-															background: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : '#dcfce7',
-															color: isDarkMode ? '#86efac' : '#166534',
-															padding: '4px 8px',
-															borderRadius: '4px',
-															fontSize: '0.85rem'
-														}}>
-															🍽️ {restaurant.name}
-														</span>
-													))}
-												</div>
-											</div>
-										)}
-
-										{/* TripAdvisor Search Components */}
-										<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-											{/* Attractions */}
-											<div>
-												<h4 style={{ 
-													color: isDarkMode ? '#e8eaed' : '#1f2937', 
-													marginBottom: '12px',
-													fontSize: '1.1rem'
-												}}>
-													🏛️ Top Attractions
-												</h4>
-												<TripAdvisorSearch
-													location={destinationLocation.name}
-													category="attractions"
-													onLocationSelect={handleAttractionSelect}
-													className="max-h-96 overflow-y-auto"
-												/>
-											</div>
-
-											{/* Restaurants */}
-											<div>
-												<h4 style={{ 
-													color: isDarkMode ? '#e8eaed' : '#1f2937', 
-													marginBottom: '12px',
-													fontSize: '1.1rem'
-												}}>
-													🍽️ Best Restaurants
-												</h4>
-												<TripAdvisorSearch
-													location={destinationLocation.name}
-													category="restaurants"
-													onLocationSelect={handleRestaurantSelect}
-													className="max-h-96 overflow-y-auto"
-												/>
-											</div>
-										</div>
-									</div>
-								)}
-							</div>
-						)}
 					</div>
 				</main>
 			</div>
