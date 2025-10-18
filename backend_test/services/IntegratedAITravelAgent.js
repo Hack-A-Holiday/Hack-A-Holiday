@@ -4837,9 +4837,9 @@ Return ONLY the JSON array:`;
         departureDate: extractedInfo.departureDate,
         returnDate: extractedInfo.returnDate, // Optional for one-way flights
         passengers: {
-          adults: extractedInfo.passengers || 1,
-          children: 0,
-          infants: 0
+          adults: extractedInfo.passengers?.adults || extractedInfo.passengers || 1,
+          children: extractedInfo.passengers?.children || 0,
+          infants: extractedInfo.passengers?.infants || 0
         },
         cabinClass: userPreferences.preferredCabinClass || 'economy',
         currency: userPreferences.currency || 'USD',
