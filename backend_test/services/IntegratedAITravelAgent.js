@@ -1386,6 +1386,84 @@ class IntegratedAITravelAgent {
    * Get mock attractions for a destination
    */
   getMockAttractionsForDestination(destination) {
+    // Italy-specific attractions
+    if (destination.toLowerCase().includes('italy') || destination.toLowerCase().includes('rome') || destination.toLowerCase().includes('milan') || destination.toLowerCase().includes('florence') || destination.toLowerCase().includes('venice')) {
+      return [
+        {
+          id: '3436969',
+          name: 'Colosseum',
+          rating: 4.5,
+          review_count: 125000,
+          category: 'Historic Site',
+          address: 'Piazza del Colosseo, 1, Rome, Italy',
+          description: 'Ancient Roman amphitheater, one of the most iconic landmarks in the world. Built in 70-80 AD, it could hold up to 80,000 spectators.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187791-d192285-Reviews-Colosseum-Rome_Lazio.html',
+          photo_url: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Vatican Museums',
+          rating: 4.4,
+          review_count: 95000,
+          category: 'Museum',
+          address: 'Viale Vaticano, 00165 Rome, Italy',
+          description: 'Extensive collection of art and historical artifacts, including the famous Sistine Chapel with Michelangelo\'s ceiling frescoes.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187791-d192285-Reviews-Vatican_Museums-Rome_Lazio.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'Trevi Fountain',
+          rating: 4.3,
+          review_count: 85000,
+          category: 'Monument',
+          address: 'Piazza di Trevi, 00187 Rome, Italy',
+          description: 'Famous Baroque fountain designed by Nicola Salvi. Legend says throwing a coin into the fountain ensures your return to Rome.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187791-d192285-Reviews-Trevi_Fountain-Rome_Lazio.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    // France-specific attractions
+    if (destination.toLowerCase().includes('france') || destination.toLowerCase().includes('paris')) {
+      return [
+        {
+          id: '3436969',
+          name: 'Eiffel Tower',
+          rating: 4.5,
+          review_count: 125000,
+          category: 'Landmark',
+          address: 'Champ de Mars, 7th arrondissement, Paris',
+          description: 'Iconic iron lattice tower and symbol of Paris. Built in 1889, it offers stunning views of the city from its observation decks.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187147-d188151-Reviews-Eiffel_Tower-Paris_Ile_de_France.html',
+          photo_url: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Louvre Museum',
+          rating: 4.4,
+          review_count: 95000,
+          category: 'Museum',
+          address: 'Rue de Rivoli, 1st arrondissement, Paris',
+          description: 'World\'s largest art museum and historic monument. Home to the Mona Lisa and thousands of other masterpieces.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187147-d188151-Reviews-Louvre_Museum-Paris_Ile_de_France.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'Notre-Dame Cathedral',
+          rating: 4.3,
+          review_count: 85000,
+          category: 'Religious Site',
+          address: '6 Parvis Notre-Dame, 4th arrondissement, Paris',
+          description: 'Medieval Catholic cathedral, masterpiece of French Gothic architecture. Famous for its flying buttresses and gargoyles.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187147-d188151-Reviews-Notre_Dame_Cathedral-Paris_Ile_de_France.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
     // Mumbai/Bombay specific attractions
     if (destination.toLowerCase().includes('mumbai') || destination.toLowerCase().includes('bombay') || destination.toLowerCase().includes('bom')) {
       return [
@@ -1985,39 +2063,8 @@ class IntegratedAITravelAgent {
       const checkOut = queryIntent.extractedInfo?.checkOut || '';
       const guests = queryIntent.extractedInfo?.guests || 2;
       
-      // Create mock hotel data
-      const mockHotels = [
-        {
-          name: 'The Lalit Mumbai',
-          price: 100,
-          rating: 4.2,
-          review_count: 1250,
-          location: 'Mumbai, Maharashtra',
-          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa'],
-          description: 'Modern luxury hotel with excellent city views and amenities',
-          address: 'Sahar Airport Road, Mumbai'
-        },
-        {
-          name: 'Trident, Bandra Kurla',
-          price: 120,
-          rating: 4.4,
-          review_count: 980,
-          location: 'Bandra Kurla Complex, Mumbai',
-          amenities: ['WiFi', 'Pool', 'Restaurant', 'Fitness Center'],
-          description: 'Elegant business hotel in the heart of the financial district',
-          address: 'Bandra Kurla Complex, Mumbai'
-        },
-        {
-          name: 'Taj Lands End',
-          price: 150,
-          rating: 4.6,
-          review_count: 2100,
-          location: 'Bandra West, Mumbai',
-          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Beach Access'],
-          description: 'Luxury beachfront hotel with stunning Arabian Sea views',
-          address: 'Bandra West, Mumbai'
-        }
-      ];
+      // Create mock hotel data based on destination
+      const mockHotels = this.generateMockHotelsForDestination(destination);
       
       let hotelContent = `## 🏨 Hotel Recommendations\n\nHere are some recommended hotels in ${destination}:\n\n`;
       
@@ -3930,6 +3977,191 @@ Return ONLY the JSON array:`;
       console.log('🛫 ===== FLIGHT API FETCH END (ERROR) =====\n');
       return null; // Return null instead of fallback data
     }
+  }
+
+  /**
+   * Generate mock hotel data based on destination
+   */
+  generateMockHotelsForDestination(destination) {
+    const dest = destination.toLowerCase();
+    
+    // Italy-specific hotels
+    if (dest.includes('italy') || dest.includes('rome') || dest.includes('milan') || dest.includes('florence') || dest.includes('venice')) {
+      return [
+        {
+          name: 'Hotel de Russie',
+          price: 180,
+          rating: 4.5,
+          review_count: 1250,
+          location: 'Rome, Italy',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa'],
+          description: 'Luxury hotel in the heart of Rome with stunning city views',
+          address: 'Via del Babuino, 9, Rome'
+        },
+        {
+          name: 'The First Roma Arte',
+          price: 150,
+          rating: 4.3,
+          review_count: 980,
+          location: 'Rome, Italy',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Fitness Center'],
+          description: 'Modern art hotel with contemporary design and excellent location',
+          address: 'Via del Viminal, 8, Rome'
+        },
+        {
+          name: 'Hotel Artemide',
+          price: 120,
+          rating: 4.2,
+          review_count: 2100,
+          location: 'Rome, Italy',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Rooftop Bar'],
+          description: 'Elegant hotel with rooftop terrace and panoramic city views',
+          address: 'Via Nazionale, 22, Rome'
+        }
+      ];
+    }
+    
+    // France-specific hotels
+    if (dest.includes('france') || dest.includes('paris')) {
+      return [
+        {
+          name: 'Hotel Plaza Athénée',
+          price: 200,
+          rating: 4.6,
+          review_count: 1500,
+          location: 'Paris, France',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa'],
+          description: 'Iconic luxury hotel on Avenue Montaigne with Eiffel Tower views',
+          address: '25 Avenue Montaigne, Paris'
+        },
+        {
+          name: 'Le Meurice',
+          price: 180,
+          rating: 4.5,
+          review_count: 1200,
+          location: 'Paris, France',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Fitness Center'],
+          description: 'Historic palace hotel overlooking the Tuileries Garden',
+          address: '228 Rue de Rivoli, Paris'
+        },
+        {
+          name: 'Hotel des Grands Boulevards',
+          price: 140,
+          rating: 4.3,
+          review_count: 800,
+          location: 'Paris, France',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Rooftop Bar'],
+          description: 'Boutique hotel with modern design in the Grands Boulevards district',
+          address: '17 Boulevard Poissonnière, Paris'
+        }
+      ];
+    }
+    
+    // Spain-specific hotels
+    if (dest.includes('spain') || dest.includes('madrid') || dest.includes('barcelona')) {
+      return [
+        {
+          name: 'Hotel Ritz Madrid',
+          price: 160,
+          rating: 4.4,
+          review_count: 1100,
+          location: 'Madrid, Spain',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa'],
+          description: 'Historic luxury hotel in the heart of Madrid',
+          address: 'Plaza de la Lealtad, 5, Madrid'
+        },
+        {
+          name: 'Hotel Casa Fuster',
+          price: 130,
+          rating: 4.2,
+          review_count: 900,
+          location: 'Barcelona, Spain',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Fitness Center'],
+          description: 'Modernista hotel with stunning architecture and city views',
+          address: 'Passeig de Gràcia, 132, Barcelona'
+        },
+        {
+          name: 'Hotel Palacio del Retiro',
+          price: 110,
+          rating: 4.1,
+          review_count: 750,
+          location: 'Madrid, Spain',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Rooftop Bar'],
+          description: 'Elegant hotel near Retiro Park with beautiful garden views',
+          address: 'Alfonso XII, 14, Madrid'
+        }
+      ];
+    }
+    
+    // Japan-specific hotels
+    if (dest.includes('japan') || dest.includes('tokyo') || dest.includes('osaka')) {
+      return [
+        {
+          name: 'The Ritz-Carlton Tokyo',
+          price: 220,
+          rating: 4.7,
+          review_count: 1800,
+          location: 'Tokyo, Japan',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa'],
+          description: 'Luxury hotel with panoramic city views and traditional Japanese service',
+          address: '9-7-1 Akasaka, Minato, Tokyo'
+        },
+        {
+          name: 'Hotel Okura Tokyo',
+          price: 180,
+          rating: 4.4,
+          review_count: 1400,
+          location: 'Tokyo, Japan',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Fitness Center'],
+          description: 'Classic luxury hotel with traditional Japanese architecture',
+          address: '2-10-4 Toranomon, Minato, Tokyo'
+        },
+        {
+          name: 'Park Hyatt Tokyo',
+          price: 200,
+          rating: 4.5,
+          review_count: 1600,
+          location: 'Tokyo, Japan',
+          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Rooftop Bar'],
+          description: 'Modern luxury hotel with stunning city skyline views',
+          address: '3-7-1-2 Nishi-Shinjuku, Shinjuku, Tokyo'
+        }
+      ];
+    }
+    
+    // Default/Generic hotels
+    return [
+      {
+        name: 'Grand Hotel Central',
+        price: 120,
+        rating: 4.2,
+        review_count: 1250,
+        location: destination,
+        amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa'],
+        description: 'Modern luxury hotel with excellent city views and amenities',
+        address: '123 Main Street, ' + destination
+      },
+      {
+        name: 'The Plaza Hotel',
+        price: 140,
+        rating: 4.4,
+        review_count: 980,
+        location: destination,
+        amenities: ['WiFi', 'Pool', 'Restaurant', 'Fitness Center'],
+        description: 'Elegant business hotel in the heart of the city',
+        address: '456 Business District, ' + destination
+      },
+      {
+        name: 'Boutique Hotel',
+        price: 100,
+        rating: 4.1,
+        review_count: 750,
+        location: destination,
+        amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Rooftop Bar'],
+        description: 'Charming boutique hotel with unique character and style',
+        address: '789 Historic Quarter, ' + destination
+      }
+    ];
   }
 
   /**
