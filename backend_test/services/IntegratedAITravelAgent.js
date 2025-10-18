@@ -1382,9 +1382,1108 @@ class IntegratedAITravelAgent {
   }
 
   /**
+   * Get mock hotels for a destination
+   * Comprehensive destination matching for worldwide coverage
+   */
+  getMockHotelsForDestination(destination) {
+    const dest = destination.toLowerCase().trim();
+    
+    // Comprehensive destination matching system
+    const destinationData = this.getDestinationData(dest);
+    
+    if (destinationData) {
+      return destinationData.hotels;
+    }
+    
+    // Fallback: Generate contextual hotels based on destination type
+    return this.generateContextualHotels(destination);
+  }
+
+  /**
+   * Get comprehensive destination data including hotels and attractions
+   */
+  getDestinationData(dest) {
+    // ASIA
+    if (this.matchesDestination(dest, ['japan', 'tokyo', 'osaka', 'kyoto', 'nara', 'hiroshima', 'yokohama', 'sapporo'])) {
+      return {
+        hotels: [
+          {
+            name: 'The Ritz-Carlton Tokyo',
+            price: 450,
+            rating: 4.7,
+            review_count: 3200,
+            location: 'Tokyo, Japan',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Luxury hotel in Roppongi with stunning city views and world-class service',
+            address: '9-7-1 Akasaka, Minato-ku, Tokyo'
+          },
+          {
+            name: 'Park Hyatt Tokyo',
+            price: 380,
+            rating: 4.6,
+            review_count: 2800,
+            location: 'Tokyo, Japan',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Iconic luxury hotel featured in "Lost in Translation" with panoramic city views',
+            address: '3-7-1-2 Nishi-Shinjuku, Shinjuku-ku, Tokyo'
+          },
+          {
+            name: 'Aman Tokyo',
+            price: 520,
+            rating: 4.8,
+            review_count: 1500,
+            location: 'Tokyo, Japan',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge', 'Fitness Center'],
+            description: 'Ultra-luxury hotel with minimalist design and exceptional service',
+            address: '1-5-6 Otemachi, Chiyoda-ku, Tokyo'
+          }
+        ]
+      };
+    }
+    
+    if (this.matchesDestination(dest, ['china', 'beijing', 'shanghai', 'guangzhou', 'shenzhen', 'hong kong', 'macau'])) {
+      return {
+        hotels: [
+          {
+            name: 'The Peninsula Hong Kong',
+            price: 400,
+            rating: 4.6,
+            review_count: 2800,
+            location: 'Hong Kong',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Historic luxury hotel with harbor views and exceptional service',
+            address: 'Salisbury Road, Tsim Sha Tsui, Hong Kong'
+          },
+          {
+            name: 'The Ritz-Carlton Shanghai',
+            price: 350,
+            rating: 4.5,
+            review_count: 2200,
+            location: 'Shanghai, China',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Modern luxury hotel in Pudong with stunning city skyline views',
+            address: 'No. 8 Century Avenue, Pudong, Shanghai'
+          },
+          {
+            name: 'Aman Summer Palace',
+            price: 480,
+            rating: 4.8,
+            review_count: 1800,
+            location: 'Beijing, China',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Luxury resort near the Summer Palace with traditional Chinese architecture',
+            address: '15 Gongmenqian Street, Haidian District, Beijing'
+          }
+        ]
+      };
+    }
+    
+    if (this.matchesDestination(dest, ['india', 'mumbai', 'bombay', 'delhi', 'bangalore', 'chennai', 'hyderabad', 'kolkata', 'goa', 'jaipur', 'agra'])) {
+      return {
+        hotels: [
+          {
+            name: 'The Taj Mahal Palace',
+            price: 200,
+            rating: 4.7,
+            review_count: 3500,
+            location: 'Mumbai, India',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Historic luxury hotel overlooking the Gateway of India and Arabian Sea',
+            address: 'Apollo Bunder, Colaba, Mumbai'
+          },
+          {
+            name: 'The Oberoi New Delhi',
+            price: 180,
+            rating: 4.6,
+            review_count: 2800,
+            location: 'New Delhi, India',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Luxury hotel in the heart of Delhi with modern amenities and traditional hospitality',
+            address: 'Dr. Zakir Hussain Marg, New Delhi'
+          },
+          {
+            name: 'Taj Lake Palace',
+            price: 350,
+            rating: 4.8,
+            review_count: 2200,
+            location: 'Udaipur, India',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Floating palace hotel on Lake Pichola with breathtaking views',
+            address: 'Pichola, Udaipur, Rajasthan'
+          }
+        ]
+      };
+    }
+    
+    if (this.matchesDestination(dest, ['singapore', 'malaysia', 'kuala lumpur', 'thailand', 'bangkok', 'phuket', 'indonesia', 'bali', 'jakarta', 'philippines', 'manila', 'vietnam', 'ho chi minh', 'hanoi'])) {
+      return {
+        hotels: [
+          {
+            name: 'Marina Bay Sands',
+            price: 300,
+            rating: 4.5,
+            review_count: 4200,
+            location: 'Singapore',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Casino'],
+            description: 'Iconic hotel with rooftop infinity pool and stunning city views',
+            address: '10 Bayfront Avenue, Singapore'
+          },
+          {
+            name: 'The St. Regis Bangkok',
+            price: 250,
+            rating: 4.4,
+            review_count: 1800,
+            location: 'Bangkok, Thailand',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Luxury hotel in the heart of Bangkok with traditional Thai hospitality',
+            address: '159 Rajadamri Road, Bangkok'
+          },
+          {
+            name: 'The Mulia Bali',
+            price: 200,
+            rating: 4.6,
+            review_count: 3200,
+            location: 'Bali, Indonesia',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Beach Access'],
+            description: 'Beachfront luxury resort with stunning ocean views and Balinese culture',
+            address: 'Jl. Raya Nusa Dua Selatan, Bali'
+          }
+        ]
+      };
+    }
+    
+    // EUROPE
+    if (this.matchesDestination(dest, ['france', 'paris', 'lyon', 'marseille', 'nice', 'cannes'])) {
+      return {
+        hotels: [
+          {
+            name: 'The Ritz Paris',
+            price: 400,
+            rating: 4.7,
+            review_count: 3800,
+            location: 'Paris, France',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Legendary luxury hotel in Place Vendôme with timeless elegance',
+            address: '15 Place Vendôme, 75001 Paris, France'
+          },
+          {
+            name: 'Hotel Plaza Athénée',
+            price: 350,
+            rating: 4.6,
+            review_count: 3200,
+            location: 'Paris, France',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Luxury hotel on Avenue Montaigne with Eiffel Tower views',
+            address: '25 Avenue Montaigne, 75008 Paris, France'
+          },
+          {
+            name: 'Le Meurice',
+            price: 380,
+            rating: 4.5,
+            review_count: 2900,
+            location: 'Paris, France',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Palace hotel near the Louvre with royal heritage',
+            address: '228 Rue de Rivoli, 75001 Paris, France'
+          }
+        ]
+      };
+    }
+    
+    if (this.matchesDestination(dest, ['united kingdom', 'uk', 'london', 'manchester', 'edinburgh', 'glasgow', 'birmingham'])) {
+      return {
+        hotels: [
+          {
+            name: 'The Savoy London',
+            price: 300,
+            rating: 4.6,
+            review_count: 4200,
+            location: 'London, UK',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Historic luxury hotel on the Thames with timeless elegance',
+            address: 'Strand, London WC2R 0EU, UK'
+          },
+          {
+            name: 'Claridge\'s',
+            price: 350,
+            rating: 4.7,
+            review_count: 2800,
+            location: 'London, UK',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Art Deco luxury hotel in Mayfair with exceptional service',
+            address: 'Brook St, London W1K 4HR, UK'
+          },
+          {
+            name: 'The Ritz London',
+            price: 320,
+            rating: 4.5,
+            review_count: 3600,
+            location: 'London, UK',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Iconic luxury hotel in Piccadilly with afternoon tea tradition',
+            address: '150 Piccadilly, London W1J 9BR, UK'
+          }
+        ]
+      };
+    }
+    
+    if (this.matchesDestination(dest, ['germany', 'berlin', 'munich', 'hamburg', 'frankfurt', 'cologne'])) {
+      return {
+        hotels: [
+          {
+            name: 'Hotel Adlon Kempinski',
+            price: 280,
+            rating: 4.5,
+            review_count: 2200,
+            location: 'Berlin, Germany',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Historic luxury hotel near Brandenburg Gate with modern amenities',
+            address: 'Unter den Linden 77, 10117 Berlin, Germany'
+          },
+          {
+            name: 'The Charles Hotel',
+            price: 250,
+            rating: 4.4,
+            review_count: 1800,
+            location: 'Munich, Germany',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Modern luxury hotel in Munich with Bavarian charm',
+            address: 'Sophienstraße 28, 80333 München, Germany'
+          },
+          {
+            name: 'The Fontenay Hamburg',
+            price: 220,
+            rating: 4.6,
+            review_count: 1500,
+            location: 'Hamburg, Germany',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Contemporary luxury hotel with lake views and modern design',
+            address: 'Fontenay 10, 20354 Hamburg, Germany'
+          }
+        ]
+      };
+    }
+    
+    if (this.matchesDestination(dest, ['italy', 'rome', 'milan', 'florence', 'venice', 'naples', 'bologna'])) {
+      return {
+        hotels: [
+          {
+            name: 'Hotel de Russie',
+            price: 350,
+            rating: 4.6,
+            review_count: 2800,
+            location: 'Rome, Italy',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Luxury hotel near Spanish Steps with beautiful garden courtyard',
+            address: 'Via del Babuino, 9, 00187 Roma RM, Italy'
+          },
+          {
+            name: 'Armani Hotel Milano',
+            price: 400,
+            rating: 4.5,
+            review_count: 2200,
+            location: 'Milan, Italy',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Fashion-forward luxury hotel in the heart of Milan',
+            address: 'Via Manzoni, 31, 20121 Milano MI, Italy'
+          },
+          {
+            name: 'Hotel Danieli',
+            price: 380,
+            rating: 4.7,
+            review_count: 3200,
+            location: 'Venice, Italy',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Historic luxury hotel overlooking the Grand Canal',
+            address: 'Riva degli Schiavoni, 4196, 30122 Venezia VE, Italy'
+          }
+        ]
+      };
+    }
+    
+    if (this.matchesDestination(dest, ['spain', 'madrid', 'barcelona', 'seville', 'valencia', 'bilbao'])) {
+      return {
+        hotels: [
+          {
+            name: 'Hotel Ritz Madrid',
+            price: 300,
+            rating: 4.5,
+            review_count: 2500,
+            location: 'Madrid, Spain',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Historic luxury hotel near Prado Museum with classic elegance',
+            address: 'Plaza de la Lealtad, 5, 28014 Madrid, Spain'
+          },
+          {
+            name: 'Hotel Casa Fuster',
+            price: 280,
+            rating: 4.4,
+            review_count: 1800,
+            location: 'Barcelona, Spain',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Modernist luxury hotel on Passeig de Gràcia with rooftop pool',
+            address: 'Passeig de Gràcia, 132, 08008 Barcelona, Spain'
+          },
+          {
+            name: 'Hotel Alfonso XIII',
+            price: 250,
+            rating: 4.6,
+            review_count: 2200,
+            location: 'Seville, Spain',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Historic luxury hotel with Moorish architecture and Andalusian charm',
+            address: 'C. San Fernando, 2, 41004 Sevilla, Spain'
+          }
+        ]
+      };
+    }
+    
+    // NORTH AMERICA
+    if (this.matchesDestination(dest, ['united states', 'usa', 'america', 'new york', 'nyc', 'manhattan', 'los angeles', 'la', 'chicago', 'miami', 'las vegas', 'san francisco', 'boston', 'washington', 'seattle'])) {
+      return {
+        hotels: [
+          {
+            name: 'The Plaza New York',
+            price: 400,
+            rating: 4.5,
+            review_count: 4500,
+            location: 'New York, NY',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Historic luxury hotel on Central Park with timeless elegance',
+            address: '768 5th Ave, New York, NY'
+          },
+          {
+            name: 'The Beverly Hills Hotel',
+            price: 450,
+            rating: 4.6,
+            review_count: 3200,
+            location: 'Beverly Hills, CA',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Iconic luxury hotel with Hollywood glamour and tropical gardens',
+            address: '9641 Sunset Blvd, Beverly Hills, CA'
+          },
+          {
+            name: 'The Ritz-Carlton Chicago',
+            price: 350,
+            rating: 4.4,
+            review_count: 2800,
+            location: 'Chicago, IL',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Luxury hotel with stunning lake views and modern amenities',
+            address: '160 E Pearson St, Chicago, IL'
+          }
+        ]
+      };
+    }
+    
+    if (this.matchesDestination(dest, ['canada', 'toronto', 'vancouver', 'montreal', 'calgary', 'ottawa'])) {
+      return {
+        hotels: [
+          {
+            name: 'The Ritz-Carlton Toronto',
+            price: 300,
+            rating: 4.5,
+            review_count: 2200,
+            location: 'Toronto, Canada',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Luxury hotel in the heart of Toronto with modern amenities',
+            address: '181 Wellington St W, Toronto, ON M5V 3G5, Canada'
+          },
+          {
+            name: 'Fairmont Pacific Rim',
+            price: 280,
+            rating: 4.6,
+            review_count: 2500,
+            location: 'Vancouver, Canada',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Luxury hotel with stunning harbor views and contemporary design',
+            address: '1038 Canada Pl, Vancouver, BC V6C 0B9, Canada'
+          },
+          {
+            name: 'Ritz-Carlton Montreal',
+            price: 250,
+            rating: 4.4,
+            review_count: 1800,
+            location: 'Montreal, Canada',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Luxury hotel in Old Montreal with historic charm and modern luxury',
+            address: '1228 Sherbrooke St W, Montreal, QC H3G 1H6, Canada'
+          }
+        ]
+      };
+    }
+    
+    // OCEANIA
+    if (this.matchesDestination(dest, ['australia', 'sydney', 'melbourne', 'brisbane', 'perth', 'adelaide', 'new zealand', 'auckland', 'wellington', 'queenstown'])) {
+      return {
+        hotels: [
+          {
+            name: 'Park Hyatt Sydney',
+            price: 400,
+            rating: 4.7,
+            review_count: 3200,
+            location: 'Sydney, Australia',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Luxury hotel with iconic Opera House and harbor views',
+            address: '7 Hickson Rd, The Rocks NSW 2000, Australia'
+          },
+          {
+            name: 'The Langham Melbourne',
+            price: 280,
+            rating: 4.5,
+            review_count: 2200,
+            location: 'Melbourne, Australia',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Luxury hotel in the heart of Melbourne with modern amenities',
+            address: '1 Southgate Ave, Southbank VIC 3006, Australia'
+          },
+          {
+            name: 'The Langham Auckland',
+            price: 250,
+            rating: 4.4,
+            review_count: 1800,
+            location: 'Auckland, New Zealand',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Luxury hotel with harbor views and contemporary design',
+            address: '83 Symonds St, Auckland 1010, New Zealand'
+          }
+        ]
+      };
+    }
+    
+    // MIDDLE EAST & AFRICA
+    if (this.matchesDestination(dest, ['uae', 'dubai', 'abu dhabi', 'qatar', 'doha', 'saudi arabia', 'riyadh', 'jeddah', 'egypt', 'cairo', 'south africa', 'cape town', 'johannesburg'])) {
+      return {
+        hotels: [
+          {
+            name: 'Burj Al Arab',
+            price: 500,
+            rating: 4.6,
+            review_count: 4200,
+            location: 'Dubai, UAE',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Iconic luxury hotel shaped like a sail with stunning architecture',
+            address: 'Jumeirah Beach, Dubai, UAE'
+          },
+          {
+            name: 'Emirates Palace',
+            price: 400,
+            rating: 4.5,
+            review_count: 3200,
+            location: 'Abu Dhabi, UAE',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'],
+            description: 'Palace-style luxury hotel with gold accents and beachfront location',
+            address: 'West Corniche Road, Abu Dhabi, UAE'
+          },
+          {
+            name: 'The Ritz-Carlton Cairo',
+            price: 200,
+            rating: 4.4,
+            review_count: 1800,
+            location: 'Cairo, Egypt',
+            amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'],
+            description: 'Luxury hotel with views of the Nile and ancient Egyptian charm',
+            address: '1191 Nile Corniche, Cairo, Egypt'
+          }
+        ]
+      };
+    }
+    
+    return null; // No specific data found
+  }
+
+  /**
+   * Check if destination matches any of the provided keywords
+   */
+  matchesDestination(dest, keywords) {
+    return keywords.some(keyword => dest.includes(keyword.toLowerCase()));
+  }
+
+  /**
+   * Generate contextual hotels for unknown destinations
+   */
+  generateContextualHotels(destination) {
+    const dest = destination.toLowerCase();
+    
+    // Determine destination type and generate appropriate hotels
+    let hotelType = 'city';
+    let priceRange = { min: 120, max: 200 };
+    let amenities = ['WiFi', 'Restaurant'];
+    
+    if (dest.includes('beach') || dest.includes('coast') || dest.includes('island')) {
+      hotelType = 'beach';
+      priceRange = { min: 150, max: 300 };
+      amenities = ['WiFi', 'Pool', 'Restaurant', 'Beach Access'];
+    } else if (dest.includes('mountain') || dest.includes('alpine') || dest.includes('ski')) {
+      hotelType = 'mountain';
+      priceRange = { min: 180, max: 350 };
+      amenities = ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Fitness Center'];
+    } else if (dest.includes('desert') || dest.includes('oasis')) {
+      hotelType = 'desert';
+      priceRange = { min: 200, max: 400 };
+      amenities = ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Concierge'];
+    } else if (dest.includes('historic') || dest.includes('ancient') || dest.includes('old')) {
+      hotelType = 'historic';
+      priceRange = { min: 100, max: 250 };
+      amenities = ['WiFi', 'Restaurant', 'Historic Charm'];
+    }
+    
+    const basePrice = Math.floor(Math.random() * (priceRange.max - priceRange.min + 1)) + priceRange.min;
+    
+    return [
+      {
+        name: `${this.capitalizeFirst(destination)} Grand Hotel`,
+        price: basePrice,
+        rating: 4.2 + Math.random() * 0.6,
+        review_count: Math.floor(Math.random() * 2000) + 500,
+        location: destination,
+        amenities: amenities,
+        description: `Luxury ${hotelType} hotel with modern amenities and exceptional service in ${destination}`,
+        address: `City Center, ${destination}`
+      },
+      {
+        name: `The ${this.capitalizeFirst(destination)} Plaza`,
+        price: Math.floor(basePrice * 0.8),
+        rating: 4.0 + Math.random() * 0.5,
+        review_count: Math.floor(Math.random() * 1500) + 300,
+        location: destination,
+        amenities: amenities.slice(0, -1), // Remove one amenity for mid-range
+        description: `Comfortable ${hotelType} hotel with great location and friendly service`,
+        address: `Business District, ${destination}`
+      },
+      {
+        name: `${this.capitalizeFirst(destination)} Boutique Hotel`,
+        price: Math.floor(basePrice * 1.2),
+        rating: 4.3 + Math.random() * 0.4,
+        review_count: Math.floor(Math.random() * 1000) + 200,
+        location: destination,
+        amenities: [...amenities, 'Unique Design'],
+        description: `Charming boutique ${hotelType} hotel with unique character and personalized service`,
+        address: `Historic District, ${destination}`
+      }
+    ];
+  }
+
+  /**
+   * Capitalize first letter of each word
+   */
+  capitalizeFirst(str) {
+    return str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+  }
+
+  /**
    * Get mock attractions for a destination
+   * Comprehensive destination matching for worldwide coverage
    */
   getMockAttractionsForDestination(destination) {
+    const dest = destination.toLowerCase().trim();
+    
+    // Comprehensive destination matching system
+    const destinationData = this.getDestinationData(dest);
+    
+    if (destinationData && destinationData.attractions) {
+      return destinationData.attractions;
+    }
+    
+    // Fallback: Generate contextual attractions based on destination type
+    return this.generateContextualAttractions(destination);
+  }
+
+  /**
+   * Get comprehensive destination data including hotels and attractions
+   */
+  getDestinationAttractionsData(dest) {
+    // ASIA
+    if (this.matchesDestination(dest, ['japan', 'tokyo', 'osaka', 'kyoto', 'nara', 'hiroshima', 'yokohama', 'sapporo'])) {
+      return [
+        {
+          id: '3436969',
+          name: 'Tokyo Skytree',
+          rating: 4.2,
+          review_count: 38000,
+          category: 'Observation Deck',
+          address: '1-1-2 Oshiage, Sumida City, Tokyo',
+          description: '634-meter tall broadcasting tower and observation deck. Offers panoramic views of Tokyo and Mount Fuji on clear days.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g298184-d319505-Reviews-Tokyo_Skytree-Tokyo_Tokyo_Prefecture.html',
+          photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Senso-ji Temple',
+          rating: 4.3,
+          review_count: 45000,
+          category: 'Religious Site',
+          address: '2-3-1 Asakusa, Taito City, Tokyo',
+          description: 'Tokyo\'s oldest temple, founded in 628 AD. A vibrant Buddhist temple complex in the historic Asakusa district.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g298184-d319504-Reviews-Senso_ji_Temple-Tokyo_Tokyo_Prefecture.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'Meiji Shrine',
+          rating: 4.4,
+          review_count: 42000,
+          category: 'Religious Site',
+          address: '1-1 Yoyogikamizonocho, Shibuya City, Tokyo',
+          description: 'Shinto shrine dedicated to Emperor Meiji and Empress Shoken. Surrounded by a peaceful forest in the heart of Tokyo.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g298184-d319506-Reviews-Meiji_Shrine-Tokyo_Tokyo_Prefecture.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    if (this.matchesDestination(dest, ['china', 'beijing', 'shanghai', 'guangzhou', 'shenzhen', 'hong kong', 'macau'])) {
+      return [
+        {
+          id: '3436969',
+          name: 'Great Wall of China',
+          rating: 4.6,
+          review_count: 85000,
+          category: 'Historic Site',
+          address: 'Huairou District, Beijing, China',
+          description: 'Ancient fortification system and one of the Seven Wonders of the World. Stretches over 13,000 miles across northern China.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g294212-d311538-Reviews-Great_Wall_of_China-Beijing.html',
+          photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Forbidden City',
+          rating: 4.5,
+          review_count: 65000,
+          category: 'Historic Site',
+          address: '4 Jingshan Front St, Dongcheng, Beijing, China',
+          description: 'Imperial palace complex that served as the home of emperors for nearly 500 years. UNESCO World Heritage Site.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g294212-d311539-Reviews-Forbidden_City-Beijing.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'Victoria Peak',
+          rating: 4.3,
+          review_count: 42000,
+          category: 'Observation Deck',
+          address: 'Victoria Peak, Hong Kong',
+          description: 'Highest point on Hong Kong Island offering panoramic views of the city skyline and harbor.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g294217-d311540-Reviews-Victoria_Peak-Hong_Kong.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    if (this.matchesDestination(dest, ['india', 'mumbai', 'bombay', 'delhi', 'bangalore', 'chennai', 'hyderabad', 'kolkata', 'goa', 'jaipur', 'agra'])) {
+      return [
+        {
+          id: '3436969',
+          name: 'Taj Mahal',
+          rating: 4.7,
+          review_count: 125000,
+          category: 'Monument',
+          address: 'Agra, Uttar Pradesh, India',
+          description: 'Iconic white marble mausoleum, one of the Seven Wonders of the World. Built by Mughal emperor Shah Jahan in memory of his wife Mumtaz Mahal.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g297683-d319504-Reviews-Taj_Mahal-Agra_Uttar_Pradesh.html',
+          photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Gateway of India',
+          rating: 4.1,
+          review_count: 55000,
+          category: 'Monument',
+          address: 'Apollo Bunder, Colaba, Mumbai',
+          description: 'Historic arch monument overlooking the Arabian Sea, built to commemorate the visit of King George V and Queen Mary.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g304554-d319507-Reviews-Gateway_of_India-Mumbai_Maharashtra.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'Red Fort',
+          rating: 4.3,
+          review_count: 45000,
+          category: 'Historic Site',
+          address: 'Old Delhi, Delhi, India',
+          description: 'Historic fort complex, UNESCO World Heritage Site. Built by Mughal emperor Shah Jahan.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g304551-d319505-Reviews-Red_Fort-Delhi.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    if (this.matchesDestination(dest, ['singapore', 'malaysia', 'kuala lumpur', 'thailand', 'bangkok', 'phuket', 'indonesia', 'bali', 'jakarta', 'philippines', 'manila', 'vietnam', 'ho chi minh', 'hanoi'])) {
+      return [
+        {
+          id: '3436969',
+          name: 'Marina Bay Sands',
+          rating: 4.4,
+          review_count: 35000,
+          category: 'Landmark',
+          address: '10 Bayfront Avenue, Singapore',
+          description: 'Iconic integrated resort with rooftop infinity pool, casino, and stunning city views.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g294265-d311541-Reviews-Marina_Bay_Sands-Singapore.html',
+          photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Grand Palace',
+          rating: 4.2,
+          review_count: 28000,
+          category: 'Historic Site',
+          address: 'Na Phra Lan Rd, Phra Nakhon, Bangkok, Thailand',
+          description: 'Former royal residence and complex of buildings in Bangkok. Home to the Temple of the Emerald Buddha.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g293916-d311542-Reviews-Grand_Palace-Bangkok.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'Tanah Lot Temple',
+          rating: 4.3,
+          review_count: 22000,
+          category: 'Religious Site',
+          address: 'Beraban, Kediri, Tabanan Regency, Bali, Indonesia',
+          description: 'Ancient Hindu temple perched on a rock formation in the sea. Famous for its sunset views.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g297700-d311543-Reviews-Tanah_Lot_Temple-Bali.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    // EUROPE
+    if (this.matchesDestination(dest, ['france', 'paris', 'lyon', 'marseille', 'nice', 'cannes'])) {
+      return [
+        {
+          id: '3436969',
+          name: 'Eiffel Tower',
+          rating: 4.5,
+          review_count: 125000,
+          category: 'Landmark',
+          address: 'Champ de Mars, 7th arrondissement, Paris',
+          description: 'Iconic iron lattice tower and symbol of Paris. Built for the 1889 World\'s Fair, it offers stunning views from its observation decks.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187147-d187147-Reviews-Eiffel_Tower-Paris_Ile_de_France.html',
+          photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Louvre Museum',
+          rating: 4.4,
+          review_count: 95000,
+          category: 'Museum',
+          address: 'Rue de Rivoli, 1st arrondissement, Paris',
+          description: 'World\'s largest art museum and historic monument. Home to the Mona Lisa and thousands of other masterpieces.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187147-d188757-Reviews-Louvre_Museum-Paris_Ile_de_France.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'Notre-Dame Cathedral',
+          rating: 4.3,
+          review_count: 85000,
+          category: 'Religious Site',
+          address: '6 Parvis Notre-Dame, 4th arrondissement, Paris',
+          description: 'Medieval Catholic cathedral, masterpiece of French Gothic architecture. Currently under restoration after the 2019 fire.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187147-d188757-Reviews-Notre_Dame_Cathedral-Paris_Ile_de_France.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    if (this.matchesDestination(dest, ['united kingdom', 'uk', 'london', 'manchester', 'edinburgh', 'glasgow', 'birmingham'])) {
+      return [
+        {
+          id: '3436969',
+          name: 'Big Ben',
+          rating: 4.3,
+          review_count: 65000,
+          category: 'Monument',
+          address: 'Westminster, London SW1A 0AA, UK',
+          description: 'Iconic clock tower and symbol of London. Part of the Palace of Westminster, this Gothic Revival masterpiece is a UNESCO World Heritage Site.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g186338-d319504-Reviews-Big_Ben-London_England.html',
+          photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Tower of London',
+          rating: 4.4,
+          review_count: 72000,
+          category: 'Historic Site',
+          address: 'London EC3N 4AB, UK',
+          description: 'Historic castle on the north bank of the River Thames. Home to the Crown Jewels and the famous Beefeaters.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g186338-d319505-Reviews-Tower_of_London-London_England.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'British Museum',
+          rating: 4.5,
+          review_count: 88000,
+          category: 'Museum',
+          address: 'Great Russell St, London WC1B 3DG, UK',
+          description: 'World-famous museum housing over 8 million works, including the Rosetta Stone and Elgin Marbles.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g186338-d319506-Reviews-British_Museum-London_England.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    if (this.matchesDestination(dest, ['italy', 'rome', 'milan', 'florence', 'venice', 'naples', 'bologna'])) {
+      return [
+        {
+          id: '3436969',
+          name: 'Colosseum',
+          rating: 4.6,
+          review_count: 95000,
+          category: 'Historic Site',
+          address: 'Piazza del Colosseo, 1, 00184 Roma RM, Italy',
+          description: 'Ancient amphitheater and symbol of Rome. One of the most recognizable landmarks in the world.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187791-d311544-Reviews-Colosseum-Rome_Lazio.html',
+          photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Leaning Tower of Pisa',
+          rating: 4.2,
+          review_count: 45000,
+          category: 'Monument',
+          address: 'Piazza del Duomo, 56126 Pisa PI, Italy',
+          description: 'Famous freestanding bell tower known for its unintended tilt. Part of the Piazza del Duomo complex.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187899-d311545-Reviews-Leaning_Tower_of_Pisa-Pisa_Province_of_Pisa_Tuscany.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'St. Mark\'s Basilica',
+          rating: 4.4,
+          review_count: 38000,
+          category: 'Religious Site',
+          address: 'P.za San Marco, 328, 30100 Venezia VE, Italy',
+          description: 'Cathedral church in Venice known for its Byzantine architecture and golden mosaics.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g187870-d311546-Reviews-St_Mark_s_Basilica-Venice_Veneto.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    // NORTH AMERICA
+    if (this.matchesDestination(dest, ['united states', 'usa', 'america', 'new york', 'nyc', 'manhattan', 'los angeles', 'la', 'chicago', 'miami', 'las vegas', 'san francisco', 'boston', 'washington', 'seattle'])) {
+      return [
+        {
+          id: '3436969',
+          name: 'Statue of Liberty',
+          rating: 4.3,
+          review_count: 85000,
+          category: 'Monument',
+          address: 'Liberty Island, New York, NY',
+          description: 'Iconic symbol of freedom and democracy, gifted by France to the United States. Take a ferry to visit this UNESCO World Heritage Site.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g60763-d319504-Reviews-Statue_of_Liberty-New_York_City_New_York.html',
+          photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Central Park',
+          rating: 4.5,
+          review_count: 95000,
+          category: 'Park',
+          address: 'New York, NY 10024',
+          description: '843-acre urban park in Manhattan, featuring lakes, meadows, and walking paths. A green oasis in the heart of the city.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g60763-d319505-Reviews-Central_Park-New_York_City_New_York.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'Golden Gate Bridge',
+          rating: 4.4,
+          review_count: 65000,
+          category: 'Landmark',
+          address: 'Golden Gate Bridge, San Francisco, CA',
+          description: 'Iconic suspension bridge spanning the Golden Gate strait. One of the most photographed bridges in the world.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g60713-d311547-Reviews-Golden_Gate_Bridge-San_Francisco_California.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    if (this.matchesDestination(dest, ['canada', 'toronto', 'vancouver', 'montreal', 'calgary', 'ottawa'])) {
+      return [
+        {
+          id: '3436969',
+          name: 'CN Tower',
+          rating: 4.2,
+          review_count: 35000,
+          category: 'Observation Deck',
+          address: '290 Bremner Blvd, Toronto, ON M5V 3L9, Canada',
+          description: 'Iconic communications and observation tower in Toronto. One of the tallest free-standing structures in the world.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g155019-d311548-Reviews-CN_Tower-Toronto_Ontario.html',
+          photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Stanley Park',
+          rating: 4.6,
+          review_count: 28000,
+          category: 'Park',
+          address: 'Vancouver, BC V6G 1Z4, Canada',
+          description: '1,000-acre public park in Vancouver with scenic seawall, beaches, and forest trails.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g154943-d311549-Reviews-Stanley_Park-Vancouver_British_Columbia.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'Notre-Dame Basilica',
+          rating: 4.3,
+          review_count: 18000,
+          category: 'Religious Site',
+          address: '110 Notre-Dame St W, Montreal, QC H2Y 1T1, Canada',
+          description: 'Historic Gothic Revival church in Old Montreal with stunning interior architecture.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g155032-d311550-Reviews-Notre_Dame_Basilica-Montreal_Quebec.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    // OCEANIA
+    if (this.matchesDestination(dest, ['australia', 'sydney', 'melbourne', 'brisbane', 'perth', 'adelaide', 'new zealand', 'auckland', 'wellington', 'queenstown'])) {
+      return [
+        {
+          id: '3436969',
+          name: 'Sydney Opera House',
+          rating: 4.5,
+          review_count: 75000,
+          category: 'Landmark',
+          address: 'Bennelong Point, Sydney NSW 2000, Australia',
+          description: 'Iconic performing arts center with distinctive shell-like roof design. UNESCO World Heritage Site.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g255060-d311551-Reviews-Sydney_Opera_House-Sydney_New_South_Wales.html',
+          photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Harbour Bridge',
+          rating: 4.3,
+          review_count: 45000,
+          category: 'Landmark',
+          address: 'Sydney Harbour Bridge, Sydney NSW, Australia',
+          description: 'Steel arch bridge across Sydney Harbour. Popular for bridge climbing and scenic walks.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g255060-d311552-Reviews-Harbour_Bridge-Sydney_New_South_Wales.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'Sky Tower',
+          rating: 4.2,
+          review_count: 25000,
+          category: 'Observation Deck',
+          address: 'Victoria St W, Auckland 1010, New Zealand',
+          description: 'Tallest freestanding structure in the Southern Hemisphere. Offers panoramic views of Auckland.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g255062-d311553-Reviews-Sky_Tower-Auckland_Central_North_Island.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    // MIDDLE EAST & AFRICA
+    if (this.matchesDestination(dest, ['uae', 'dubai', 'abu dhabi', 'qatar', 'doha', 'saudi arabia', 'riyadh', 'jeddah', 'egypt', 'cairo', 'south africa', 'cape town', 'johannesburg'])) {
+      return [
+        {
+          id: '3436969',
+          name: 'Burj Khalifa',
+          rating: 4.4,
+          review_count: 55000,
+          category: 'Observation Deck',
+          address: '1 Sheikh Mohammed bin Rashid Blvd, Dubai, UAE',
+          description: 'Tallest building in the world at 828 meters. Offers stunning views from its observation decks.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g295424-d311554-Reviews-Burj_Khalifa-Dubai_Emirate_of_Dubai.html',
+          photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436970',
+          name: 'Pyramids of Giza',
+          rating: 4.6,
+          review_count: 85000,
+          category: 'Historic Site',
+          address: 'Giza, Egypt',
+          description: 'Ancient pyramid complex including the Great Pyramid of Giza. One of the Seven Wonders of the Ancient World.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g294201-d311555-Reviews-Pyramids_of_Giza-Giza_Giza_Governorate.html',
+          photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+        },
+        {
+          id: '3436971',
+          name: 'Table Mountain',
+          rating: 4.5,
+          review_count: 42000,
+          category: 'Natural Feature',
+          address: 'Table Mountain National Park, Cape Town, South Africa',
+          description: 'Flat-topped mountain overlooking Cape Town. Accessible by cable car or hiking trails.',
+          web_url: 'https://www.tripadvisor.com/Attraction_Review-g312659-d311556-Reviews-Table_Mountain-Cape_Town_Central_Western_Cape.html',
+          photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+        }
+      ];
+    }
+    
+    return null; // No specific data found
+  }
+
+  /**
+   * Generate contextual attractions for unknown destinations
+   */
+  generateContextualAttractions(destination) {
+    const dest = destination.toLowerCase();
+    
+    // Determine destination type and generate appropriate attractions
+    let attractionType = 'city';
+    let categories = ['Landmark', 'Museum', 'Historic Site'];
+    
+    if (dest.includes('beach') || dest.includes('coast') || dest.includes('island')) {
+      attractionType = 'beach';
+      categories = ['Beach', 'Marine Park', 'Lighthouse'];
+    } else if (dest.includes('mountain') || dest.includes('alpine') || dest.includes('ski')) {
+      attractionType = 'mountain';
+      categories = ['Mountain', 'National Park', 'Ski Resort'];
+    } else if (dest.includes('desert') || dest.includes('oasis')) {
+      attractionType = 'desert';
+      categories = ['Desert', 'Oasis', 'Canyon'];
+    } else if (dest.includes('historic') || dest.includes('ancient') || dest.includes('old')) {
+      attractionType = 'historic';
+      categories = ['Historic Site', 'Archaeological Site', 'Museum'];
+    }
+    
+    return [
+      {
+        id: '3436969',
+        name: `${this.capitalizeFirst(destination)} City Center`,
+        rating: 4.2 + Math.random() * 0.6,
+        review_count: Math.floor(Math.random() * 5000) + 1000,
+        category: categories[0],
+        address: `City Center, ${destination}`,
+        description: `Main ${attractionType} attraction in ${destination} with cultural significance and local charm.`,
+        web_url: 'https://www.tripadvisor.com/',
+        photo_url: null
+      },
+      {
+        id: '3436970',
+        name: `${this.capitalizeFirst(destination)} Museum`,
+        rating: 4.1 + Math.random() * 0.5,
+        review_count: Math.floor(Math.random() * 3000) + 500,
+        category: categories[1],
+        address: `Museum District, ${destination}`,
+        description: `Local museum showcasing the history and culture of ${destination} and its surrounding region.`,
+        web_url: 'https://www.tripadvisor.com/',
+        photo_url: null
+      },
+      {
+        id: '3436971',
+        name: `${this.capitalizeFirst(destination)} Historic District`,
+        rating: 4.0 + Math.random() * 0.6,
+        review_count: Math.floor(Math.random() * 2500) + 300,
+        category: categories[2],
+        address: `Historic District, ${destination}`,
+        description: `Historic area with traditional architecture and cultural significance in ${destination}.`,
+        web_url: 'https://www.tripadvisor.com/',
+        photo_url: null
+      }
+    ];
+  }
+
+  /**
+   * Get mock attractions for a destination (legacy method for backward compatibility)
+   */
+  getMockAttractionsForDestinationLegacy(destination) {
     // Mumbai/Bombay specific attractions
     if (destination.toLowerCase().includes('mumbai') || destination.toLowerCase().includes('bombay') || destination.toLowerCase().includes('bom')) {
       return [
@@ -1658,42 +2757,81 @@ class IntegratedAITravelAgent {
       ];
     }
     
-    // Default attractions
-    return [
-      {
-        id: '3436969',
-        name: 'Eiffel Tower',
-        rating: 4.5,
-        review_count: 125000,
-        category: 'Landmark',
-        address: 'Champ de Mars, 7th arrondissement, Paris',
-        description: 'Iconic iron lattice tower and symbol of Paris.',
-        web_url: 'https://www.tripadvisor.com/Attraction_Review-g187147-d187147-Reviews-Eiffel_Tower-Paris_Ile_de_France.html',
-        photo_url: null
-      },
-      {
-        id: '3436970',
-        name: 'Louvre Museum',
-        rating: 4.4,
-        review_count: 95000,
-        category: 'Museum',
-        address: 'Rue de Rivoli, 1st arrondissement, Paris',
-        description: 'World\'s largest art museum and historic monument.',
-        web_url: 'https://www.tripadvisor.com/Attraction_Review-g187147-d188757-Reviews-Louvre_Museum-Paris_Ile_de_France.html',
-        photo_url: null
-      },
-      {
-        id: '3436971',
-        name: 'Notre-Dame Cathedral',
-        rating: 4.3,
-        review_count: 85000,
-        category: 'Religious Site',
-        address: '6 Parvis Notre-Dame, 4th arrondissement, Paris',
-        description: 'Medieval Catholic cathedral, masterpiece of French Gothic architecture.',
-        web_url: 'https://www.tripadvisor.com/Attraction_Review-g187147-d188757-Reviews-Notre_Dame_Cathedral-Paris_Ile_de_France.html',
-        photo_url: null
-      }
-    ];
+         // Japan-specific attractions
+         if (destination.toLowerCase().includes('japan') || destination.toLowerCase().includes('tokyo')) {
+           return [
+             {
+               id: '3436969',
+               name: 'Tokyo Skytree',
+               rating: 4.2,
+               review_count: 38000,
+               category: 'Observation Deck',
+               address: '1-1-2 Oshiage, Sumida City, Tokyo',
+               description: '634-meter tall broadcasting tower and observation deck. Offers panoramic views of Tokyo and Mount Fuji on clear days.',
+               web_url: 'https://www.tripadvisor.com/Attraction_Review-g298184-d319505-Reviews-Tokyo_Skytree-Tokyo_Tokyo_Prefecture.html',
+               photo_url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&crop=center'
+             },
+             {
+               id: '3436970',
+               name: 'Senso-ji Temple',
+               rating: 4.3,
+               review_count: 45000,
+               category: 'Religious Site',
+               address: '2-3-1 Asakusa, Taito City, Tokyo',
+               description: 'Tokyo\'s oldest temple, founded in 628 AD. A vibrant Buddhist temple complex in the historic Asakusa district.',
+               web_url: 'https://www.tripadvisor.com/Attraction_Review-g298184-d319504-Reviews-Senso_ji_Temple-Tokyo_Tokyo_Prefecture.html',
+               photo_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&crop=center'
+             },
+             {
+               id: '3436971',
+               name: 'Meiji Shrine',
+               rating: 4.4,
+               review_count: 42000,
+               category: 'Religious Site',
+               address: '1-1 Yoyogikamizonocho, Shibuya City, Tokyo',
+               description: 'Shinto shrine dedicated to Emperor Meiji and Empress Shoken. Surrounded by a peaceful forest in the heart of Tokyo.',
+               web_url: 'https://www.tripadvisor.com/Attraction_Review-g298184-d319506-Reviews-Meiji_Shrine-Tokyo_Tokyo_Prefecture.html',
+               photo_url: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop&crop=center'
+             }
+           ];
+         }
+         
+         // Default attractions (generic)
+         return [
+           {
+             id: '3436969',
+             name: 'City Center',
+             rating: 4.2,
+             review_count: 5000,
+             category: 'Landmark',
+             address: 'City Center, ' + destination,
+             description: 'Main city center with shops, restaurants, and cultural attractions.',
+             web_url: 'https://www.tripadvisor.com/',
+             photo_url: null
+           },
+           {
+             id: '3436970',
+             name: 'Local Museum',
+             rating: 4.1,
+             review_count: 3000,
+             category: 'Museum',
+             address: 'Museum District, ' + destination,
+             description: 'Local museum showcasing the history and culture of the region.',
+             web_url: 'https://www.tripadvisor.com/',
+             photo_url: null
+           },
+           {
+             id: '3436971',
+             name: 'Historic District',
+             rating: 4.0,
+             review_count: 2500,
+             category: 'Historic Site',
+             address: 'Historic District, ' + destination,
+             description: 'Historic area with traditional architecture and cultural significance.',
+             web_url: 'https://www.tripadvisor.com/',
+             photo_url: null
+           }
+         ];
   }
 
   /**
@@ -1842,47 +2980,16 @@ class IntegratedAITravelAgent {
         }
       };
       messages.push(hotelMessage);
-    } else {
-      console.log('🔍 DEBUG: Using mock hotel data');
-      // Fallback: Create hotel message with mock data when no hotel data is available
-      const destination = queryIntent.extractedInfo?.destination || 'your destination';
-      const checkIn = queryIntent.extractedInfo?.checkIn || '';
-      const checkOut = queryIntent.extractedInfo?.checkOut || '';
-      const guests = queryIntent.extractedInfo?.guests || 2;
-      
-      // Create mock hotel data
-      const mockHotels = [
-        {
-          name: 'The Lalit Mumbai',
-          price: 100,
-          rating: 4.2,
-          review_count: 1250,
-          location: 'Mumbai, Maharashtra',
-          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa'],
-          description: 'Modern luxury hotel with excellent city views and amenities',
-          address: 'Sahar Airport Road, Mumbai'
-        },
-        {
-          name: 'Trident, Bandra Kurla',
-          price: 120,
-          rating: 4.4,
-          review_count: 980,
-          location: 'Bandra Kurla Complex, Mumbai',
-          amenities: ['WiFi', 'Pool', 'Restaurant', 'Fitness Center'],
-          description: 'Elegant business hotel in the heart of the financial district',
-          address: 'Bandra Kurla Complex, Mumbai'
-        },
-        {
-          name: 'Taj Lands End',
-          price: 150,
-          rating: 4.6,
-          review_count: 2100,
-          location: 'Bandra West, Mumbai',
-          amenities: ['WiFi', 'Pool', 'Restaurant', 'Spa', 'Beach Access'],
-          description: 'Luxury beachfront hotel with stunning Arabian Sea views',
-          address: 'Bandra West, Mumbai'
-        }
-      ];
+         } else {
+           console.log('🔍 DEBUG: Using mock hotel data');
+           // Fallback: Create hotel message with mock data when no hotel data is available
+           const destination = queryIntent.extractedInfo?.destination || 'your destination';
+           const checkIn = queryIntent.extractedInfo?.checkIn || '';
+           const checkOut = queryIntent.extractedInfo?.checkOut || '';
+           const guests = queryIntent.extractedInfo?.guests || 2;
+           
+           // Create destination-specific mock hotel data
+           const mockHotels = this.getMockHotelsForDestination(destination);
       
       let hotelContent = `## 🏨 Hotel Recommendations\n\nHere are some recommended hotels in ${destination}:\n\n`;
       

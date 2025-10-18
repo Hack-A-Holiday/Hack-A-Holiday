@@ -415,6 +415,12 @@ export default function PlanTrip() {
 		// Build a conversational message for the AI agent
 		const originCity = typedSource || (sourceDestination ? `${sourceDestination.name}, ${sourceDestination.country}` : 'Not specified');
 		
+		// Calculate return date based on start date and duration
+		const startDate = new Date(tripPreferences.startDate);
+		const returnDate = new Date(startDate);
+		returnDate.setDate(startDate.getDate() + tripPreferences.duration);
+		const returnDateStr = returnDate.toISOString().split('T')[0];
+		
 		const tripMessage = `I want to plan a trip with the following details:
 - Traveling from: ${originCity}
 - Destination: ${tripPreferences.destination}
@@ -422,10 +428,11 @@ export default function PlanTrip() {
 - Budget: $${tripPreferences.budget}
 - Number of travelers: ${tripPreferences.travelers}
 - Start date: ${tripPreferences.startDate}
+- Return date: ${returnDateStr}
 - Travel style: ${tripPreferences.travelStyle}
 - Interests: ${tripPreferences.interests.join(', ')}
 
-Please help me create a detailed itinerary for this trip from ${originCity} to ${tripPreferences.destination}. Include daily activities, recommendations for hotels and flights (departing from ${originCity}), and make sure it fits within my budget and preferences.`;
+Please help me create a detailed itinerary for this trip from ${originCity} to ${tripPreferences.destination}. Include daily activities, recommendations for hotels and round-trip flights (departing from ${originCity} on ${tripPreferences.startDate} and returning on ${returnDateStr}), and make sure it fits within my budget and preferences.`;
 
 		const requestBody = {
 			message: tripMessage,
@@ -496,6 +503,7 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 				budget: tripPreferences.budget,
 				travelers: tripPreferences.travelers,
 				startDate: tripPreferences.startDate,
+				returnDate: returnDateStr,
 				travelStyle: tripPreferences.travelStyle,
 				interests: tripPreferences.interests,
 				aiResponse: aiResponseText,

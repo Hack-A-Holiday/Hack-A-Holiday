@@ -411,7 +411,7 @@ const FlightRecommendations: React.FC<{ flights: any[]; role: string; isDarkMode
       </div>
       
       <div style={{ marginBottom: '16px', fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
-        Based on your preferences, here are the best flight options:
+        Based on your trip duration, here are the best round-trip flight options:
       </div>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
@@ -441,19 +441,54 @@ const FlightRecommendations: React.FC<{ flights: any[]; role: string; isDarkMode
               </div>
             </div>
             
+            {/* Round Trip Indicator */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              marginBottom: '12px',
+              padding: '8px 12px',
+              backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.05)',
+              borderRadius: '8px',
+              border: isDarkMode ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(34, 197, 94, 0.2)'
+            }}>
+              <span style={{ fontSize: '16px' }}>🔄</span>
+              <span style={{ 
+                fontSize: '14px', 
+                fontWeight: '600',
+                color: isDarkMode ? '#22c55e' : '#16a34a'
+              }}>
+                Round Trip Flight
+              </span>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', marginBottom: '12px' }}>
               <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
-                <strong>Route:</strong> {flight.origin} → {flight.destination}
+                <strong>Route:</strong> {flight.origin} ↔ {flight.destination}
               </div>
               <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
-                <strong>Duration:</strong> {flight.duration}
+                <strong>Total Duration:</strong> {flight.duration}
               </div>
               <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
-                <strong>Departure:</strong> {new Date(flight.departureTime).toLocaleString()}
+                <strong>Outbound:</strong> {new Date(flight.departureTime).toLocaleDateString()} at {new Date(flight.departureTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </div>
-              <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
-                <strong>Arrival:</strong> {new Date(flight.arrivalTime).toLocaleString()}
-              </div>
+                     <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
+                       <strong>Return:</strong> {(() => {
+                         // Use the actual return date from backend if available, otherwise calculate from departure + duration
+                         if (retDate) {
+                           const returnDate = new Date(retDate);
+                           return returnDate.toLocaleDateString() + ' at ' + returnDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                         } else {
+                           // Fallback: calculate return date based on departure date + trip duration
+                           const departureDate = new Date(flight.departureTime);
+                           const returnDate = new Date(departureDate);
+                           // Calculate return date based on trip duration (default 5 days)
+                           const tripDuration = 5; // This should come from the trip data
+                           returnDate.setDate(departureDate.getDate() + tripDuration);
+                           return returnDate.toLocaleDateString() + ' at ' + returnDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                         }
+                       })()}
+                     </div>
               <div style={{ fontSize: '14px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.7)' : '#666') }}>
                 <strong>Stops:</strong> {flight.stops === 0 ? 'Direct' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}`}
               </div>
@@ -483,7 +518,7 @@ const FlightRecommendations: React.FC<{ flights: any[]; role: string; isDarkMode
                 e.currentTarget.style.backgroundColor = '#1d4ed8';
               }}
             >
-              ✈️ Book {flight.airline} {flight.flightNumber}
+              ✈️ Book Round Trip - {flight.airline} {flight.flightNumber}
             </a>
           </div>
         ))}
