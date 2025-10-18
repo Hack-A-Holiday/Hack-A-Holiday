@@ -1802,33 +1802,55 @@ class IntegratedAITravelAgent {
     
     // Check for hotel data in different possible structures
     let hotelResults = null;
-    if (realData && realData.type === 'hotel' && realData.results) {
-      hotelResults = realData.results;
-    } else if (realData && realData.type === 'combined' && realData.hotels && realData.hotels.results) {
-      hotelResults = realData.hotels.results;
+    if (realData && realData.type === 'hotel' && realData.hotels) {
+      hotelResults = realData.hotels;
+    } else if (realData && realData.type === 'combined' && realData.hotels && realData.hotels.hotels) {
+      hotelResults = realData.hotels.hotels;
+    } else if (realData && realData.type === 'combined' && realData.hotels) {
+      hotelResults = realData.hotels.hotels || realData.hotels;
+    } else if (realData && realData.hotels) {
+      // Handle case where realData.hotels exists directly
+      hotelResults = realData.hotels;
     }
     
     console.log('🔍 DEBUG: hotelResults:', hotelResults);
-    console.log('🔍 DEBUG: hotelResults length:', hotelResults?.length);
+    console.log('🔍 DEBUG: hotelResults length:', hotelResults?.results?.length);
     
-    if (hotelResults && hotelResults.length > 0) {
+    if (hotelResults && hotelResults.results && hotelResults.results.length > 0) {
       console.log('🔍 DEBUG: Using real hotel data');
-      const topHotels = hotelResults.slice(0, 3); // Top 3 hotels
+      const topHotels = hotelResults.results.slice(0, 3); // Top 3 hotels
       const destination = queryIntent.extractedInfo?.destination || '';
       const checkIn = queryIntent.extractedInfo?.checkIn || '';
       const checkOut = queryIntent.extractedInfo?.checkOut || '';
       const guests = queryIntent.extractedInfo?.guests || 2;
       
+      // Transform hotel data to match frontend expectations
+      const transformedHotels = topHotels.map(hotel => ({
+        id: hotel.id,
+        name: hotel.name,
+        price: hotel.pricePerNight || hotel.totalPrice || 150,
+        rating: hotel.reviewScore || hotel.rating || 4.0,
+        review_count: hotel.reviewCount || 0,
+        location: hotel.cityName || destination,
+        amenities: hotel.amenities || ['WiFi', 'Pool', 'Restaurant'],
+        description: hotel.description || `${hotel.propertyType || 'Hotel'} with excellent amenities`,
+        address: hotel.address || `${hotel.cityName || destination}`,
+        imageUrl: hotel.imageUrl || null,
+        currency: hotel.currency || 'INR',
+        propertyType: hotel.propertyType || 'Hotel',
+        freeCancellation: hotel.freeCancellation || true,
+        breakfastIncluded: hotel.breakfastIncluded || false
+      }));
+      
       let hotelContent = `## 🏨 Hotel Recommendations\n\nHere are the best hotels in ${destination} that fit your budget:\n\n`;
       
-      // Add Booking.com search button
-      let bookingUrl = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`;
-      if (checkIn) bookingUrl += `&checkin=${checkIn}`;
-      if (checkOut) bookingUrl += `&checkout=${checkOut}`;
-      if (guests) bookingUrl += `&group_adults=${guests}`;
+      // Create hotel search page URL with parameters
+      let hotelSearchUrl = `/hotel-search?destination=${encodeURIComponent(destination)}`;
+      if (checkIn) hotelSearchUrl += `&checkIn=${checkIn}`;
+      if (checkOut) hotelSearchUrl += `&checkOut=${checkOut}`;
+      if (guests) hotelSearchUrl += `&guests=${guests}`;
       
-      hotelContent += `[🏨 Search More Hotels on Booking.com](${bookingUrl})\n\n`;
-      hotelContent += `*Click the link above to search for more hotel options and book directly on Booking.com.*`;
+      hotelContent += `*Click "Show more options" below to explore more hotel choices and find the perfect stay for your trip.*`;
       
       const hotelMessage = {
         id: `msg_${Date.now()}_hotels`,
@@ -1837,8 +1859,9 @@ class IntegratedAITravelAgent {
         timestamp: Date.now(),
         type: 'hotel_cards',
         data: {
-          hotels: topHotels,
-          bookingUrl: bookingUrl
+          hotels: transformedHotels,
+          hotelSearchUrl: hotelSearchUrl,
+          showMoreText: 'Show more options'
         }
       };
       messages.push(hotelMessage);
@@ -2163,34 +2186,53 @@ class IntegratedAITravelAgent {
         
         // Calculate hotel check-in/check-out dates from trip duration
         const hotelInfo = { ...queryIntent.extractedInfo };
-        if (hotelInfo.departureDate && !hotelInfo.checkIn) {
-          // Check-in is the day after arrival (assuming 1 day travel time)
-          const arrivalDate = new Date(hotelInfo.departureDate);
-          arrivalDate.setDate(arrivalDate.getDate() + 1);
-          hotelInfo.checkIn = arrivalDate.toISOString().split('T')[0];
+        console.log('   🏨 DEBUG: Hotel info before date calculation:', JSON.stringify(hotelInfo, null, 2));
+        
+        if ((hotelInfo.departureDate || hotelInfo.returnDate) && !hotelInfo.checkIn) {
+          // Use departure date as check-in date (arrival day)
+          const checkInDate = hotelInfo.departureDate || hotelInfo.returnDate;
+          hotelInfo.checkIn = checkInDate;
           
-          // Check-out is based on trip duration
-          const tripDuration = userPreferences?.currentTripDuration || 5; // Default 5 days
-          const checkoutDate = new Date(arrivalDate);
-          checkoutDate.setDate(checkoutDate.getDate() + tripDuration);
+          // Check-out is based on trip duration or return date
+          let checkoutDate;
+          if (hotelInfo.returnDate) {
+            // Use return date as check-out date
+            checkoutDate = new Date(hotelInfo.returnDate);
+          } else {
+            // Calculate based on trip duration
+            const tripDuration = userPreferences?.currentTripDuration || 5; // Default 5 days
+            checkoutDate = new Date(checkInDate);
+            checkoutDate.setDate(checkoutDate.getDate() + tripDuration);
+          }
           hotelInfo.checkOut = checkoutDate.toISOString().split('T')[0];
           
           console.log(`   🏨 Calculated hotel dates: Check-in ${hotelInfo.checkIn}, Check-out ${hotelInfo.checkOut}`);
+        } else {
+          console.log('   🏨 DEBUG: No hotel dates calculated - missing departureDate/returnDate or checkIn already set');
         }
         
         const hotelData = await this.fetchHotelData(hotelInfo, userPreferences);
         
-        // Combine both if available
-        if (flightData && hotelData) {
-          realData = {
-            type: 'combined',
-            flights: flightData,
-            hotels: hotelData
-          };
+        console.log('🔍 DEBUG: hotelData after fetch:', hotelData ? 'EXISTS' : 'NULL');
+        console.log('🔍 DEBUG: hotelData type:', hotelData?.type);
+        console.log('🔍 DEBUG: hotelData results length:', hotelData?.results?.length);
+        
+        // Always include hotel data if available, even if flight data is null
+        if (hotelData) {
+          if (flightData) {
+            realData = {
+              type: 'combined',
+              flights: flightData,
+              hotels: hotelData
+            };
+            console.log('🔍 DEBUG: Created combined realData with hotels and flights');
+          } else {
+            realData = hotelData;
+            console.log('🔍 DEBUG: Using hotel data only');
+          }
         } else if (flightData) {
           realData = flightData;
-        } else if (hotelData) {
-          realData = hotelData;
+          console.log('🔍 DEBUG: Using flight data only');
         }
       } else if (queryIntent.needsFlightData) {
         // Check if user searched for a country instead of a city for flights
@@ -3034,6 +3076,11 @@ JSON:`;
       const hotelInfo = await this.extractHotelInfo(query, extractedDestinations);
       // Smart merge: Nova data + extracted info + already set info (non-null values take priority)
       intent.extractedInfo = smartMerge(infoFromNova, flightInfo, hotelInfo, intent.extractedInfo);
+      
+      // Set flags for trip planning - both flights and hotels are needed
+      intent.needsFlightData = true;
+      intent.needsHotelData = true;
+      
       console.log('   🗺️ Trip planning detected, extracted info:', intent.extractedInfo);
     } else if (intent.type === 'destination_recommendation') {
       intent.extractedInfo = { ...intent.extractedInfo, ...this.extractDestinationInfo(query, userContext) };
@@ -3793,8 +3840,8 @@ Return ONLY the JSON array:`;
       }, null, 2));
 
       // Return null if API failed or no results
-      if (!results || results.provider === 'mock') {
-        console.log('   ⚠️ Hotel API unavailable or only mock data, returning null');
+      if (!results || !results.success) {
+        console.log('   ⚠️ Hotel API unavailable or failed, returning null');
         console.log('🏨 ===== HOTEL API FETCH END (NO REAL DATA) =====\n');
         return null;
       }

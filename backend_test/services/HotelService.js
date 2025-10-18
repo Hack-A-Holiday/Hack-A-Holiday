@@ -7,7 +7,7 @@ const axios = require('axios');
 class HotelService {
   constructor(config) {
     this.bookingApiKey = config.bookingApiKey;
-    this.bookingApiHost = config.bookingApiHost || 'booking-com15.p.rapidapi.com';
+    this.bookingApiHost = config.bookingApiHost || 'booking-com18.p.rapidapi.com';
     this.rapidApiKey = config.rapidApiKey;
     this.mockDataEnabled = !this.bookingApiKey && !this.rapidApiKey;
     
@@ -15,7 +15,8 @@ class HotelService {
       bookingApiAvailable: !!this.bookingApiKey,
       bookingApiHost: this.bookingApiHost,
       rapidApiAvailable: !!this.rapidApiKey,
-      mockDataEnabled: this.mockDataEnabled
+      mockDataEnabled: this.mockDataEnabled,
+      envBookingApiHost: process.env.BOOKING_API_HOST
     });
   }
 
@@ -54,7 +55,7 @@ class HotelService {
   }
 
   /**
-   * Search hotels using Booking.com API (via RapidAPI)
+   * Search hotels using Booking.com API (via RapidAPI) - New booking-com18 API
    */
   async searchBookingHotels(searchRequest) {
     const {
@@ -67,24 +68,18 @@ class HotelService {
       currency = 'USD'
     } = searchRequest;
 
-    // Get destination coordinates
-    const destCoords = this.getDestinationCoordinates(destination);
-
-    // Use dest_id based search (same as working frontend)
-    // For now, use city name search - can expand with dest_id mapping later
+    // Get location ID for destination
+    const locationId = this.getLocationId(destination);
+    
     const params = {
-      dest_id: '-2092174', // Default to Mumbai - should be mapped per city
-      search_type: 'CITY',
-      arrival_date: checkIn,
-      departure_date: checkOut,
+      locationId: locationId,
+      checkinDate: checkIn,
+      checkoutDate: checkOut,
       adults: adults.toString(),
-      children_age: children > 0 ? '0,5' : undefined,
-      room_qty: rooms.toString(),
-      page_number: '1',
+      children: children.toString(),
+      rooms: rooms.toString(),
       units: 'metric',
-      temperature_unit: 'c',
-      languagecode: 'en-us',
-      currency_code: currency
+      temperature: 'c'
     };
 
     const apiKey = this.bookingApiKey || this.rapidApiKey;
@@ -92,8 +87,9 @@ class HotelService {
     console.log('\n🟣 ===== BOOKING API CALL START =====');
     console.log('   📥 Input Parameters:', JSON.stringify({ destination, checkIn, checkOut, adults, children, rooms }, null, 2));
     console.log('   📍 Destination:', destination);
+    console.log('   🔑 Location ID:', locationId);
     console.log('   🌐 API Request Details:', {
-      url: `https://${this.bookingApiHost}/api/v1/hotels/searchHotels`,
+      url: `https://${this.bookingApiHost}/stays/search`,
       params: params,
       hasApiKey: !!apiKey,
       apiKeyPrefix: apiKey?.substring(0, 10) + '...',
@@ -101,7 +97,7 @@ class HotelService {
     });
 
     try {
-      const response = await axios.get(`https://${this.bookingApiHost}/api/v1/hotels/searchHotels`, {
+      const response = await axios.get(`https://${this.bookingApiHost}/stays/search`, {
         params,
         headers: {
           'x-rapidapi-key': apiKey,
@@ -114,47 +110,47 @@ class HotelService {
       console.log('   📊 Raw Response Data Structure:', {
         hasData: !!response.data,
         dataKeys: response.data ? Object.keys(response.data) : [],
-        hasResult: !!response.data?.result,
-        resultIsArray: Array.isArray(response.data?.result),
-        resultLength: response.data?.result?.length || 0
+        hasHotels: !!response.data?.data,
+        hotelsIsArray: Array.isArray(response.data?.data),
+        hotelsLength: response.data?.data?.length || 0
       });
 
-      if (!response.data || !response.data.result || response.data.result.length === 0) {
+      if (!response.data || !response.data.data || response.data.data.length === 0) {
         console.log('   ⚠️ No hotels found in API response');
         console.log('   📄 Full Response:', JSON.stringify(response.data, null, 2));
         console.log('🟣 ===== BOOKING API CALL END (NO RESULTS) =====\n');
         return { success: true, hotels: [], totalResults: 0 };
       }
 
-      console.log(`   🏨 Found ${response.data.result.length} hotels`);
+      console.log(`   🏨 Found ${response.data.data.length} hotels`);
 
-      const hotels = (response.data.result || []).map((hotel, index) => ({
-      id: `booking-${hotel.hotel_id || index}`,
-      name: hotel.hotel_name || 'Hotel',
-      address: hotel.address || '',
-      cityName: hotel.city || destination,
-      rating: hotel.review_score ? hotel.review_score / 10 : 7.5,
-      reviewScore: hotel.review_score || 75,
-      reviewCount: hotel.review_nr || 100,
-      pricePerNight: Math.round(hotel.min_total_price / this.calculateNights(checkIn, checkOut)),
-      totalPrice: Math.round(hotel.min_total_price || 0),
-      currency: hotel.currencycode || currency,
-      imageUrl: hotel.main_photo_url || '',
-      amenities: this.parseAmenities(hotel),
-      distanceFromCenter: hotel.distance ? `${hotel.distance} km` : null,
-      distanceValue: hotel.distance || null,
-      freeCancellation: hotel.is_free_cancellable === 1,
-      breakfastIncluded: hotel.is_breakfast_included === 1,
-      roomType: hotel.accommodation_type_name || 'Room',
-      coordinates: {
-        latitude: hotel.latitude,
-        longitude: hotel.longitude
-      },
-      bookingUrl: hotel.url || null,
-      checkinTime: hotel.checkin?.from || '15:00',
-      checkoutTime: hotel.checkout?.until || '11:00',
-      propertyType: hotel.accommodation_type_name || 'Hotel'
-    }));
+      const hotels = (response.data.data || []).map((hotel, index) => ({
+        id: `booking-${hotel.id || index}`,
+        name: hotel.name || 'Hotel',
+        address: `${hotel.latitude}, ${hotel.longitude}`, // API doesn't provide full address
+        cityName: destination,
+        rating: hotel.reviewScore ? hotel.reviewScore / 10 : 7.5,
+        reviewScore: hotel.reviewScore || 75,
+        reviewCount: hotel.reviewCount || 100,
+        pricePerNight: this.calculatePricePerNight(hotel, checkIn, checkOut),
+        totalPrice: this.calculateTotalPrice(hotel, checkIn, checkOut),
+        currency: hotel.currency || currency,
+        imageUrl: hotel.photoUrls?.[0] || hotel.mainPhotoId || '',
+        amenities: this.parseNewAmenities(hotel),
+        distanceFromCenter: null, // Not provided in new API
+        distanceValue: null,
+        freeCancellation: true, // Default assumption
+        breakfastIncluded: false, // Default assumption
+        roomType: 'Standard Room', // Default
+        coordinates: {
+          latitude: hotel.latitude,
+          longitude: hotel.longitude
+        },
+        bookingUrl: null, // Would need to construct from hotel ID
+        checkinTime: hotel.checkin || '15:00',
+        checkoutTime: hotel.checkout || '11:00',
+        propertyType: this.getPropertyType(hotel.propertyClass)
+      }));
 
       console.log('   ✅ Successfully parsed hotels');
       console.log('🟣 ===== BOOKING API CALL END (SUCCESS) =====\n');
@@ -165,7 +161,7 @@ class HotelService {
         totalResults: hotels.length,
         searchId: `booking-search-${Date.now()}`,
         currency,
-        destination: destCoords.cityName
+        destination: destination
       };
     } catch (error) {
       console.error('\n   ❌ BOOKING API ERROR:');
@@ -257,6 +253,80 @@ class HotelService {
       currency,
       destination
     };
+  }
+
+  /**
+   * Helper: Get location ID for destination (for new API)
+   */
+  getLocationId(destination) {
+    const locationMap = {
+      'mumbai': 'eyJjaXR5X25hbWUiOiJNdW1iYWkiLCJjb3VudHJ5IjoiSW5kaWEiLCJkZXN0X2lkIjoiLTIwOTIxNzQiLCJkZXN0X3R5cGUiOiJjaXR5In0=',
+      'new york': 'eyJjaXR5X25hbWUiOiJOZXcgWW9yayIsImNvdW50cnkiOiJVbml0ZWQgU3RhdGVzIiwiZGVzdF9pZCI6IjIwMDg4MzI1IiwiZGVzdF90eXBlIjoiY2l0eSJ9',
+      'london': 'eyJjaXR5X25hbWUiOiJMb25kb24iLCJjb3VudHJ5IjoiVW5pdGVkIEtpbmdkb20iLCJkZXN0X2lkIjoiLTI1MzEwODAiLCJkZXN0X3R5cGUiOiJjaXR5In0=',
+      'paris': 'eyJjaXR5X25hbWUiOiJQYXJpcyIsImNvdW50cnkiOiJGcmFuY2UiLCJkZXN0X2lkIjoiLTE0NTY5MjgiLCJkZXN0X3R5cGUiOiJjaXR5In0=',
+      'tokyo': 'eyJjaXR5X25hbWUiOiJUb2t5byIsImNvdW50cnkiOiJKYXBhbiIsImRlc3RfaWQiOiItMjYzODQzMiIsImRlc3RfdHlwZSI6ImNpdHkifQ==',
+      'dubai': 'eyJjaXR5X25hbWUiOiJEdWJhaSIsImNvdW50cnkiOiJVbml0ZWQgQXJhYiBFbWlyYXRlcyIsImRlc3RfaWQiOiItMjUzODA4MCIsImRlc3RfdHlwZSI6ImNpdHkifQ==',
+      'sydney': 'eyJjaXR5X25hbWUiOiJTeWRuZXkiLCJjb3VudHJ5IjoiQXVzdHJhbGlhIiwiZGVzdF9pZCI6Ii0yNTM4MDgwIiwiZGVzdF90eXBlIjoiY2l0eSJ9',
+      'singapore': 'eyJjaXR5X25hbWUiOiJTaW5nYXBvcmUiLCJjb3VudHJ5IjoiU2luZ2Fwb3JlIiwiZGVzdF9pZCI6Ii0yNTM4MDgwIiwiZGVzdF90eXBlIjoiY2l0eSJ9'
+    };
+
+    const dest = destination.toLowerCase();
+    const match = Object.keys(locationMap).find(key => dest.includes(key));
+    
+    return match ? locationMap[match] : locationMap['mumbai']; // Default to Mumbai
+  }
+
+  /**
+   * Helper: Calculate price per night from hotel data
+   */
+  calculatePricePerNight(hotel, checkIn, checkOut) {
+    if (hotel.priceBreakdown && hotel.priceBreakdown.length > 0) {
+      const totalPrice = hotel.priceBreakdown.reduce((sum, breakdown) => sum + (breakdown.price || 0), 0);
+      const nights = this.calculateNights(checkIn, checkOut);
+      return Math.round(totalPrice / nights);
+    }
+    return 150; // Default price
+  }
+
+  /**
+   * Helper: Calculate total price from hotel data
+   */
+  calculateTotalPrice(hotel, checkIn, checkOut) {
+    if (hotel.priceBreakdown && hotel.priceBreakdown.length > 0) {
+      return hotel.priceBreakdown.reduce((sum, breakdown) => sum + (breakdown.price || 0), 0);
+    }
+    const nights = this.calculateNights(checkIn, checkOut);
+    return 150 * nights; // Default calculation
+  }
+
+  /**
+   * Helper: Parse amenities from new API hotel data
+   */
+  parseNewAmenities(hotel) {
+    const amenities = [];
+    if (hotel.isPreferred) amenities.push('Preferred');
+    if (hotel.qualityClass >= 4) amenities.push('High Quality');
+    if (hotel.reviewScore >= 8) amenities.push('Highly Rated');
+    return amenities.length > 0 ? amenities : ['WiFi', 'Reception'];
+  }
+
+  /**
+   * Helper: Get property type from property class
+   */
+  getPropertyType(propertyClass) {
+    const typeMap = {
+      1: 'Hostel',
+      2: 'Budget Hotel',
+      3: 'Standard Hotel',
+      4: 'Comfort Hotel',
+      5: 'First Class Hotel',
+      6: 'Luxury Hotel',
+      7: 'Superior Hotel',
+      8: 'Deluxe Hotel',
+      9: 'Exceptional Hotel',
+      10: 'Outstanding Hotel'
+    };
+    return typeMap[propertyClass] || 'Hotel';
   }
 
   /**

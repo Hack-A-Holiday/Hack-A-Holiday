@@ -687,7 +687,7 @@ const FlightOptionsList: React.FC<{ flights: ReturnType<typeof parseFlightOption
                 fontWeight: '700',
                 fontSize: '1.1rem'
               }}>
-                {flight.currency || '$'}{parseInt(flight.price).toLocaleString()}
+                {flight.currency || '$'}{parseInt(flight.price).toLocaleString()} per person
               </div>
             </div>
             
@@ -1025,7 +1025,13 @@ const ItineraryContent: React.FC<{ content: any; role: string; isDarkMode?: bool
     
     {/* Hotel Recommendations */}
     {content.hotels && (
-      <HotelRecommendations hotels={content.hotels} role={role} isDarkMode={isDarkMode} />
+      <HotelRecommendations 
+        hotels={content.hotels} 
+        role={role} 
+        isDarkMode={isDarkMode}
+        hotelSearchUrl={content.hotelSearchUrl}
+        showMoreText={content.showMoreText}
+      />
     )}
     
     {/* Daily Itinerary - use parsed if available */}
@@ -1097,7 +1103,7 @@ const FlightRecommendations: React.FC<{ flights: any[]; role: string; isDarkMode
               fontWeight: '600',
               fontSize: '1.1rem'
             }}>
-              {flight.currency || '$'}{flight.price || 'N/A'}
+              {flight.currency || '$'}{flight.price || 'N/A'} per person
             </div>
           </div>
           <div style={{ display: 'flex', gap: '20px', fontSize: '0.95rem', color: role === 'user' ? 'rgba(255,255,255,0.9)' : (isDarkMode ? '#ccc' : '#666'), marginBottom: '10px' }}>
@@ -1151,7 +1157,13 @@ const FlightRecommendations: React.FC<{ flights: any[]; role: string; isDarkMode
 );
 
 // Hotel Recommendations Component
-const HotelRecommendations: React.FC<{ hotels: any[]; role: string; isDarkMode?: boolean }> = ({ hotels, role, isDarkMode = false }) => (
+const HotelRecommendations: React.FC<{ 
+  hotels: any[]; 
+  role: string; 
+  isDarkMode?: boolean;
+  hotelSearchUrl?: string;
+  showMoreText?: string;
+}> = ({ hotels, role, isDarkMode = false, hotelSearchUrl, showMoreText = 'Show more options' }) => (
   <div style={{ marginBottom: '16px' }}>
     <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span>🏨</span>
@@ -1170,7 +1182,7 @@ const HotelRecommendations: React.FC<{ hotels: any[]; role: string; isDarkMode?:
             {hotel.name || 'Hotel'}
           </div>
           <div style={{ fontSize: '0.9rem', marginBottom: '8px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? '#ccc' : '#666') }}>
-            <div style={{ marginBottom: '4px' }}>⭐ {hotel.rating || 'N/A'} ({hotel.reviews || 0} reviews)</div>
+            <div style={{ marginBottom: '4px' }}>⭐ {hotel.rating || 'N/A'} ({hotel.review_count || hotel.reviews || 0} reviews)</div>
             <div style={{ marginBottom: '4px' }}>📍 {hotel.location || 'N/A'}</div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
@@ -1182,13 +1194,55 @@ const HotelRecommendations: React.FC<{ hotels: any[]; role: string; isDarkMode?:
               fontSize: '1.2rem',
               color: role === 'user' ? 'white' : (isDarkMode ? '#8b9cff' : '#667eea')
             }}>
-              ${hotel.price || 'N/A'}
+              {hotel.currency || '$'}{hotel.price || 'N/A'}
               <span style={{ fontSize: '0.75rem', fontWeight: '400' }}>/night</span>
             </div>
           </div>
         </div>
       ))}
     </div>
+    
+    {/* Show More Options Button */}
+    {hotelSearchUrl && (
+      <div style={{ 
+        marginTop: '20px', 
+        display: 'flex', 
+        justifyContent: 'center',
+        paddingTop: '15px',
+        borderTop: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0'
+      }}>
+        <a
+          href={hotelSearchUrl}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '12px 24px',
+            background: isDarkMode ? '#667eea' : '#667eea',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '25px',
+            fontWeight: '600',
+            fontSize: '0.95rem',
+            transition: 'all 0.3s ease',
+            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = isDarkMode ? '#5a6fd8' : '#5a6fd8';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = isDarkMode ? '#667eea' : '#667eea';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+          }}
+        >
+          <span>🏨</span>
+          <span>{showMoreText}</span>
+        </a>
+      </div>
+    )}
   </div>
 );
 
@@ -1201,7 +1255,13 @@ const PersonalizedRecommendations: React.FC<{ recommendations: any; role: string
 
   // If recommendations is an array of hotels, render as hotel recommendations  
   if (Array.isArray(recommendations) && recommendations.length > 0 && recommendations[0].name && recommendations[0].rating) {
-    return <HotelRecommendations hotels={recommendations} role={role} isDarkMode={isDarkMode} />;
+    return <HotelRecommendations 
+      hotels={recommendations} 
+      role={role} 
+      isDarkMode={isDarkMode}
+      hotelSearchUrl={recommendations.hotelSearchUrl}
+      showMoreText={recommendations.showMoreText}
+    />;
   }
 
   // Otherwise render as personalized recommendations (original format)
@@ -1689,6 +1749,45 @@ const AiAgentPage: React.FC = () => {
       
       // Extract AI content from response
       let aiContent = response.data.data?.response || response.data.content || response.data;
+      
+      // Check if response is an array of messages (multi-message response)
+      if (Array.isArray(aiContent)) {
+        // Process each message in the array
+        const processedMessages = aiContent.map((msg: any) => {
+          let content = msg.content || msg.message || msg;
+          
+          // If message has data (hotels, flights, etc.), process it
+          if (msg.data) {
+            if (msg.data.hotels) {
+              content = {
+                message: content,
+                hotels: msg.data.hotels,
+                hotelSearchUrl: msg.data.hotelSearchUrl,
+                showMoreText: msg.data.showMoreText || 'Show more options'
+              };
+            } else if (msg.data.flights) {
+              content = {
+                message: content,
+                flights: msg.data.flights,
+                flightSearchUrl: msg.data.flightSearchUrl,
+                showMoreText: msg.data.showMoreText || 'Show more options'
+              };
+            } else if (msg.data.attractions) {
+              content = {
+                message: content,
+                attractions: msg.data.attractions,
+                tripAdvisorUrl: msg.data.tripAdvisorUrl,
+                showMoreText: msg.data.showMoreText || 'Show more options'
+              };
+            }
+          }
+          
+          return createMessage('ai', content);
+        });
+        
+        setMessages((prev) => [...prev, ...processedMessages]);
+        return; // Exit early for multi-message response
+      }
       
       // If real data was fetched (flights/hotels), use it
       if (response.data.data?.realData) {
