@@ -890,15 +890,17 @@ const MessageItem: React.FC<{
               <FlightOptionsList flights={flightOptions} isDarkMode={isDarkMode} />
             )}
             
-            {/* Render remaining text */}
-            {cleanedContent && typeof cleanedContent === 'string' && cleanedContent.trim() && (
+            {/* Render remaining text - but skip if we have structured data */}
+            {cleanedContent && typeof cleanedContent === 'string' && cleanedContent.trim() && 
+             !(typeof content === 'object' && content !== null && (content.flights || content.hotels || content.attractions)) && (
               <div style={{ marginTop: (flightComparison || flightOptions) ? '15px' : '0' }}>
                 {renderFormattedText(cleanedContent)}
               </div>
             )}
             
-            {/* Fallback for non-string content */}
-            {typeof cleanedContent !== 'string' && !flightComparison && !flightOptions && (
+            {/* Fallback for non-string content - but skip if we have structured data */}
+            {typeof cleanedContent !== 'string' && !flightComparison && !flightOptions && 
+             !(typeof content === 'object' && content !== null && (content.flights || content.hotels || content.attractions)) && (
               <div>
                 {renderFormattedText((cleanedContent as any).message || JSON.stringify(cleanedContent, null, 2))}
               </div>
@@ -1020,7 +1022,18 @@ const ItineraryContent: React.FC<{ content: any; role: string; isDarkMode?: bool
     
     {/* Flight Information */}
     {content.flights && (
-      <FlightRecommendations flights={content.flights} role={role} isDarkMode={isDarkMode} />
+      <FlightRecommendations 
+        flights={content.flights} 
+        role={role} 
+        isDarkMode={isDarkMode}
+        googleFlightsUrl={content.googleFlightsUrl}
+        inHouseFlightUrl={content.inHouseFlightUrl}
+        origin={content.origin}
+        destination={content.destination}
+        depDate={content.depDate}
+        retDate={content.retDate}
+        message={content.message}
+      />
     )}
     
     {/* Hotel Recommendations */}
@@ -1030,7 +1043,9 @@ const ItineraryContent: React.FC<{ content: any; role: string; isDarkMode?: bool
         role={role} 
         isDarkMode={isDarkMode}
         hotelSearchUrl={content.hotelSearchUrl}
+        bookingComUrl={content.bookingComUrl}
         showMoreText={content.showMoreText}
+        message={content.message}
       />
     )}
     
@@ -1040,6 +1055,19 @@ const ItineraryContent: React.FC<{ content: any; role: string; isDarkMode?: bool
         dailyData={content.dailyItinerary || content.dailyPlans || parsedItinerary} 
         role={role}
         isDarkMode={isDarkMode}
+      />
+    )}
+
+    {/* Attractions Recommendations */}
+    {content.attractions && (
+      <AttractionsRecommendations 
+        attractions={content.attractions} 
+        role={role} 
+        isDarkMode={isDarkMode}
+        tripAdvisorUrl={content.tripAdvisorUrl}
+        destination={content.destination}
+        showMoreText={content.showMoreText}
+        message={content.message}
       />
     )}
 
@@ -1062,12 +1090,100 @@ const ItineraryContent: React.FC<{ content: any; role: string; isDarkMode?: bool
 };
 
 // Flight Recommendations Component
-const FlightRecommendations: React.FC<{ flights: any[]; role: string; isDarkMode?: boolean }> = ({ flights, role, isDarkMode = false }) => (
+const FlightRecommendations: React.FC<{ 
+  flights: any[]; 
+  role: string; 
+  isDarkMode?: boolean;
+  googleFlightsUrl?: string;
+  inHouseFlightUrl?: string;
+  origin?: string;
+  destination?: string;
+  depDate?: string;
+  retDate?: string;
+  message?: string;
+}> = ({ 
+  flights, 
+  role, 
+  isDarkMode = false, 
+  googleFlightsUrl, 
+  inHouseFlightUrl, 
+  origin, 
+  destination, 
+  depDate, 
+  retDate,
+  message
+}) => (
   <div style={{ marginBottom: '16px' }}>
     <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span>✈️</span>
-      <span>Recommended Flights</span>
+      <span>Flight Recommendations</span>
     </div>
+    
+    {/* Show message text if available */}
+    {message && typeof message === 'string' && (
+      <div style={{ marginBottom: '16px' }}>
+        {renderFormattedText(message)}
+      </div>
+    )}
+    
+    {/* Flight Search Buttons */}
+    {(googleFlightsUrl || inHouseFlightUrl) && (
+      <div style={{ 
+        display: 'flex', 
+        gap: '12px', 
+        marginBottom: '16px',
+        flexWrap: 'wrap'
+      }}>
+        {googleFlightsUrl && (
+          <a 
+            href={googleFlightsUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{
+              background: 'linear-gradient(135deg, #4285f4, #34a853)',
+              color: 'white',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 8px rgba(66, 133, 244, 0.3)',
+              transition: 'transform 0.2s ease'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+          >
+            🔍 Search Flights on Google Flights
+          </a>
+        )}
+        {inHouseFlightUrl && (
+          <a 
+            href={inHouseFlightUrl} 
+            style={{
+              background: 'linear-gradient(135deg, #667eea, #764ba2)',
+              color: 'white',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
+              transition: 'transform 0.2s ease'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+          >
+            🏠 Search Our Flight Database
+          </a>
+        )}
+      </div>
+    )}
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {flights.slice(0, 3).map((flight: any, idx: number) => (
         <div key={`flight_${idx}`} style={{
@@ -1162,13 +1278,81 @@ const HotelRecommendations: React.FC<{
   role: string; 
   isDarkMode?: boolean;
   hotelSearchUrl?: string;
+  bookingComUrl?: string;
   showMoreText?: string;
-}> = ({ hotels, role, isDarkMode = false, hotelSearchUrl, showMoreText = 'Show more options' }) => (
+  message?: string;
+}> = ({ hotels, role, isDarkMode = false, hotelSearchUrl, bookingComUrl, showMoreText = 'Show more options', message }) => (
   <div style={{ marginBottom: '16px' }}>
     <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span>🏨</span>
-      <span>Recommended Hotels</span>
+      <span>Hotel Recommendations</span>
     </div>
+    
+    {/* Show message text if available */}
+    {message && typeof message === 'string' && (
+      <div style={{ marginBottom: '16px' }}>
+        {renderFormattedText(message)}
+      </div>
+    )}
+    
+    {/* Hotel Search Buttons */}
+    {(bookingComUrl || hotelSearchUrl) && (
+      <div style={{ 
+        display: 'flex', 
+        gap: '12px', 
+        marginBottom: '16px',
+        flexWrap: 'wrap'
+      }}>
+        {bookingComUrl && (
+          <a 
+            href={bookingComUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{
+              background: 'linear-gradient(135deg, #003580, #0071c2)',
+              color: 'white',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 8px rgba(0, 53, 128, 0.3)',
+              transition: 'transform 0.2s ease'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+          >
+            🏨 Search on Booking.com
+          </a>
+        )}
+        {hotelSearchUrl && (
+          <a 
+            href={hotelSearchUrl} 
+            style={{
+              background: 'linear-gradient(135deg, #667eea, #764ba2)',
+              color: 'white',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
+              transition: 'transform 0.2s ease'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+          >
+            🏠 Search Our Hotel Database
+          </a>
+        )}
+      </div>
+    )}
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
       {hotels.slice(0, 3).map((hotel: any, idx: number) => (
         <div key={`hotel_${idx}`} style={{
@@ -1179,8 +1363,8 @@ const HotelRecommendations: React.FC<{
           boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.1)'
         }}>
           {/* Hotel Image */}
-          {hotel.imageUrl && (
-            <div style={{ marginBottom: '12px' }}>
+          <div style={{ marginBottom: '12px' }}>
+            {hotel.imageUrl ? (
               <img 
                 src={hotel.imageUrl} 
                 alt={hotel.name || 'Hotel'} 
@@ -1192,12 +1376,31 @@ const HotelRecommendations: React.FC<{
                   border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0'
                 }}
                 onError={(e) => {
-                  // Hide image if it fails to load
+                  // Replace with fallback icon
                   e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
                 }}
               />
+            ) : null}
+            {/* Fallback hotel icon */}
+            <div 
+              style={{
+                display: hotel.imageUrl ? 'none' : 'flex',
+                width: '100%',
+                height: '180px',
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#f8f9fa',
+                borderRadius: '8px',
+                border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '3rem',
+                color: isDarkMode ? 'rgba(255,255,255,0.3)' : '#ccc'
+              }}
+            >
+              🏨
             </div>
-          )}
+          </div>
           <div style={{ fontWeight: '600', fontSize: '1.1rem', marginBottom: '8px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#333') }}>
             {hotel.name || 'Hotel'}
           </div>
@@ -1300,6 +1503,161 @@ const HotelRecommendations: React.FC<{
         </a>
       </div>
     )}
+  </div>
+);
+
+// Attractions Recommendations Component
+const AttractionsRecommendations: React.FC<{ 
+  attractions: any[]; 
+  role: string; 
+  isDarkMode?: boolean;
+  tripAdvisorUrl?: string;
+  destination?: string;
+  showMoreText?: string;
+  message?: string;
+}> = ({ attractions, role, isDarkMode = false, tripAdvisorUrl, destination, showMoreText = 'Show more options', message }) => (
+  <div style={{ marginBottom: '16px' }}>
+    <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '12px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#2c3e50'), display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span>🏛️</span>
+      <span>Nearby Attractions</span>
+    </div>
+    
+    {/* Show message text if available */}
+    {message && typeof message === 'string' && (
+      <div style={{ marginBottom: '16px' }}>
+        {renderFormattedText(message)}
+      </div>
+    )}
+    
+    {/* TripAdvisor Button */}
+    {tripAdvisorUrl && (
+      <div style={{ marginBottom: '16px' }}>
+        <a 
+          href={tripAdvisorUrl} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          style={{
+            background: 'linear-gradient(135deg, #00aa6c, #00d4aa)',
+            color: 'white',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            textDecoration: 'none',
+            fontWeight: '600',
+            fontSize: '0.9rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 2px 8px rgba(0, 170, 108, 0.3)',
+            transition: 'transform 0.2s ease'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+          onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
+          🔍 Explore More on TripAdvisor
+        </a>
+      </div>
+    )}
+    
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
+      {attractions.slice(0, 3).map((attraction: any, idx: number) => (
+        <div key={`attraction_${idx}`} style={{
+          background: role === 'user' ? 'rgba(255,255,255,0.1)' : (isDarkMode ? 'rgba(30, 30, 30, 0.8)' : 'white'),
+          border: role === 'user' ? '1px solid rgba(255,255,255,0.2)' : (isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0'),
+          borderRadius: '12px',
+          padding: '16px',
+          boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.1)'
+        }}>
+          {/* Attraction Image */}
+          <div style={{ marginBottom: '12px' }}>
+            {attraction.photo_url ? (
+              <img 
+                src={attraction.photo_url} 
+                alt={attraction.name || 'Attraction'} 
+                style={{
+                  width: '100%',
+                  height: '180px',
+                  objectFit: 'cover',
+                  borderRadius: '8px',
+                  border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0'
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+            ) : null}
+            {/* Fallback attraction icon */}
+            <div 
+              style={{
+                display: attraction.photo_url ? 'none' : 'flex',
+                width: '100%',
+                height: '180px',
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#f8f9fa',
+                borderRadius: '8px',
+                border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '3rem',
+                color: isDarkMode ? 'rgba(255,255,255,0.3)' : '#ccc'
+              }}
+            >
+              🏛️
+            </div>
+          </div>
+          
+          <div style={{ fontWeight: '600', fontSize: '1.1rem', marginBottom: '8px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#333') }}>
+            {attraction.name || 'Attraction'}
+          </div>
+          
+          <div style={{ fontSize: '0.9rem', marginBottom: '8px', color: role === 'user' ? 'rgba(255,255,255,0.8)' : (isDarkMode ? '#ccc' : '#666') }}>
+            <div style={{ marginBottom: '4px' }}>⭐ {attraction.rating || 'N/A'} ({attraction.review_count || 0} reviews)</div>
+            <div style={{ marginBottom: '4px' }}>📍 {attraction.address || 'N/A'}</div>
+            {attraction.category && (
+              <div style={{ marginBottom: '4px' }}>🏷️ {attraction.category}</div>
+            )}
+          </div>
+          
+          {attraction.description && (
+            <div style={{ 
+              fontSize: '0.85rem', 
+              color: role === 'user' ? 'rgba(255,255,255,0.7)' : (isDarkMode ? '#aaa' : '#666'),
+              marginBottom: '12px',
+              lineHeight: '1.4'
+            }}>
+              {attraction.description.length > 150 ? 
+                `${attraction.description.substring(0, 150)}...` : 
+                attraction.description
+              }
+            </div>
+          )}
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+            {attraction.web_url && (
+              <a 
+                href={attraction.web_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{
+                  background: 'linear-gradient(135deg, #00aa6c, #00d4aa)',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  fontWeight: '600',
+                  fontSize: '0.8rem',
+                  transition: 'transform 0.2s ease'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+              >
+                View on TripAdvisor
+              </a>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
   </div>
 );
 
@@ -1677,59 +2035,101 @@ const AiAgentPage: React.FC = () => {
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Get messages or itinerary from query if present
-  let initialMessages: Message[] = [];
-  if (typeof window !== 'undefined') {
-    const params = new URLSearchParams(window.location.search);
-    
-    // Check for messages parameter first (multi-message response)
-    const messagesStr = params.get('messages');
-    if (messagesStr) {
-      try {
-        const messagesArray = JSON.parse(messagesStr);
-        if (Array.isArray(messagesArray)) {
-          initialMessages = messagesArray.map((msg: any) => ({
-            role: msg.role === 'assistant' ? 'ai' : msg.role,
-            content: msg.content || msg.message || msg,
-            timestamp: msg.timestamp || Date.now(),
-            id: msg.id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
-            ...(msg.data && { data: msg.data })
-          }));
-        }
-      } catch (error) {
-        console.error('Error parsing messages from URL:', error);
-      }
+  const [messages, setMessages] = useState<Message[]>([
+    { 
+      role: 'ai', 
+      content: `Welcome to your AI Travel Agent! 🌍✈️\n\nI'm your personal travel assistant powered by AI. I can help you with:\n\n✈️ Flight Recommendations - Find the best flights based on your preferences\n🏨 Hotel Suggestions - Discover perfect accommodations for your stay\n🗺️ Personalized Itineraries - Custom day-by-day travel plans\n🎯 Smart Recommendations - Based on your search history and preferences\n💰 Budget Planning - Detailed cost breakdowns and money-saving tips\n🌎 Destination Guides - Explore new places tailored to your interests\n💡 Travel Tips - Expert advice for your journey\n\nTry asking me:\n• "Find me flights to Paris"\n• "Recommend hotels in Tokyo under $200/night"\n• "Plan a 5-day trip to Bali"\n• "What are popular destinations for adventure travel?"\n\nHow can I help you plan your perfect trip today?`,
+      timestamp: Date.now(),
+      id: `msg_${Date.now()}_welcome`
     }
-    
-    // Fallback to itinerary parameter (single response)
-    if (initialMessages.length === 0) {
+  ]);
+
+  // Handle URL parameters on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      
+      console.log('AI Assistant: Checking URL parameters...');
+      console.log('Messages param exists:', !!params.get('messages'));
+      console.log('Itinerary param exists:', !!params.get('itinerary'));
+      
+      // Check for messages parameter first (multi-message response)
+      const messagesStr = params.get('messages');
+      if (messagesStr) {
+        console.log('AI Assistant: Found messages parameter, length:', messagesStr.length);
+        try {
+          const messagesArray = JSON.parse(messagesStr);
+          console.log('AI Assistant: Parsed messages array, length:', messagesArray.length);
+          if (Array.isArray(messagesArray)) {
+            const parsedMessages = messagesArray.map((msg: any) => {
+              let content = msg.content || msg.message || msg;
+              
+              // Handle specific message types from backend
+              if (msg.type === 'flight_recommendations') {
+                content = {
+                  message: content,
+                  flights: msg.data?.flights || [],
+                  googleFlightsUrl: msg.data?.googleFlightsUrl,
+                  inHouseFlightUrl: msg.data?.inHouseFlightUrl,
+                  origin: msg.data?.origin,
+                  destination: msg.data?.destination,
+                  depDate: msg.data?.depDate,
+                  retDate: msg.data?.retDate
+                };
+              } else if (msg.type === 'hotel_cards') {
+                content = {
+                  message: content,
+                  hotels: msg.data?.hotels || [],
+                  hotelSearchUrl: msg.data?.hotelSearchUrl,
+                  bookingComUrl: msg.data?.bookingComUrl,
+                  showMoreText: msg.data?.showMoreText || 'Show more options'
+                };
+              } else if (msg.type === 'attractions_recommendations') {
+                content = {
+                  message: content,
+                  attractions: msg.data?.attractions || [],
+                  tripAdvisorUrl: msg.data?.tripAdvisorUrl,
+                  destination: msg.data?.destination,
+                  showMoreText: msg.data?.showMoreText || 'Show more options'
+                };
+              }
+              
+              return {
+                role: msg.role === 'assistant' ? 'ai' : msg.role,
+                content: content,
+                timestamp: msg.timestamp || Date.now(),
+                id: msg.id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+                type: msg.type
+              };
+            });
+            console.log('AI Assistant: Mapped initial messages, count:', parsedMessages.length);
+            console.log('AI Assistant: First message:', parsedMessages[0]);
+            setMessages(parsedMessages);
+            return; // Exit early if we found messages
+          }
+        } catch (error) {
+          console.error('Error parsing messages from URL:', error);
+        }
+      }
+      
+      // Fallback to itinerary parameter (single response)
       const itineraryStr = params.get('itinerary');
       if (itineraryStr) {
+        console.log('AI Assistant: Found itinerary parameter');
         try {
           const itineraryObj = JSON.parse(itineraryStr);
-          initialMessages = [{ 
+          setMessages([{ 
             role: 'ai', 
             content: itineraryObj, 
             timestamp: Date.now(),
             id: `msg_${Date.now()}_itinerary`
-          }];
+          }]);
         } catch (error) {
           console.error('Error parsing itinerary from URL:', error);
         }
       }
     }
-  }
-
-  const [messages, setMessages] = useState<Message[]>(
-    initialMessages.length > 0 ? initialMessages : [
-      { 
-        role: 'ai', 
-        content: `Welcome to your AI Travel Agent! 🌍✈️\n\nI'm your personal travel assistant powered by AI. I can help you with:\n\n✈️ Flight Recommendations - Find the best flights based on your preferences\n🏨 Hotel Suggestions - Discover perfect accommodations for your stay\n🗺️ Personalized Itineraries - Custom day-by-day travel plans\n🎯 Smart Recommendations - Based on your search history and preferences\n💰 Budget Planning - Detailed cost breakdowns and money-saving tips\n🌎 Destination Guides - Explore new places tailored to your interests\n💡 Travel Tips - Expert advice for your journey\n\nTry asking me:\n• "Find me flights to Paris"\n• "Recommend hotels in Tokyo under $200/night"\n• "Plan a 5-day trip to Bali"\n• "What are popular destinations for adventure travel?"\n\nHow can I help you plan your perfect trip today?`,
-        timestamp: Date.now(),
-        id: `msg_${Date.now()}_welcome`
-      }
-    ]
-  );
+  }, []); // Empty dependency array means this runs once on mount
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [aiModel, setAiModel] = useState<'bedrock' | 'sagemaker'>('bedrock');
@@ -1867,8 +2267,37 @@ const AiAgentPage: React.FC = () => {
             showMoreText: msg.data?.showMoreText
           });
           
+          // Handle specific message types from backend
+          if (msg.type === 'flight_recommendations') {
+            content = {
+              message: content,
+              flights: msg.data?.flights || [],
+              googleFlightsUrl: msg.data?.googleFlightsUrl,
+              inHouseFlightUrl: msg.data?.inHouseFlightUrl,
+              origin: msg.data?.origin,
+              destination: msg.data?.destination,
+              depDate: msg.data?.depDate,
+              retDate: msg.data?.retDate
+            };
+          } else if (msg.type === 'hotel_cards') {
+            content = {
+              message: content,
+              hotels: msg.data?.hotels || [],
+              hotelSearchUrl: msg.data?.hotelSearchUrl,
+              bookingComUrl: msg.data?.bookingComUrl,
+              showMoreText: msg.data?.showMoreText || 'Show more options'
+            };
+          } else if (msg.type === 'attractions_recommendations') {
+            content = {
+              message: content,
+              attractions: msg.data?.attractions || [],
+              tripAdvisorUrl: msg.data?.tripAdvisorUrl,
+              destination: msg.data?.destination,
+              showMoreText: msg.data?.showMoreText || 'Show more options'
+            };
+          }
           // If message has data (hotels, flights, etc.), process it
-          if (msg.data) {
+          else if (msg.data) {
             if (msg.data.hotels) {
               console.log('🏨 Processing hotel message with data:', {
                 hotelsCount: msg.data.hotels.length,

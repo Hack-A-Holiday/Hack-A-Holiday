@@ -1772,8 +1772,12 @@ class IntegratedAITravelAgent {
         googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}`;
       }
       
-      flightContent += `[🔍 Explore More Options](${googleFlightsUrl})\n\n`;
-      flightContent += `*Click any button above to search and book flights directly on Google Flights.*`;
+      // Add our in-house flight search URL
+      const inHouseFlightUrl = `/flight-search?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&departureDate=${depDate}${retDate ? `&returnDate=${retDate}` : ''}`;
+      
+      flightContent += `[🔍 Explore More Options](${googleFlightsUrl})\n`;
+      flightContent += `[🏠 Search Our Flight Database](${inHouseFlightUrl})\n\n`;
+      flightContent += `*Choose between Google Flights for comprehensive search or our database for curated options.*`;
       
       const flightMessage = {
         id: `msg_${Date.now()}_flights`,
@@ -1784,6 +1788,7 @@ class IntegratedAITravelAgent {
         data: {
           flights: topFlights,
           googleFlightsUrl: googleFlightsUrl,
+          inHouseFlightUrl: inHouseFlightUrl,
           origin: origin,
           destination: destination,
           depDate: depDate,
@@ -1817,8 +1822,12 @@ class IntegratedAITravelAgent {
         }
       }
       
-      flightContent += `[🔍 Search Flights on Google Flights](${googleFlightsUrl})\n\n`;
-      flightContent += `*Click the button above to search and compare flights directly on Google Flights.*`;
+      // Add our in-house flight search URL
+      const inHouseFlightUrl = `/flight-search?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&departureDate=${depDate}${retDate ? `&returnDate=${retDate}` : ''}`;
+      
+      flightContent += `[🔍 Search Flights on Google Flights](${googleFlightsUrl})\n`;
+      flightContent += `[🏠 Search Our Flight Database](${inHouseFlightUrl})\n\n`;
+      flightContent += `*Choose between Google Flights for comprehensive search or our database for curated options.*`;
       
       const flightMessage = {
         id: `msg_${Date.now()}_flights`,
@@ -1829,6 +1838,7 @@ class IntegratedAITravelAgent {
         data: {
           flights: [],
           googleFlightsUrl: googleFlightsUrl,
+          inHouseFlightUrl: inHouseFlightUrl,
           origin: origin,
           destination: destination,
           depDate: depDate,
@@ -1946,7 +1956,12 @@ class IntegratedAITravelAgent {
       if (checkOut) hotelSearchUrl += `&checkOut=${checkOut}`;
       if (guests) hotelSearchUrl += `&guests=${guests}`;
       
-      hotelContent += `*Click "Show more options" below to explore more hotel choices and find the perfect stay for your trip.*`;
+      // Create Booking.com search URL
+      const bookingComUrl = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}&checkin=${checkIn}&checkout=${checkOut}&group_adults=${guests}`;
+      
+      hotelContent += `[🏨 Search on Booking.com](${bookingComUrl})\n`;
+      hotelContent += `[🏠 Search Our Hotel Database](${hotelSearchUrl})\n\n`;
+      hotelContent += `*Choose between Booking.com for comprehensive search or our database for curated options.*`;
       
       const hotelMessage = {
         id: `msg_${Date.now()}_hotels`,
@@ -1957,6 +1972,7 @@ class IntegratedAITravelAgent {
         data: {
           hotels: transformedHotels,
           hotelSearchUrl: hotelSearchUrl,
+          bookingComUrl: bookingComUrl,
           showMoreText: 'Show more options'
         }
       };
@@ -2005,14 +2021,21 @@ class IntegratedAITravelAgent {
       
       let hotelContent = `## 🏨 Hotel Recommendations\n\nHere are some recommended hotels in ${destination}:\n\n`;
       
+      // Create hotel search page URL with parameters
+      let hotelSearchUrl = `/hotel-search?destination=${encodeURIComponent(destination)}`;
+      if (checkIn) hotelSearchUrl += `&checkIn=${checkIn}`;
+      if (checkOut) hotelSearchUrl += `&checkOut=${checkOut}`;
+      if (guests) hotelSearchUrl += `&guests=${guests}`;
+      
       // Add Booking.com search button
       let bookingUrl = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`;
       if (checkIn) bookingUrl += `&checkin=${checkIn}`;
       if (checkOut) bookingUrl += `&checkout=${checkOut}`;
       if (guests) bookingUrl += `&group_adults=${guests}`;
       
-      hotelContent += `[🏨 Search More Hotels on Booking.com](${bookingUrl})\n\n`;
-      hotelContent += `*Click the link above to search for more hotel options and book directly on Booking.com.*`;
+      hotelContent += `[🏨 Search on Booking.com](${bookingUrl})\n`;
+      hotelContent += `[🏠 Search Our Hotel Database](${hotelSearchUrl})\n\n`;
+      hotelContent += `*Choose between Booking.com for comprehensive search or our database for curated options.*`;
       
       const hotelMessage = {
         id: `msg_${Date.now()}_hotels`,
@@ -2022,7 +2045,9 @@ class IntegratedAITravelAgent {
         type: 'hotel_cards',
         data: {
           hotels: mockHotels,
-          bookingUrl: bookingUrl
+          hotelSearchUrl: hotelSearchUrl,
+          bookingComUrl: bookingUrl,
+          showMoreText: 'Show more options'
         }
       };
       messages.push(hotelMessage);
