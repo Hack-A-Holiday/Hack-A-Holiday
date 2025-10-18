@@ -11,6 +11,7 @@
 const { BedrockRuntimeClient, ConverseCommand, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 const { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
+const axios = require('axios');
 const FlightService = require('./FlightService');
 const HotelService = require('./HotelService');
 const TripAdvisorRapidAPIService = require('./TripAdvisorRapidAPIService');
@@ -1790,6 +1791,51 @@ class IntegratedAITravelAgent {
         }
       };
       messages.push(flightMessage);
+    } else {
+      console.log('🔍 DEBUG: No flight data found, creating fallback flight message');
+      // Fallback: Create flight message with Google Flights link
+      const origin = queryIntent.extractedInfo?.origin || 'JFK';
+      const destination = queryIntent.extractedInfo?.destination || '';
+      const depDate = queryIntent.extractedInfo?.departureDate || '';
+      const retDate = queryIntent.extractedInfo?.returnDate || '';
+      
+      let flightContent = `## ✈️ Flight Recommendations\n\nI couldn't fetch real-time flight data at the moment, but I can help you find the best flights!\n\n`;
+      
+      // Use Google Flights fallback URL from API response if available, otherwise generate one
+      let googleFlightsUrl = 'https://www.google.com/travel/flights';
+      if (realData && realData.googleFlightsFallback && realData.googleFlightsFallback.url) {
+        googleFlightsUrl = realData.googleFlightsFallback.url;
+        console.log('🔍 DEBUG: Using Google Flights fallback URL from API:', googleFlightsUrl);
+      } else {
+        // Generate fallback URL
+        if (retDate) {
+          googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}%20returning%20${retDate}`;
+        } else if (depDate) {
+          googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}`;
+        } else {
+          googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}`;
+        }
+      }
+      
+      flightContent += `[🔍 Search Flights on Google Flights](${googleFlightsUrl})\n\n`;
+      flightContent += `*Click the button above to search and compare flights directly on Google Flights.*`;
+      
+      const flightMessage = {
+        id: `msg_${Date.now()}_flights`,
+        role: 'assistant',
+        content: flightContent,
+        timestamp: Date.now(),
+        type: 'flight_recommendations',
+        data: {
+          flights: [],
+          googleFlightsUrl: googleFlightsUrl,
+          origin: origin,
+          destination: destination,
+          depDate: depDate,
+          retDate: retDate
+        }
+      };
+      messages.push(flightMessage);
     }
     
     // Message 3: Hotel Recommendations as cards
@@ -1819,28 +1865,78 @@ class IntegratedAITravelAgent {
     if (hotelResults && hotelResults.results && hotelResults.results.length > 0) {
       console.log('🔍 DEBUG: Using real hotel data');
       const topHotels = hotelResults.results.slice(0, 3); // Top 3 hotels
-      const destination = queryIntent.extractedInfo?.destination || '';
-      const checkIn = queryIntent.extractedInfo?.checkIn || '';
-      const checkOut = queryIntent.extractedInfo?.checkOut || '';
-      const guests = queryIntent.extractedInfo?.guests || 2;
+      // Fix destination mapping - use proper city names
+      let destination = queryIntent.extractedInfo?.destination || '';
+      if (destination.toLowerCase() === 'bom') {
+        destination = 'Mumbai';
+      }
+      
+      const checkIn = queryIntent.extractedInfo?.checkIn || queryIntent.extractedInfo?.departureDate || '';
+      let checkOut = queryIntent.extractedInfo?.checkOut || queryIntent.extractedInfo?.returnDate || '';
+      
+      // If no return date, calculate from trip duration
+      if (!checkOut && checkIn) {
+        const departureDate = new Date(checkIn);
+        const tripDuration = queryIntent.extractedInfo?.tripDuration || 5; // Default 5 days
+        const returnDate = new Date(departureDate);
+        returnDate.setDate(returnDate.getDate() + tripDuration);
+        checkOut = returnDate.toISOString().split('T')[0];
+      }
+      
+      const guests = queryIntent.extractedInfo?.guests || queryIntent.extractedInfo?.passengers || 2;
+      
+      console.log('🔍 DEBUG: Hotel date extraction:', {
+        destination,
+        checkIn,
+        checkOut,
+        guests,
+        extractedInfo: queryIntent.extractedInfo
+      });
       
       // Transform hotel data to match frontend expectations
-      const transformedHotels = topHotels.map(hotel => ({
-        id: hotel.id,
-        name: hotel.name,
-        price: hotel.pricePerNight || hotel.totalPrice || 150,
-        rating: hotel.reviewScore || hotel.rating || 4.0,
-        review_count: hotel.reviewCount || 0,
-        location: hotel.cityName || destination,
-        amenities: hotel.amenities || ['WiFi', 'Pool', 'Restaurant'],
-        description: hotel.description || `${hotel.propertyType || 'Hotel'} with excellent amenities`,
-        address: hotel.address || `${hotel.cityName || destination}`,
-        imageUrl: hotel.imageUrl || null,
-        currency: hotel.currency || 'INR',
-        propertyType: hotel.propertyType || 'Hotel',
-        freeCancellation: hotel.freeCancellation || true,
-        breakfastIncluded: hotel.breakfastIncluded || false
-      }));
+      const transformedHotels = topHotels.map(hotel => {
+        // Generate Booking.com URL for individual hotel
+        let bookingUrl = `https://www.booking.com/hotel/in/${hotel.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}.html`;
+        
+        // Add search parameters if available
+        const params = new URLSearchParams();
+        if (checkIn) params.append('checkin', checkIn);
+        if (checkOut) params.append('checkout', checkOut);
+        if (guests) params.append('group_adults', guests);
+        if (hotel.id) params.append('hotel_id', hotel.id);
+        
+        if (params.toString()) {
+          bookingUrl += `?${params.toString()}`;
+        }
+        
+        console.log('🔍 DEBUG: Hotel booking URL:', {
+          hotelName: hotel.name,
+          checkIn,
+          checkOut,
+          guests,
+          bookingUrl,
+          originalCityName: hotel.cityName,
+          destination: destination
+        });
+        
+        return {
+          id: hotel.id,
+          name: hotel.name,
+          price: hotel.pricePerNight || hotel.totalPrice || 150,
+          rating: hotel.reviewScore || hotel.rating || 4.0,
+          review_count: hotel.reviewCount || 0,
+          location: destination || 'Mumbai', // Always use destination first, fallback to Mumbai
+          amenities: hotel.amenities || ['WiFi', 'Pool', 'Restaurant'],
+          description: hotel.description || `${hotel.propertyType || 'Hotel'} with excellent amenities`,
+          address: hotel.address || `${destination || 'Mumbai'}`,
+          imageUrl: hotel.imageUrl || null,
+          currency: hotel.currency || 'INR',
+          propertyType: hotel.propertyType || 'Hotel',
+          freeCancellation: hotel.freeCancellation || true,
+          breakfastIncluded: hotel.breakfastIncluded || false,
+          bookingUrl: bookingUrl
+        };
+      });
       
       let hotelContent = `## 🏨 Hotel Recommendations\n\nHere are the best hotels in ${destination} that fit your budget:\n\n`;
       
@@ -1937,10 +2033,15 @@ class IntegratedAITravelAgent {
     const destination = queryIntent.extractedInfo?.destination || '';
     
     if (destination) {
-      console.log('🔍 DEBUG: Fetching attractions for destination:', destination);
+      // Fix destination for attractions search
+      let attractionsDestination = destination;
+      if (attractionsDestination.toLowerCase() === 'bom') {
+        attractionsDestination = 'Mumbai';
+      }
+      console.log('🔍 DEBUG: Fetching attractions for destination:', attractionsDestination);
       try {
         // Get attractions using TripAdvisor API
-        const attractionsData = await this.getNearbyAttractions(destination);
+        const attractionsData = await this.getNearbyAttractions(attractionsDestination);
         
         if (attractionsData && attractionsData.length > 0) {
           // Check if we got good quality attractions (not random ones)
@@ -3738,10 +3839,12 @@ Return ONLY the JSON array:`;
       };
 
       console.log('   🔍 Final Search Request:', JSON.stringify(searchRequest, null, 2));
-      console.log('   📡 Calling FlightService.searchFlightsEnhanced()...');
+      console.log('   📡 Calling flight API endpoint...');
 
       const startTime = Date.now();
-      const results = await this.flightService.searchFlightsEnhanced(searchRequest);
+      // Use the flight API endpoint instead of direct service call
+      const response = await axios.post('http://localhost:4000/flights/search', searchRequest);
+      const results = response.data;
       const duration = Date.now() - startTime;
       
       console.log(`   ⏱️ API call completed in ${duration}ms`);
@@ -3757,6 +3860,18 @@ Return ONLY the JSON array:`;
         console.log('   ⚠️ Provider is "mock" - returning null (no real data)');
         console.log('🛫 ===== FLIGHT API FETCH END (MOCK DATA) =====\n');
         return null;
+      }
+
+      // If API failed but has Google Flights fallback, return the fallback data
+      if (!results.success && results.googleFlightsFallback) {
+        console.log('   ⚠️ API failed but has Google Flights fallback - using fallback');
+        console.log('🛫 ===== FLIGHT API FETCH END (GOOGLE FALLBACK) =====\n');
+        return {
+          ...results,
+          provider: 'google_flights_fallback',
+          success: true,
+          flights: [] // Empty flights array but with fallback URL
+        };
       }
       
       const returnData = {

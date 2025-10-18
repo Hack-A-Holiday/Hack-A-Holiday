@@ -85,7 +85,8 @@ export const AttractionsRecommendations: React.FC<AttractionsRecommendationsProp
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '48px',
-              color: isDarkMode ? 'rgba(255,255,255,0.3)' : '#ccc'
+              color: isDarkMode ? 'rgba(255,255,255,0.3)' : '#ccc',
+              position: 'relative'
             }}>
               {attraction.photo_url ? (
                 <Image 

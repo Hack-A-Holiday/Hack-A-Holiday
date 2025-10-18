@@ -1178,6 +1178,26 @@ const HotelRecommendations: React.FC<{
           padding: '16px',
           boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.1)'
         }}>
+          {/* Hotel Image */}
+          {hotel.imageUrl && (
+            <div style={{ marginBottom: '12px' }}>
+              <img 
+                src={hotel.imageUrl} 
+                alt={hotel.name || 'Hotel'} 
+                style={{
+                  width: '100%',
+                  height: '180px',
+                  objectFit: 'cover',
+                  borderRadius: '8px',
+                  border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e0e0e0'
+                }}
+                onError={(e) => {
+                  // Hide image if it fails to load
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
+          )}
           <div style={{ fontWeight: '600', fontSize: '1.1rem', marginBottom: '8px', color: role === 'user' ? 'white' : (isDarkMode ? '#e0e0e0' : '#333') }}>
             {hotel.name || 'Hotel'}
           </div>
@@ -1198,6 +1218,43 @@ const HotelRecommendations: React.FC<{
               <span style={{ fontSize: '0.75rem', fontWeight: '400' }}>/night</span>
             </div>
           </div>
+          
+          {/* View on Booking.com Button */}
+          {hotel.bookingUrl && (
+            <div style={{ marginTop: '12px' }}>
+              <a
+                href={hotel.bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  backgroundColor: '#003580',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  fontWeight: '500',
+                  transition: 'all 0.2s ease',
+                  width: '100%',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#002b66';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#003580';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <span>🏨</span>
+                <span>View on Booking.com</span>
+              </a>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -1259,8 +1316,6 @@ const PersonalizedRecommendations: React.FC<{ recommendations: any; role: string
       hotels={recommendations} 
       role={role} 
       isDarkMode={isDarkMode}
-      hotelSearchUrl={recommendations.hotelSearchUrl}
-      showMoreText={recommendations.showMoreText}
     />;
   }
 
@@ -1622,32 +1677,59 @@ const AiAgentPage: React.FC = () => {
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Get itinerary from query if present
-  let itineraryMsg: Message | null = null;
+  // Get messages or itinerary from query if present
+  let initialMessages: Message[] = [];
   if (typeof window !== 'undefined') {
     const params = new URLSearchParams(window.location.search);
-    const itineraryStr = params.get('itinerary');
-    if (itineraryStr) {
+    
+    // Check for messages parameter first (multi-message response)
+    const messagesStr = params.get('messages');
+    if (messagesStr) {
       try {
-        const itineraryObj = JSON.parse(itineraryStr);
-        itineraryMsg = { 
-          role: 'ai', 
-          content: itineraryObj, 
-          timestamp: Date.now(),
-          id: `msg_${Date.now()}_itinerary`
-        };
-      } catch {}
+        const messagesArray = JSON.parse(messagesStr);
+        if (Array.isArray(messagesArray)) {
+          initialMessages = messagesArray.map((msg: any) => ({
+            role: msg.role === 'assistant' ? 'ai' : msg.role,
+            content: msg.content || msg.message || msg,
+            timestamp: msg.timestamp || Date.now(),
+            id: msg.id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+            ...(msg.data && { data: msg.data })
+          }));
+        }
+      } catch (error) {
+        console.error('Error parsing messages from URL:', error);
+      }
+    }
+    
+    // Fallback to itinerary parameter (single response)
+    if (initialMessages.length === 0) {
+      const itineraryStr = params.get('itinerary');
+      if (itineraryStr) {
+        try {
+          const itineraryObj = JSON.parse(itineraryStr);
+          initialMessages = [{ 
+            role: 'ai', 
+            content: itineraryObj, 
+            timestamp: Date.now(),
+            id: `msg_${Date.now()}_itinerary`
+          }];
+        } catch (error) {
+          console.error('Error parsing itinerary from URL:', error);
+        }
+      }
     }
   }
 
-  const [messages, setMessages] = useState<Message[]>([
-    itineraryMsg || { 
-      role: 'ai', 
-      content: `Welcome to your AI Travel Agent! 🌍✈️\n\nI'm your personal travel assistant powered by AI. I can help you with:\n\n✈️ Flight Recommendations - Find the best flights based on your preferences\n🏨 Hotel Suggestions - Discover perfect accommodations for your stay\n🗺️ Personalized Itineraries - Custom day-by-day travel plans\n🎯 Smart Recommendations - Based on your search history and preferences\n💰 Budget Planning - Detailed cost breakdowns and money-saving tips\n🌎 Destination Guides - Explore new places tailored to your interests\n💡 Travel Tips - Expert advice for your journey\n\nTry asking me:\n• "Find me flights to Paris"\n• "Recommend hotels in Tokyo under $200/night"\n• "Plan a 5-day trip to Bali"\n• "What are popular destinations for adventure travel?"\n\nHow can I help you plan your perfect trip today?`,
-      timestamp: Date.now(),
-      id: `msg_${Date.now()}_welcome`
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(
+    initialMessages.length > 0 ? initialMessages : [
+      { 
+        role: 'ai', 
+        content: `Welcome to your AI Travel Agent! 🌍✈️\n\nI'm your personal travel assistant powered by AI. I can help you with:\n\n✈️ Flight Recommendations - Find the best flights based on your preferences\n🏨 Hotel Suggestions - Discover perfect accommodations for your stay\n🗺️ Personalized Itineraries - Custom day-by-day travel plans\n🎯 Smart Recommendations - Based on your search history and preferences\n💰 Budget Planning - Detailed cost breakdowns and money-saving tips\n🌎 Destination Guides - Explore new places tailored to your interests\n💡 Travel Tips - Expert advice for your journey\n\nTry asking me:\n• "Find me flights to Paris"\n• "Recommend hotels in Tokyo under $200/night"\n• "Plan a 5-day trip to Bali"\n• "What are popular destinations for adventure travel?"\n\nHow can I help you plan your perfect trip today?`,
+        timestamp: Date.now(),
+        id: `msg_${Date.now()}_welcome`
+      }
+    ]
+  );
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [aiModel, setAiModel] = useState<'bedrock' | 'sagemaker'>('bedrock');
@@ -1737,7 +1819,15 @@ const AiAgentPage: React.FC = () => {
         })),
         conversationId: sessionStorage.getItem('ai_conversation_id') || userContext.sessionId,
         preferences: userContext.preferences,
-        userContext
+        userContext: {
+          ...enhancedContext,
+          personalizedPrompt,
+          searchIntent: {
+            isFlightQuery,
+            isHotelQuery,
+            rawQuery: input
+          }
+        }
       }, {
         withCredentials: true // Send cookies with request
       });
@@ -1750,10 +1840,74 @@ const AiAgentPage: React.FC = () => {
       // Extract AI content from response
       let aiContent = response.data.data?.response || response.data.content || response.data;
       
+      // Debug logging
+      console.log('🔍 Frontend Response Debug:', {
+        hasData: !!response.data.data,
+        hasResponse: !!response.data.data?.response,
+        isArray: Array.isArray(aiContent),
+        responseLength: Array.isArray(aiContent) ? aiContent.length : 'not array',
+        firstMessageType: Array.isArray(aiContent) && aiContent[0] ? aiContent[0].type : 'no first message',
+        firstMessageHasData: Array.isArray(aiContent) && aiContent[0] ? !!aiContent[0].data : false
+      });
+      
       // Check if response is an array of messages (multi-message response)
       if (Array.isArray(aiContent)) {
         // Process each message in the array
         const processedMessages = aiContent.map((msg: any) => {
+          let content = msg.content || msg.message || msg;
+          
+          // Debug logging for each message
+          console.log('🔍 Processing message:', {
+            type: msg.type,
+            hasData: !!msg.data,
+            hasHotels: !!msg.data?.hotels,
+            hasFlights: !!msg.data?.flights,
+            hasAttractions: !!msg.data?.attractions,
+            hotelSearchUrl: msg.data?.hotelSearchUrl,
+            showMoreText: msg.data?.showMoreText
+          });
+          
+          // If message has data (hotels, flights, etc.), process it
+          if (msg.data) {
+            if (msg.data.hotels) {
+              console.log('🏨 Processing hotel message with data:', {
+                hotelsCount: msg.data.hotels.length,
+                hotelSearchUrl: msg.data.hotelSearchUrl,
+                showMoreText: msg.data.showMoreText
+              });
+              content = {
+                message: content,
+                hotels: msg.data.hotels,
+                hotelSearchUrl: msg.data.hotelSearchUrl,
+                showMoreText: msg.data.showMoreText || 'Show more options'
+              };
+            } else if (msg.data.flights) {
+              content = {
+                message: content,
+                flights: msg.data.flights,
+                flightSearchUrl: msg.data.flightSearchUrl,
+                showMoreText: msg.data.showMoreText || 'Show more options'
+              };
+            } else if (msg.data.attractions) {
+              content = {
+                message: content,
+                attractions: msg.data.attractions,
+                tripAdvisorUrl: msg.data.tripAdvisorUrl,
+                showMoreText: msg.data.showMoreText || 'Show more options'
+              };
+            }
+          }
+          
+          return createMessage('ai', content);
+        });
+        
+        setMessages((prev) => [...prev, ...processedMessages]);
+        return; // Exit early for multi-message response
+      }
+      
+      // Check if response.data.response is an array (alternative structure)
+      if (response.data.data?.response && Array.isArray(response.data.data.response)) {
+        const processedMessages = response.data.data.response.map((msg: any) => {
           let content = msg.content || msg.message || msg;
           
           // If message has data (hotels, flights, etc.), process it
