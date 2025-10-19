@@ -1,4 +1,5 @@
 
+
 const express = require('express');
 const router = express.Router();
 const IntegratedAITravelAgent = require('../services/IntegratedAITravelAgent');
@@ -16,7 +17,37 @@ router.delete('/user-sessions/:userId', async (req, res) => {
       return res.status(400).json({ success: false, error: 'userId is required' });
     }
     const chatModel = require('../models/chatModel');
+
+    // Fetch all sessions for this user first so we can clear agent memory
+    const sessions = await chatModel.getAllChatSessionsForUser({ user_id: userId });
+
+    // Delete persistent chat sessions from the chat table
     await chatModel.deleteAllChatSessionsForUser({ user_id: userId });
+
+    // Clear any agent in-memory / conversation table state for each session
+    if (Array.isArray(sessions) && sessions.length > 0) {
+      for (const s of sessions) {
+        try {
+          if (s && s._id) {
+            await aiAgent.clearConversation(s._id);
+          }
+        } catch (err) {
+          console.error('Failed to clear aiAgent conversation for session', s && s._id, err);
+        }
+      }
+    }
+
+    // Also clear any stored chat pointers on the user object (user.chats)
+    try {
+      const user = await userModel.getUserById(userId);
+      if (user) {
+        user.chats = [];
+        await userModel.updateUser(user);
+      }
+    } catch (err) {
+      console.error('Failed to clear user.chats for user', userId, err);
+    }
+
     res.json({ success: true, message: 'All chat sessions cleared', userId });
   } catch (error) {
     console.error('❌ Failed to clear all user chat sessions:', error);
@@ -75,22 +106,7 @@ router.post('/chat', async (req, res) => {
       });
     }
 
-    // Filter: Only store sessions where every user message has a corresponding AI response
-    function filterPairedMessages(messagesArr) {
-      const paired = [];
-      let i = 0;
-      while (i < messagesArr.length) {
-        if (messagesArr[i].role === 'user' && messagesArr[i+1] && messagesArr[i+1].role === 'ai') {
-          paired.push(messagesArr[i]);
-          paired.push(messagesArr[i+1]);
-          i += 2;
-        } else {
-          i++;
-        }
-      }
-      return paired;
-    }
-    const pairedSessionMessages = filterPairedMessages(sessionMessages);
+    // We'll filter for complete conversations after AI response is generated
 
 
     // Process message through integrated AI agent
@@ -156,47 +172,69 @@ router.post('/chat', async (req, res) => {
     }
 
 
-    // Save chat session as a single item (array of messages) after every AI response, or at least store user message for sidebar/history
+    // Save chat session ONLY if we have complete user-AI pairs after AI response
     try {
       const chatModel = require('../models/chatModel');
       const nowIso = new Date().toISOString();
       if (!user_id) throw new Error('user_id is required to save chat session');
-      let toSave = [];
-      if (pairedSessionMessages.length > 0) {
-        toSave = pairedSessionMessages;
-      } else if (sessionMessages.length > 0) {
-        // Save at least the user message for sidebar/history (for fallback, API error, or first message)
-        toSave = sessionMessages;
+      
+      // Add the AI response to session messages for filtering
+      let allMessages = [...sessionMessages];
+      if (response && response.content) {
+        // Add AI response to the messages
+        const aiResponse = {
+          role: 'assistant',
+          content: Array.isArray(response.content) ? response.content.join('\n') : response.content,
+          timestamp: Date.now(),
+          id: `ai_${Date.now()}`
+        };
+        allMessages.push(aiResponse);
       }
-      if (toSave.length > 0) {
-        await chatModel.saveChatSession({
-          user_id,
-          _id: newSessionId,
-          messages: toSave,
-          category: 'general',
-          created_at: nowIso,
-          updated_at: nowIso
-        });
+      
+      // Only save if we have complete conversation pairs
+      if (chatModel.hasCompleteConversation(allMessages)) {
+        const completeMessages = chatModel.filterCompleteConversation(allMessages);
+        
+        if (completeMessages.length > 0) {
+          // Generate AI-powered title from first user message
+          const firstUserMsg = completeMessages.find(m => m && m.role === 'user');
+          const title = firstUserMsg && firstUserMsg.content 
+            ? await chatModel.generateConversationTitleWithAI(firstUserMsg.content)
+            : 'New Chat';
+            
+          await chatModel.saveChatSession({
+            user_id,
+            _id: newSessionId,
+            messages: completeMessages,
+            title,
+            category: 'general',
+            created_at: nowIso,
+            updated_at: nowIso
+          });
+          
+          console.log('✅ Saved complete conversation with', completeMessages.length, 'messages');
+          
+          // Also store in user object
+          try {
+            const userModel = require('../models/userModel');
+            const user = await userModel.getUserById(user_id);
+            if (user) {
+              user.chats = user.chats || [];
+              const newChats = [...user.chats, completeMessages].slice(-50);
+              user.chats = newChats;
+              await userModel.updateUser(user);
+            }
+          } catch (err) {
+            console.error('Failed to update user chat history:', err);
+          }
+        } else {
+          console.log('⚠️ Not saving session: No complete conversation pairs found');
+        }
       } else {
-        console.log('⚠️ Not saving session: No messages to save');
+        console.log('⚠️ Not saving session: Incomplete conversation (no user-AI pairs)');
       }
     } catch (err) {
       console.error('Failed to save chat session to chat table:', err);
-    }
-
-    // Also store chat session (array of user+AI messages) in user object as a grouped session
-    if (user_id && pairedSessionMessages.length > 0) {
-      try {
-        const user = await userModel.getUserById(user_id);
-        if (user) {
-          user.chats = user.chats || [];
-          const newChats = [...user.chats, pairedSessionMessages].slice(-50);
-          user.chats = newChats;
-          await userModel.updateUser(user);
-        }
-      } catch (err) {
-        console.error('Failed to update user chat history:', err);
-      }
     }
 
     console.log('✅ Response generated successfully');
@@ -299,7 +337,8 @@ router.get('/history/:sessionId', async (req, res) => {
     const { sessionId } = req.params;
     const { limit = 20 } = req.query;
 
-    const history = await aiAgent.loadConversationHistory(sessionId);
+    const userId = req.user?.id || req.headers['x-user-id'] || 'anonymous';
+    const history = await aiAgent.loadConversationHistory(sessionId, userId);
 
     res.json({
       success: true,
@@ -635,6 +674,94 @@ router.get('/chat-history', async (req, res) => {
 });
 
 /**
+ * Save or update a chat session for a user
+ * POST /ai-agent/user-sessions/:userId
+ * Body: { conversationId, messages, userId, userEmail, userName }
+ */
+router.post('/user-sessions/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { conversationId, messages } = req.body;
+    if (!userId || !conversationId || !Array.isArray(messages)) {
+      return res.status(400).json({ success: false, error: 'userId, conversationId, and messages are required' });
+    }
+    
+    const chatModel = require('../models/chatModel');
+    const nowIso = new Date().toISOString();
+    
+    // Only save if we have complete conversation pairs
+    if (chatModel.hasCompleteConversation(messages)) {
+      const completeMessages = chatModel.filterCompleteConversation(messages);
+      
+      if (completeMessages.length > 0) {
+        // Generate AI-powered title from first user message
+        const firstUserMsg = completeMessages.find(m => m && m.role === 'user');
+        const title = firstUserMsg && firstUserMsg.content 
+          ? await chatModel.generateConversationTitleWithAI(firstUserMsg.content)
+          : 'New Chat';
+          
+        await chatModel.saveChatSession({
+          user_id: userId,
+          _id: conversationId,
+          messages: completeMessages,
+          title,
+          category: 'general',
+          created_at: nowIso,
+          updated_at: nowIso
+        });
+
+        // Also sync to IntegratedAITravelAgent conversation history (so the AI can resume context)
+        try {
+          // Check if aiAgent already has history for this session to avoid duplicates
+          const existing = await aiAgent.loadConversationHistory(conversationId, userId);
+          if (!existing || existing.length === 0) {
+            // Messages are expected to be an array of chat messages (user/assistant pairs)
+            for (let i = 0; i < completeMessages.length; i++) {
+              const m = completeMessages[i];
+              if (!m) continue;
+              // Only process user -> assistant pairs
+              if ((m.role === 'user') && completeMessages[i+1] && (completeMessages[i+1].role === 'assistant' || completeMessages[i+1].role === 'ai')) {
+                const userMsg = m;
+                const assistantMsg = completeMessages[i+1];
+                // Normalize content to strings when possible
+                const userText = typeof userMsg.content === 'string' ? userMsg.content : JSON.stringify(userMsg.content);
+                const assistantText = typeof assistantMsg.content === 'string' ? assistantMsg.content : JSON.stringify(assistantMsg.content);
+                const ts = assistantMsg.timestamp || userMsg.timestamp || nowIso;
+                await aiAgent.saveConversation(conversationId, userId, {
+                  user: userText,
+                  assistant: assistantText,
+                  intent: assistantMsg.intent || null,
+                  timestamp: (typeof ts === 'number') ? new Date(ts).toISOString() : new Date(ts).toISOString(),
+                  dataFetched: !!assistantMsg.data
+                });
+                i++; // skip the assistant message we just processed
+              }
+            }
+          } else {
+            // Agent already has conversation history for this sessionId
+            console.log(`⚠️ aiAgent already contains history for session ${conversationId}, skipping sync`);
+          }
+        } catch (err) {
+          console.error('❌ Failed to sync conversation to aiAgent:', err);
+        }
+
+        console.log('✅ Saved complete conversation session with', completeMessages.length, 'messages');
+        res.json({ success: true, message: 'Complete chat session saved', conversationId });
+      } else {
+        console.log('⚠️ Not saving session: No complete conversation pairs found');
+        res.json({ success: false, message: 'No complete conversation pairs to save', conversationId });
+      }
+    } else {
+      console.log('⚠️ Not saving session: Incomplete conversation (no user-AI pairs)');
+      res.json({ success: false, message: 'Incomplete conversation - not saved', conversationId });
+    }
+  } catch (error) {
+    console.error('❌ Failed to save user chat session:', error);
+    res.status(500).json({ success: false, error: 'Failed to save user chat session', message: error.message });
+  }
+});
+
+/**
  * Get all chat sessions for a user (for sidebar)
  * GET /ai-agent/user-sessions/:userId
  */
@@ -651,25 +778,168 @@ router.get('/user-sessions/:userId', async (req, res) => {
     let summaries = [];
     if (Array.isArray(sessions)) {
       summaries = sessions.map(sess => {
-        let preview = 'New chat';
+        let title = sess.title || 'New Chat';
+        let preview = 'No messages yet';
+        
         if (Array.isArray(sess.messages) && sess.messages.length > 0) {
           const firstUserMsg = sess.messages.find(m => m && m.role === 'user');
           if (firstUserMsg && typeof firstUserMsg.content === 'string') {
             preview = firstUserMsg.content.slice(0, 60);
+            // Generate title if not set
+            if (!sess.title || sess.title === 'New Chat') {
+              title = chatModel.generateConversationTitle(firstUserMsg.content);
+            }
           }
         }
+        
         return {
           _id: sess._id,
           user_id: sess.user_id,
+          title,
+          preview,
           created_at: sess.created_at,
-          preview
+          updated_at: sess.updated_at,
+          messageCount: sess.messages ? sess.messages.length : 0
         };
-      }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      }).sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
     }
     res.json({ success: true, sessions: summaries });
   } catch (error) {
     console.error('❌ Failed to fetch user chat sessions:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch user chat sessions', message: error.message });
+  }
+});
+
+/**
+ * Delete a specific chat session
+ * DELETE /ai-agent/user-sessions/:userId/:sessionId
+ */
+router.delete('/user-sessions/:userId/:sessionId', async (req, res) => {
+  try {
+    const { userId, sessionId } = req.params;
+    if (!userId || !sessionId) {
+      return res.status(400).json({ success: false, error: 'userId and sessionId are required' });
+    }
+    
+    const chatModel = require('../models/chatModel');
+    await chatModel.deleteChatSession({ user_id: userId, _id: sessionId });
+    
+    // Also clear from AI agent memory
+    try {
+      await aiAgent.clearConversation(sessionId);
+    } catch (err) {
+      console.warn('Failed to clear conversation from AI agent:', err);
+    }
+    
+    res.json({ success: true, message: 'Chat session deleted successfully' });
+  } catch (error) {
+    console.error('❌ Failed to delete chat session:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete chat session', message: error.message });
+  }
+});
+
+/**
+ * Update chat session title
+ * PUT /ai-agent/user-sessions/:userId/:sessionId/title
+ */
+router.put('/user-sessions/:userId/:sessionId/title', async (req, res) => {
+  try {
+    const { userId, sessionId } = req.params;
+    const { title } = req.body;
+    
+    if (!userId || !sessionId) {
+      return res.status(400).json({ success: false, error: 'userId and sessionId are required' });
+    }
+    
+    if (!title || typeof title !== 'string' || title.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Valid title is required' });
+    }
+    
+    const chatModel = require('../models/chatModel');
+    await chatModel.updateChatSessionTitle({ 
+      user_id: userId, 
+      _id: sessionId, 
+      title: title.trim().slice(0, 100) // Limit title length
+    });
+    
+    res.json({ success: true, message: 'Chat title updated successfully' });
+  } catch (error) {
+    console.error('❌ Failed to update chat title:', error);
+    res.status(500).json({ success: false, error: 'Failed to update chat title', message: error.message });
+  }
+});
+
+/**
+ * Search chat sessions
+ * GET /ai-agent/user-sessions/:userId/search?q=query
+ */
+router.get('/user-sessions/:userId/search', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { q } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId is required' });
+    }
+    
+    if (!q || typeof q !== 'string' || q.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Search query is required' });
+    }
+    
+    const chatModel = require('../models/chatModel');
+    const sessions = await chatModel.getAllChatSessionsForUser({ user_id: userId });
+    
+    const query = q.toLowerCase().trim();
+    const matchingSessions = sessions.filter(sess => {
+      // Search in title
+      if (sess.title && sess.title.toLowerCase().includes(query)) {
+        return true;
+      }
+      
+      // Search in messages
+      if (Array.isArray(sess.messages)) {
+        return sess.messages.some(msg => 
+          msg.content && 
+          typeof msg.content === 'string' && 
+          msg.content.toLowerCase().includes(query)
+        );
+      }
+      
+      return false;
+    }).map(sess => {
+      let title = sess.title || 'New Chat';
+      let preview = 'No messages yet';
+      
+      if (Array.isArray(sess.messages) && sess.messages.length > 0) {
+        const firstUserMsg = sess.messages.find(m => m && m.role === 'user');
+        if (firstUserMsg && typeof firstUserMsg.content === 'string') {
+          preview = firstUserMsg.content.slice(0, 60);
+          if (!sess.title || sess.title === 'New Chat') {
+            title = chatModel.generateConversationTitle(firstUserMsg.content);
+          }
+        }
+      }
+      
+      return {
+        _id: sess._id,
+        user_id: sess.user_id,
+        title,
+        preview,
+        created_at: sess.created_at,
+        updated_at: sess.updated_at,
+        messageCount: sess.messages ? sess.messages.length : 0
+      };
+    }).sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
+    
+    res.json({ 
+      success: true, 
+      sessions: matchingSessions,
+      query: q,
+      totalResults: matchingSessions.length
+    });
+  } catch (error) {
+    console.error('❌ Failed to search chat sessions:', error);
+    res.status(500).json({ success: false, error: 'Failed to search chat sessions', message: error.message });
   }
 });
 

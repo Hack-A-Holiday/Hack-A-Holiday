@@ -7,11 +7,11 @@ const axios = require('axios');
  */
 class TripAdvisorRapidAPIService {
   constructor() {
-    this.apiKey = process.env.RAPIDAPI_KEY || '';
+    this.apiKey = process.env.RAPIDAPI_KEY;
     this.baseUrl = 'https://tripadvisor-com1.p.rapidapi.com';
     
     // TripAdvisor Content API configuration
-    this.contentApiKey = process.env.TRIPADVISOR_API_KEY || '';
+    this.contentApiKey = process.env.TRIPADVISOR_API_KEY;
     this.contentApiBaseUrl = 'https://api.content.tripadvisor.com/api/v1';
     
     this.cache = new Map(); // Simple in-memory cache

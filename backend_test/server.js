@@ -70,7 +70,7 @@ app.get('/', (req, res) => {
   res.json({ message: 'Hack-A-Holiday backend running!' });
 });
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

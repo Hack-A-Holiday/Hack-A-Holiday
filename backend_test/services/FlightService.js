@@ -16,7 +16,7 @@ class FlightService {
     
     // Initialize Bedrock client for airport code lookup
     this.bedrockClient = new BedrockRuntimeClient({
-      region: process.env.AWS_REGION || 'us-east-1',
+      region: process.env.AWS_REGION,
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
@@ -24,7 +24,7 @@ class FlightService {
     });
     
     // Use Nova Lite for fast airport code lookups
-    this.fastModel = process.env.FAST_MODEL || 'amazon.nova-lite-v1:0';
+    this.fastModel = process.env.FAST_MODEL;
     
     // Cache for airport codes to avoid repeated API calls
     this.airportCodeCache = new Map();

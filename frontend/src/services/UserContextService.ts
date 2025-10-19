@@ -51,10 +51,8 @@ class UserContextService {
   private contexts: Map<string, UserContext> = new Map();
 
   private constructor() {
-    // Load from localStorage on initialization
-    if (typeof window !== 'undefined') {
-      this.loadFromLocalStorage();
-    }
+    // LocalStorage persistence disabled. Contexts are stored in-memory and
+    // persistent chat history is managed server-side (DynamoDB).
   }
 
   static getInstance(): UserContextService {
@@ -91,7 +89,6 @@ class UserContextService {
     const context = this.getOrCreateContext(sessionId);
     const updatedContext = { ...context, ...updates };
     this.contexts.set(sessionId, updatedContext);
-    this.saveToLocalStorage();
     return updatedContext;
   }
 
@@ -250,29 +247,12 @@ class UserContextService {
 
   // Save to localStorage
   private saveToLocalStorage(): void {
-    if (typeof window !== 'undefined') {
-      try {
-        const contextData = Object.fromEntries(this.contexts);
-        localStorage.setItem('ai_user_contexts', JSON.stringify(contextData));
-      } catch (error) {
-        console.warn('Failed to save user contexts to localStorage:', error);
-      }
-    }
+    // Intentionally disabled. Persistent contexts and chat history are stored server-side (DynamoDB).
   }
 
   // Load from localStorage
   private loadFromLocalStorage(): void {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('ai_user_contexts');
-        if (saved) {
-          const contextData = JSON.parse(saved);
-          this.contexts = new Map(Object.entries(contextData));
-        }
-      } catch (error) {
-        console.warn('Failed to load user contexts from localStorage:', error);
-      }
-    }
+    // Disabled: do not load contexts from localStorage
   }
 
   // Clear old contexts (cleanup)
@@ -287,7 +267,7 @@ class UserContextService {
       }
     });
     
-    this.saveToLocalStorage();
+    // No localStorage persistence
   }
 
   // Get all contexts (for debugging)
@@ -307,7 +287,7 @@ class UserContextService {
       const imported = JSON.parse(data) as UserContext;
       imported.sessionId = sessionId; // Ensure correct session ID
       this.contexts.set(sessionId, imported);
-      this.saveToLocalStorage();
+  // Do not persist imported data to localStorage. Use server-side persistence if needed.
       return true;
     } catch (error) {
       console.error('Failed to import user data:', error);

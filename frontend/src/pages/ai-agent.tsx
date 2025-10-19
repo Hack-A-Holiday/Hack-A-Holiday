@@ -1725,6 +1725,8 @@ const AiAgentPage: React.FC = () => {
   const [userContext, setUserContext] = useState<LocalUserContext>({
     sessionId: `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   });
+  // In-memory conversation id (do not persist to sessionStorage/localStorage)
+  const [conversationId, setConversationId] = useState<string>(userContext.sessionId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Get messages or itinerary from query if present
@@ -1816,6 +1818,27 @@ const AiAgentPage: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Clear any legacy client-side chat storage (do not persist chat on client)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('ai_chat_') || key === 'ai_user_contexts')) {
+            localStorage.removeItem(key);
+          }
+        }
+        try {
+          sessionStorage.removeItem('ai_conversation_id');
+        } catch (err) {
+          // ignore
+        }
+      } catch (err) {
+        console.warn('Failed to clear legacy chat keys from localStorage:', err);
+      }
+    }
+  }, []);
+
   // Load user context from profile
   useEffect(() => {
     if (state?.user) {
@@ -1833,16 +1856,7 @@ const AiAgentPage: React.FC = () => {
     }
   }, [state?.user, userContext.sessionId, contextService]);
 
-  // Save conversation to localStorage for persistence
-  useEffect(() => {
-    if (messages.length > 1) {
-      localStorage.setItem(`ai_chat_${userContext.sessionId}`, JSON.stringify({
-        messages,
-        userContext,
-        timestamp: Date.now()
-      }));
-    }
-  }, [messages, userContext]);
+  // Conversation persistence handled server-side (DynamoDB). Do not persist chat in browser storage.
 
   const createMessage = (role: 'user' | 'ai' | 'system', content: string | Record<string, any>): Message => ({
     role,
@@ -1894,7 +1908,7 @@ const AiAgentPage: React.FC = () => {
           role: msg.role === 'ai' ? 'assistant' : 'user',
           content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
         })),
-        conversationId: sessionStorage.getItem('ai_conversation_id') || userContext.sessionId,
+  conversationId: conversationId || userContext.sessionId,
         preferences: userContext.preferences,
         userContext: {
           ...enhancedContext,
@@ -1909,9 +1923,10 @@ const AiAgentPage: React.FC = () => {
         withCredentials: true // Send cookies with request
       });
       
-      // Store conversation ID for context
+      // Store conversation ID in-memory and update user context; server is authoritative
       if (response.data.data?.conversationId) {
-        sessionStorage.setItem('ai_conversation_id', response.data.data.conversationId);
+        setConversationId(response.data.data.conversationId);
+        setUserContext(prev => ({ ...prev, sessionId: response.data.data.conversationId }));
       }
       
       // Extract AI content from response

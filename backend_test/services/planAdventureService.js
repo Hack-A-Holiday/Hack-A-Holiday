@@ -1,8 +1,8 @@
 // Bedrock direct integration using AWS Nova Pro (JavaScript)
 const { BedrockRuntimeClient, ConverseCommand } = require('@aws-sdk/client-bedrock-runtime');
 
-const REGION = process.env.AWS_REGION || 'us-east-1';
-const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-pro-v1:0'; // Using Nova Pro
+const REGION = process.env.AWS_REGION;
+const MODEL_ID = process.env.BEDROCK_MODEL_ID;
 
 const client = new BedrockRuntimeClient({ region: REGION });
 

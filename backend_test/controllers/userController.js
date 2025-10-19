@@ -5,7 +5,7 @@ exports.getProfile = async (req, res) => {
   const token = req.cookies.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
   if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
-    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'devsecret');
+    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET);
     const user = await userService.getUserById(decoded.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ user });
@@ -23,7 +23,7 @@ exports.updateProfile = async (req, res) => {
   if (!token) return res.status(401).json({ error: 'No token provided' });
   
   try {
-    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'devsecret');
+    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId;
     const updates = req.body;
     
@@ -51,7 +51,7 @@ exports.updateHomeCity = async (req, res) => {
   if (!token) return res.status(401).json({ error: 'No token provided' });
   
   try {
-    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'devsecret');
+    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId;
     const { homeCity } = req.body;
     
@@ -96,7 +96,7 @@ exports.deleteAccount = async (req, res) => {
   
   try {
     console.log('🔍 Attempting to verify token...');
-    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'devsecret');
+    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId;
     console.log('✅ Token verified, userId:', userId);
     

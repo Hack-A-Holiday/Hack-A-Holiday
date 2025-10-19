@@ -6,7 +6,7 @@
 const ddbDocClient = require('../config/dynamo');
 const { GetCommand, PutCommand, QueryCommand, DeleteCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 
-const TRIPS_TABLE = process.env.TRIPS_TABLE || 'TravelCompanion-Trips-dev';
+const TRIPS_TABLE = process.env.TRIPS_TABLE;
 
 /**
  * Create a new trip

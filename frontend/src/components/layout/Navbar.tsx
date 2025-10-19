@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDarkMode } from '../../contexts/DarkModeContext';
+import Swal from 'sweetalert2';
 
 export default function Navbar() {
   // Toggle user menu dropdown
@@ -28,6 +29,7 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -35,100 +37,7 @@ export default function Navbar() {
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen((prev) => !prev);
   };
-                    <div>
-                      <button
-                        onClick={() => {
-                          toggleDarkMode();
-                          setIsUserMenuOpen(false);
-                        }}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '12px',
-                          padding: '12px 16px',
-                          border: 'none',
-                          background: 'transparent',
-                          color: isDarkMode ? '#e0e0e0' : '#333',
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          fontSize: '0.9rem',
-                          transition: 'background 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(102, 126, 234, 0.08)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <span style={{ fontSize: '1.1rem' }}>{isDarkMode ? '🌙' : '☀️'}</span>
-                          <span>Dark Mode</span>
-                        </div>
-                        <div style={{
-                          width: '40px',
-                          height: '20px',
-                          borderRadius: '10px',
-                          background: isDarkMode ? '#667eea' : '#ccc',
-                          position: 'relative',
-                          transition: 'background 0.3s ease'
-                        }}>
-                          <div style={{
-                            width: '16px',
-                            height: '16px',
-                            borderRadius: '50%',
-                            background: 'white',
-                            position: 'absolute',
-                            top: '2px',
-                            left: isDarkMode ? '22px' : '2px',
-                            transition: 'left 0.3s ease'
-                          }} />
-                        </div>
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (!state.user?.id) return;
-                          if (!window.confirm('Are you sure you want to clear ALL your chat history? This cannot be undone.')) return;
-                          const apiUrl = process.env.NODE_ENV === 'production'
-                            ? 'https://hack-travel-backend.onrender.com'
-                            : 'http://localhost:4000';
-                          await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
-                            method: 'DELETE',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              'Authorization': state.token ? `Bearer ${state.token}` : ''
-                            }
-                          });
-                          setIsUserMenuOpen(false);
-                          window.location.reload();
-                        }}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
-                          padding: '12px 16px',
-                          border: 'none',
-                          background: 'transparent',
-                          color: '#ef4444',
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          fontSize: '0.9rem',
-                          transition: 'background 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = isDarkMode ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.12)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <span style={{ fontSize: '1.1rem' }}>🗑️</span>
-                        <span style={{ fontSize: '0.9rem' }}>Clear All Chat History</span>
-                      </button>
-                    </div>
+  // user menu controls (Dark Mode / Clear History) are rendered in the dropdown below
 
   // Fix: getLinkStyle function for navigation links
   const getLinkStyle = (path: string) => {
@@ -439,6 +348,70 @@ export default function Navbar() {
                       background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e0e0e0',
                       margin: '8px 0'
                     }} />
+
+                    <button
+                      onClick={async () => {
+                        if (!state.user?.id) return;
+                        const confirmed = await Swal.fire({
+                          title: 'Clear all chat history?',
+                          text: 'This will permanently delete all your saved chat sessions from the server. This cannot be undone.',
+                          icon: 'warning',
+                          showCancelButton: true,
+                          confirmButtonText: 'Yes, clear it',
+                          cancelButtonText: 'Cancel'
+                        });
+                        if (!confirmed.isConfirmed) return;
+                        setIsClearingHistory(true);
+                        try {
+                          const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                          const response = await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
+                            method: 'DELETE',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': state.token ? `Bearer ${state.token}` : ''
+                            }
+                          });
+                          const data = await response.json().catch(() => ({}));
+                          if (!response.ok || !data.success) {
+                            console.error('Clear history failed:', data);
+                            await Swal.fire('Error', data.error || 'Failed to clear server chat history', 'error');
+                            return;
+                          }
+                          setIsUserMenuOpen(false);
+                          await Swal.fire('Cleared', 'All chat history has been removed from the server.', 'success');
+                          window.location.reload();
+                        } catch (err) {
+                          console.error('Error clearing server history:', err);
+                          await Swal.fire('Error', 'Failed to clear chat history. Please try again.', 'error');
+                        } finally {
+                          setIsClearingHistory(false);
+                        }
+                      }}
+                      disabled={isClearingHistory}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '12px 16px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#ef4444',
+                        textAlign: 'left',
+                        cursor: isClearingHistory ? 'not-allowed' : 'pointer',
+                        fontSize: '0.9rem',
+                        transition: 'background 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isClearingHistory) e.currentTarget.style.background = isDarkMode ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.12)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <span style={{ fontSize: '1.1rem' }}>{isClearingHistory ? '...' : '🗑️'}</span>
+                      <span style={{ fontSize: '0.9rem' }}>{isClearingHistory ? 'Clearing...' : 'Clear All Chat History'}</span>
+                    </button>
 
                     <button
                       onClick={() => {

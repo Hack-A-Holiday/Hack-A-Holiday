@@ -12,6 +12,7 @@ import { renderFormattedText } from './utils';
 import {
   WelcomeScreen,
   ChatInterface,
+  ChatHistory,
   ItineraryContent,
   FlightRecommendations,
   HotelRecommendations,
@@ -31,9 +32,7 @@ export default function AIAssistant() {
   const [isMobile, setIsMobile] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [chatSessions, setChatSessions] = useState<any[]>([]); // Sidebar session summaries
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [loadingSessions, setLoadingSessions] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -90,7 +89,7 @@ export default function AIAssistant() {
               itineraryText += `⏱️ Duration: ${itineraryObj.duration} days\n`;
             }
             if (itineraryObj.budget) {
-              itineraryText += `💰 Budget: $${itineraryObj.budget}\n`;
+              itineraryText += `💰 Budget: ${itineraryObj.budget}\n`;
             }
             itineraryText += `\nI've prepared a detailed itinerary for your trip. Feel free to ask me any questions about your travel plans!`;
           }
@@ -152,6 +151,20 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
       userEmail: state.user?.email
     });
 
+    // Remove any legacy localStorage chat contexts (we persist server-side only)
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('ai_user_contexts');
+      } catch (err) {
+        console.warn('Failed to remove legacy ai_user_contexts from localStorage:', err);
+      }
+      try {
+        sessionStorage.removeItem('ai_conversation_id');
+      } catch (err) {
+        /* ignore */
+      }
+    }
+
     // Check screen size
     const checkScreenSize = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -164,67 +177,88 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
 
   useEffect(() => {
     // Initialize conversation only if user is present
-    if (state.user && !showChat) {
+    if (state.user && showChat) {
       initializeConversation();
     }
-  }, [state.user, showChat, conversationId, initializeConversation]);
+  }, [state.user, showChat, initializeConversation]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Fetch all chat sessions for sidebar
-  useEffect(() => {
-    async function fetchSessions() {
-      if (!state.user?.id) return;
-      setLoadingSessions(true);
-      try {
-        const apiUrl = process.env.NODE_ENV === 'production'
-          ? 'https://hack-travel-backend.onrender.com'
-          : 'http://localhost:4000';
-        const res = await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`);
-        const data = await res.json();
-        if (data.success && Array.isArray(data.sessions)) {
-          setChatSessions(data.sessions);
-        }
-      } catch (e) {
-        setChatSessions([]);
-      } finally {
-        setLoadingSessions(false);
-      }
-    }
-    fetchSessions();
-  }, [state.user?.id]);
-
   // Load session history when switching sessions
   const loadSessionHistory = useCallback(async (sessionId: string) => {
     if (!sessionId) return;
+    
+    console.log('🔄 Loading session history for:', sessionId);
     setIsLoading(true);
+    
     try {
-      const apiUrl = process.env.NODE_ENV === 'production'
-        ? 'https://hack-travel-backend.onrender.com'
-        : 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/ai-agent/history/${sessionId}`);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.history)) {
-        setMessages(data.history);
-        setConversationId(sessionId);
-        setActiveSessionId(sessionId);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      
+      // Load chat session from database
+      if (state.user?.id) {
+        const response = await fetch(`${apiUrl}/ai-agent/chat-history?userId=${encodeURIComponent(state.user.id)}&sessionId=${encodeURIComponent(sessionId)}`);
+        const data = await response.json();
+        
+        console.log('📥 Session data received:', data);
+        
+        if (data.success && data.session && Array.isArray(data.session.messages)) {
+          // Map the messages to the expected format (backend now handles DynamoDB conversion)
+          const mapped: ChatMessage[] = data.session.messages.map((msg: any, index: number) => ({
+            id: msg.id || `msg_${sessionId}_${index}`,
+            role: msg.role === 'ai' ? 'assistant' : msg.role,
+            content: msg.content || '',
+            timestamp: msg.timestamp ? (typeof msg.timestamp === 'number' ? msg.timestamp : Date.parse(msg.timestamp)) : Date.now(),
+            type: msg.type || 'text',
+            data: msg.data || null
+          }));
+          
+          console.log('✅ Mapped messages:', mapped.length, 'messages');
+          
+          // Set the loaded messages and update conversation state
+          setMessages(mapped);
+          setConversationId(sessionId);
+          setActiveSessionId(sessionId);
+          
+          // Scroll to bottom after loading
+          setTimeout(() => scrollToBottom(), 100);
+          
+          return;
+        } else {
+          console.warn('⚠️ No session data found or invalid format');
+        }
       }
-    } catch (e) {
-      // fallback: clear messages
+      
+      // If no session found, clear messages and show empty state
+      console.log('❌ Session not found, clearing messages');
       setMessages([]);
+      setConversationId(sessionId);
+      setActiveSessionId(sessionId);
+      
+    } catch (error) {
+      console.error('❌ Error loading session history:', error);
+      // On error, clear messages but keep the session active
+      setMessages([]);
+      setConversationId(sessionId);
+      setActiveSessionId(sessionId);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [state.user?.id]);
 
   // When user clicks a session in sidebar
-  const handleSessionClick = (sessionId: string) => {
-    if (sessionId !== activeSessionId) {
-      loadSessionHistory(sessionId);
-    }
-    setShowSidebar(false);
+  const handleSessionClick = async (sessionId: string) => {
+    console.log('🖱️ Session clicked:', sessionId, 'Current active:', activeSessionId);
+    
+    // Ensure chat UI is visible when resuming a session
+    setShowChat(true);
+    
+    // Always load the session history, even if it's the same session (for refresh)
+    await loadSessionHistory(sessionId);
+    
+    // Close sidebar on mobile after selection
+    if (isMobile) setShowSidebar(false);
   };
 
   const handleSendMessage = async () => {
@@ -243,10 +277,8 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
     setIsLoading(true);
 
     try {
-      // Get API URL from environment or use default
-      const apiUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://hack-travel-backend.onrender.com'
-        : 'http://localhost:4000';
+      // Get API URL from environment
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
       console.log('Sending message to API:', {
         message: userMessage.content,
@@ -255,6 +287,9 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
         userEmail: state.user?.email,
         userName: state.user?.name
       });
+
+      // Build messages payload including the freshly added user message so the AI has full context
+      const messagesForApi = [...(messages || []), userMessage];
 
       // Send request to AI agent
       const response = await fetch(`${apiUrl}/api/ai/chat`, {
@@ -265,7 +300,8 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
         },
         body: JSON.stringify({
           message: userMessage.content,
-          conversationId: conversationId,
+          messages: messagesForApi,
+          conversationId: conversationId || activeSessionId, // Use active session ID if no conversation ID
           userId: state.user?.id,
           userEmail: state.user?.email,
           userName: state.user?.name
@@ -303,9 +339,12 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
           setMessages(prev => [...prev, aiMessage]);
         }
 
-        // Update conversation ID if provided
+        // Update conversation ID if provided, otherwise keep the current one
         if (data.data.conversationId) {
           setConversationId(data.data.conversationId);
+        } else if (!conversationId && activeSessionId) {
+          // If no conversation ID but we have an active session, use that
+          setConversationId(activeSessionId);
         }
       } else {
         // Fallback for any response format issues
@@ -546,171 +585,137 @@ In the meantime, I can still help you with general travel advice and planning!`,
         <meta name="description" content="Get personalized travel recommendations powered by AI" />
       </Head>
       <div style={{ minHeight: '100vh', position: 'relative' }}>
-        {/* Sidebar for chat history */}
-        {showSidebar && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: isMobile ? '80vw' : 340,
-            height: '100vh',
-            background: isDarkMode ? '#1e293b' : '#f1f5f9',
-            boxShadow: '2px 0 16px rgba(0,0,0,0.08)',
-            zIndex: 100,
-            padding: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            borderRight: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0',
-          }}>
-            <div style={{
-              fontWeight: 700,
-              fontSize: 20,
-              padding: '24px 24px 12px 24px',
-              borderBottom: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0',
-              background: isDarkMode ? '#1e293b' : '#f1f5f9',
-              color: isDarkMode ? '#fff' : '#222',
-              letterSpacing: 0.2,
-            }}>
-              💬 Chat History
-              <button onClick={() => setShowSidebar(false)} style={{ float: 'right', fontSize: 22, background: 'none', border: 'none', color: isDarkMode ? '#fff' : '#222', cursor: 'pointer' }}>&times;</button>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
-              {loadingSessions ? (
-                <div style={{ padding: 24, color: '#888' }}>Loading...</div>
-              ) : chatSessions.length === 0 ? (
-                <div style={{ padding: 24, color: '#888' }}>No chats yet.</div>
-              ) : (
-                chatSessions.map(sess => (
-                  <div
-                    key={sess._id}
-                    onClick={() => handleSessionClick(sess._id)}
-                    style={{
-                      padding: '16px 24px',
-                      background: sess._id === activeSessionId ? (isDarkMode ? '#334155' : '#e0e7ef') : 'none',
-                      color: isDarkMode ? '#fff' : '#222',
-                      borderBottom: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0',
-                      cursor: 'pointer',
-                      fontWeight: sess._id === activeSessionId ? 700 : 500,
-                      fontSize: 16,
-                      transition: 'background 0.2s',
-                    }}
-                  >
-                    <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 240 }}>
-                      {sess.preview || 'New chat'}
-                    </div>
-                    <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>
-                      {new Date(sess.created_at).toLocaleString()}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
         <Navbar />
 
         {!showChat ? (
-          (() => {
-            // Hide sidebar on welcome page
-            if (showSidebar) setShowSidebar(false);
-            return (
-              <WelcomeScreen
-                isDarkMode={isDarkMode}
-                isMobile={isMobile}
-                onStartChat={handleStartChat}
-                /* Do NOT pass chatSessions here */
-              />
-            );
-          })()
-        ) : (
-          <ChatInterface
+          <WelcomeScreen
             isDarkMode={isDarkMode}
             isMobile={isMobile}
-            messages={messages}
-            isLoading={isLoading}
-            inputMessage={inputMessage}
-            onInputChange={setInputMessage}
-            onSendMessage={handleSendMessage}
-            onBackToWelcome={async () => {
-              // Save chat session to backend before going back
-              try {
-                const apiUrl = process.env.NODE_ENV === 'production'
-                  ? 'https://hack-travel-backend.onrender.com'
-                  : 'http://localhost:4000';
-                await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user?.id}`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': state.token ? `Bearer ${state.token}` : ''
-                  },
-                  body: JSON.stringify({
-                    conversationId,
-                    messages,
-                    userId: state.user?.id,
-                    userEmail: state.user?.email,
-                    userName: state.user?.name
-                  })
-                });
-                // Refresh chat sessions after save
-                const res = await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user?.id}`);
-                const data = await res.json();
-                if (data.success && Array.isArray(data.sessions)) {
-                  setChatSessions(data.sessions);
-                }
-              } catch (e) {
-                // Optionally show error toast
-              }
-              setShowChat(false);
-            }}
-            renderMessage={renderMessage}
-            suggestedPrompts={suggestedPrompts}
-            onPromptClick={handlePromptClick}
-            showSidebar={showSidebar}
-            onToggleSidebar={() => setShowSidebar(!showSidebar)}
-            chatSessions={chatSessions}
-            onResumeSession={handleSessionClick}
-            onNewChat={async () => {
-              // Save current chat to backend
-              try {
-                const apiUrl = process.env.NODE_ENV === 'production'
-                  ? 'https://hack-travel-backend.onrender.com'
-                  : 'http://localhost:4000';
-                await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user?.id}`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': state.token ? `Bearer ${state.token}` : ''
-                  },
-                  body: JSON.stringify({
-                    conversationId,
-                    messages,
-                    userId: state.user?.id,
-                    userEmail: state.user?.email,
-                    userName: state.user?.name
-                  })
-                });
-                // Refresh chat sessions after save
-                const res = await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user?.id}`);
-                const data = await res.json();
-                if (data.success && Array.isArray(data.sessions)) {
-                  setChatSessions(data.sessions);
-                }
-              } catch (e) {
-                // Optionally show error toast
-              }
-              // Start new chat session
-              const newConvId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-              setConversationId(newConvId);
-              setActiveSessionId(newConvId);
-              setMessages([{
-                id: Date.now().toString(),
-                role: 'assistant',
-                content: `👋 Hello ${state.user?.name || 'there'}! I'm your AI Travel Assistant.\n\nI can help you with:\n✈️ **Flight Search** - Real-time flight availability and pricing from our API\n🏨 **Hotel Search** - Live hotel recommendations with real-time data\n🌍 **Destination Ideas** - Personalized travel recommendations based on your preferences\n🎯 **Trip Planning** - Complete itinerary creation with context-aware AI\n💰 **Budget Optimization** - Get the most value for your money\n🧠 **Smart Context** - I remember our conversation and your preferences\n\nJust tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!`,
-                timestamp: Date.now(),
-                type: 'text'
-              }]);
-            }}
+            onStartChat={handleStartChat}
           />
+        ) : (
+          /* ChatGPT-style Layout with Sidebar */
+          <div style={{
+            display: 'flex',
+            height: 'calc(100vh - 80px)', // Account for navbar
+            background: isDarkMode ? '#0a0f1c' : '#f8fafc'
+          }}>
+            {/* Chat History Sidebar - Always visible on desktop, toggleable on mobile */}
+            {(showSidebar || !isMobile) && (
+              <ChatHistory
+                isDarkMode={isDarkMode}
+                isMobile={isMobile}
+                userId={state.user?.id || ''}
+                activeSessionId={activeSessionId}
+                onSessionSelect={handleSessionClick}
+                onNewChat={async () => {
+                  // Save current chat before starting new one
+                  try {
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                    await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user?.id}`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': state.token ? `Bearer ${state.token}` : ''
+                      },
+                      body: JSON.stringify({
+                        conversationId,
+                        messages,
+                        userId: state.user?.id,
+                        userEmail: state.user?.email,
+                        userName: state.user?.name
+                      })
+                    });
+                  } catch (e) {
+                    console.warn('Failed to save current chat:', e);
+                  }
+                  
+                  // Start new chat
+                  const newConvId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                  setConversationId(newConvId);
+                  setActiveSessionId(newConvId);
+                  setMessages([{
+                    id: Date.now().toString(),
+                    role: 'assistant',
+                    content: `👋 Hello ${state.user?.name || 'there'}! I'm your AI Travel Assistant.\n\nI can help you with:\n✈️ **Flight Search** - Real-time flight availability and pricing from our API\n🏨 **Hotel Search** - Live hotel recommendations with real-time data\n🌍 **Destination Ideas** - Personalized travel recommendations based on your preferences\n🎯 **Trip Planning** - Complete itinerary creation with context-aware AI\n💰 **Budget Optimization** - Get the most value for your money\n🧠 **Smart Context** - I remember our conversation and your preferences\n\nJust tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!`,
+                    timestamp: Date.now(),
+                    type: 'text'
+                  }]);
+                  if (isMobile) setShowSidebar(false);
+                }}
+                onDeleteSession={(sessionId) => {
+                  if (sessionId === activeSessionId) {
+                    // If deleting active session, start a new one
+                    const newConvId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    setConversationId(newConvId);
+                    setActiveSessionId(newConvId);
+                    setMessages([{
+                      id: Date.now().toString(),
+                      role: 'assistant',
+                      content: `👋 Hello ${state.user?.name || 'there'}! I'm your AI Travel Assistant.\n\nI can help you with:\n✈️ **Flight Search** - Real-time flight availability and pricing from our API\n🏨 **Hotel Search** - Live hotel recommendations with real-time data\n🌍 **Destination Ideas** - Personalized travel recommendations based on your preferences\n🎯 **Trip Planning** - Complete itinerary creation with context-aware AI\n💰 **Budget Optimization** - Get the most value for your money\n🧠 **Smart Context** - I remember our conversation and your preferences\n\nJust tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!`,
+                      timestamp: Date.now(),
+                      type: 'text'
+                    }]);
+                  }
+                }}
+                isVisible={true}
+                onClose={() => setShowSidebar(false)}
+              />
+            )}
+
+            {/* Main Chat Area */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <ChatInterface
+                isDarkMode={isDarkMode}
+                isMobile={isMobile}
+                messages={messages}
+                isLoading={isLoading}
+                inputMessage={inputMessage}
+                onInputChange={setInputMessage}
+                onSendMessage={handleSendMessage}
+                onBackToWelcome={() => setShowChat(false)}
+                renderMessage={renderMessage}
+                suggestedPrompts={suggestedPrompts}
+                onPromptClick={handlePromptClick}
+                showSidebar={showSidebar}
+                onToggleSidebar={() => setShowSidebar(!showSidebar)}
+                onNewChat={async () => {
+                  // Save current chat to backend before starting new chat
+                  try {
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                    await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user?.id}`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': state.token ? `Bearer ${state.token}` : ''
+                      },
+                      body: JSON.stringify({
+                        conversationId,
+                        messages,
+                        userId: state.user?.id,
+                        userEmail: state.user?.email,
+                        userName: state.user?.name
+                      })
+                    });
+                  } catch (e) {
+                    console.warn('Failed to save current chat:', e);
+                  }
+                  
+                  // Start new chat session after save
+                  const newConvId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                  setConversationId(newConvId);
+                  setActiveSessionId(newConvId);
+                  setMessages([{
+                    id: Date.now().toString(),
+                    role: 'assistant',
+                    content: `👋 Hello ${state.user?.name || 'there'}! I'm your AI Travel Assistant.\n\nI can help you with:\n✈️ **Flight Search** - Real-time flight availability and pricing from our API\n🏨 **Hotel Search** - Live hotel recommendations with real-time data\n🌍 **Destination Ideas** - Personalized travel recommendations based on your preferences\n🎯 **Trip Planning** - Complete itinerary creation with context-aware AI\n💰 **Budget Optimization** - Get the most value for your money\n🧠 **Smart Context** - I remember our conversation and your preferences\n\nJust tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!`,
+                    timestamp: Date.now(),
+                    type: 'text'
+                  }]);
+                }}
+              />
+            </div>
+          </div>
         )}
 
         <style jsx>{`

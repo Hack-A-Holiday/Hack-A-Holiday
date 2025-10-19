@@ -6,7 +6,7 @@ const axios = require('axios');
  */
 class TripAdvisorService {
   constructor() {
-    this.apiKey = process.env.TRIPADVISOR_API_KEY || 'API_KEY_PLACEHOLDER';
+    this.apiKey = process.env.TRIPADVISOR_API_KEY;
     this.baseUrl = 'https://api.content.tripadvisor.com/api/v1';
     this.cache = new Map(); // Simple in-memory cache
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutes

@@ -156,6 +156,7 @@ export default function ProfilePage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [tripToCancel, setTripToCancel] = useState<Trip | null>(null);
   const [cancellationReason, setCancellationReason] = useState('');
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
 
   // --- Logic that was outside a component ---
   // This logic is now correctly placed inside the ProfilePage component.
@@ -723,32 +724,55 @@ export default function ProfilePage() {
                 <button
                   onClick={async () => {
                     if (!state.user?.id) return;
-                    if (!window.confirm('Are you sure you want to clear ALL your chat history? This cannot be undone.')) return;
-                    const apiUrl = process.env.NODE_ENV === 'production'
-                      ? 'https://hack-travel-backend.onrender.com'
-                      : 'http://localhost:4000';
-                    await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
-                      method: 'DELETE',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': state.token ? `Bearer ${state.token}` : ''
-                      }
+                    const confirmed = await Swal.fire({
+                      title: 'Clear all chat history?',
+                      text: 'This will permanently delete all your saved chat sessions from the server. This cannot be undone.',
+                      icon: 'warning',
+                      showCancelButton: true,
+                      confirmButtonText: 'Yes, clear it',
+                      cancelButtonText: 'Cancel'
                     });
-                    window.location.reload();
+                    if (!confirmed.isConfirmed) return;
+                    setIsClearingHistory(true);
+                    try {
+                      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                      const response = await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
+                        method: 'DELETE',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': state.token ? `Bearer ${state.token}` : ''
+                        }
+                      });
+                      const data = await response.json().catch(() => ({}));
+                      if (!response.ok || !data.success) {
+                        console.error('Clear history failed:', data);
+                        await Swal.fire('Error', data.error || 'Failed to clear server chat history', 'error');
+                        return;
+                      }
+                      await Swal.fire('Cleared', 'All chat history has been removed from the server.', 'success');
+                      // Refresh app so sidebar and other components update
+                      window.location.reload();
+                    } catch (err) {
+                      console.error('Error clearing server history:', err);
+                      await Swal.fire('Error', 'Failed to clear chat history. Please try again.', 'error');
+                    } finally {
+                      setIsClearingHistory(false);
+                    }
                   }}
+                  disabled={isClearingHistory}
                   style={{
-                    background: '#ef4444',
+                    background: isClearingHistory ? '#c2410c' : '#ef4444',
                     color: 'white',
                     border: 'none',
                     padding: '12px 25px',
                     borderRadius: '10px',
-                    cursor: 'pointer',
+                    cursor: isClearingHistory ? 'not-allowed' : 'pointer',
                     fontSize: '0.9rem',
                     fontWeight: '500',
                     width: '100%'
                   }}
                 >
-                  🗑️ Clear All Chat History
+                  {isClearingHistory ? 'Clearing...' : '🗑️ Clear All Chat History'}
                 </button>
               </div>
             </div>
