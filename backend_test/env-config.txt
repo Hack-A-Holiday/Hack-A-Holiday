@@ -75,7 +75,7 @@ BOOKING_API_HOST=booking-com18.p.rapidapi.com
 # ATTRACTIONS APIS
 # ============================================
 # TripAdvisor API (WORKING)
-TRIPADVISOR_API_KEY=24f23bfac5mshfe0b77ad3d50a04p1ab5acjsnf565c088c8b4
+TRIPADVISOR_API_KEY=CCE5AC1B8F914EDA894CABC5B60CD2EF
 TRIPADVISOR_API_HOST=tripadvisor-api.p.rapidapi.com
 
 # ============================================

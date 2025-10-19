@@ -348,7 +348,7 @@ router.get('/location/:locationId/reviews', async (req, res) => {
  */
 router.get('/location/search', async (req, res) => {
   try {
-    const { searchQuery, limit = 10, language = 'en' } = req.query;
+    const { searchQuery, limit = 10, language = 'en', category } = req.query;
     
     // Validate searchQuery
     if (!searchQuery || searchQuery.trim() === '') {
@@ -369,9 +369,9 @@ router.get('/location/search', async (req, res) => {
       });
     }
     
-    console.log(`🔍 Searching locations for: ${searchQuery} (limit: ${searchLimit})`);
+    console.log(`🔍 Searching locations for: ${searchQuery} (limit: ${searchLimit}, category: ${category || 'all'})`);
     
-    const locations = await tripAdvisorService.searchLocations(searchQuery, searchLimit, language);
+    const locations = await tripAdvisorService.searchLocations(searchQuery, searchLimit, language, category);
     
     res.json({
       success: true,

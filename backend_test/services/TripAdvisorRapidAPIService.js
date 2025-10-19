@@ -1499,9 +1499,10 @@ class TripAdvisorRapidAPIService {
    * @param {string} searchQuery - Search query
    * @param {number} limit - Maximum number of results
    * @param {string} language - Language code
+   * @param {string} category - Category filter (attractions, hotels, restaurants, geos)
    * @returns {Array} Array of location objects
    */
-  async searchLocations(searchQuery, limit = 10, language = 'en') {
+  async searchLocations(searchQuery, limit = 10, language = 'en', category = null) {
     try {
       const cacheKey = `location_search_${searchQuery}_${limit}`;
       const cached = this.getCachedData(cacheKey);
@@ -1518,15 +1519,22 @@ class TripAdvisorRapidAPIService {
       }
 
       const response = await this.fetchWithRetry(async () => {
+        const params = {
+          key: this.contentApiKey,
+          searchQuery,
+          language,
+          limit
+        };
+        
+        // Add category filter if provided
+        if (category) {
+          params.category = category;
+        }
+        
         return await axios.get(
           `${this.contentApiBaseUrl}/location/search`,
           {
-            params: {
-              key: this.contentApiKey,
-              searchQuery,
-              language,
-              limit
-            },
+            params,
             timeout: 10000
           }
         );

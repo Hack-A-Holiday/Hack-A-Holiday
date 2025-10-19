@@ -710,12 +710,76 @@ export default function FlightSearchPage() {
     }
   };
 
+  // Airport code to city name mapping
+  const getCityNameFromAirportCode = (code: string): string => {
+    const airportMap: { [key: string]: string } = {
+      'BOM': 'Mumbai',
+      'DEL': 'Delhi',
+      'BLR': 'Bangalore',
+      'MAA': 'Chennai',
+      'CCU': 'Kolkata',
+      'HYD': 'Hyderabad',
+      'AMD': 'Ahmedabad',
+      'PNQ': 'Pune',
+      'COK': 'Kochi',
+      'GOI': 'Goa',
+      'JFK': 'New York',
+      'LGA': 'New York',
+      'EWR': 'New York',
+      'LAX': 'Los Angeles',
+      'SFO': 'San Francisco',
+      'ORD': 'Chicago',
+      'DFW': 'Dallas',
+      'MIA': 'Miami',
+      'ATL': 'Atlanta',
+      'LHR': 'London',
+      'LGW': 'London',
+      'STN': 'London',
+      'CDG': 'Paris',
+      'ORY': 'Paris',
+      'FCO': 'Rome',
+      'MAD': 'Madrid',
+      'BCN': 'Barcelona',
+      'FRA': 'Frankfurt',
+      'MUC': 'Munich',
+      'AMS': 'Amsterdam',
+      'ZUR': 'Zurich',
+      'VIE': 'Vienna',
+      'NRT': 'Tokyo',
+      'HND': 'Tokyo',
+      'ICN': 'Seoul',
+      'PEK': 'Beijing',
+      'PVG': 'Shanghai',
+      'HKG': 'Hong Kong',
+      'SIN': 'Singapore',
+      'BKK': 'Bangkok',
+      'KUL': 'Kuala Lumpur',
+      'DXB': 'Dubai',
+      'DOH': 'Doha',
+      'AUH': 'Abu Dhabi',
+      'SYD': 'Sydney',
+      'MEL': 'Melbourne',
+      'BNE': 'Brisbane',
+      'AKL': 'Auckland',
+      'YYZ': 'Toronto',
+      'YVR': 'Vancouver',
+      'YUL': 'Montreal'
+    };
+    
+    const upperCode = code.toUpperCase();
+    return airportMap[upperCode] || code;
+  };
+
   // Enhanced recommendation fetching with photos and details
   const fetchRecommendations = async (dest: string) => {
     if (!dest.trim()) {
       setAutoRecommendations([]);
       return;
     }
+
+    // Convert airport code to city name if needed
+    const searchDestination = getCityNameFromAirportCode(dest.trim());
+    console.log(`🔍 Converting destination: "${dest}" → "${searchDestination}"`);
 
     setLoadingRecommendations(true);
     try {
@@ -728,29 +792,27 @@ export default function FlightSearchPage() {
         accommodationType: (userPreferences as any).accommodationType
       });
 
-      // Create more specific search queries for better results - focus on top attractions
+      // Use more specific search queries to get better attraction results
       const searchQueries = [
-        `${dest} top attractions`, // Top attractions
-        `${dest} must see`, // Must see places
-        `${dest} landmarks`, // Landmarks
-        `${dest} famous places`, // Famous places
-        `${dest} tourist attractions`, // Tourist attractions
-        `${dest} things to do` // Things to do
+        { query: `${searchDestination} attractions`, category: 'attractions' }, // More specific search
+        { query: `${searchDestination} landmarks`, category: 'attractions' }, // Landmarks and monuments
+        { query: `${searchDestination} museums`, category: 'attractions' }, // Museums and cultural sites
+        { query: searchDestination, category: 'geos' } // Geographic locations as fallback
       ];
 
       // Try multiple search queries to get better results
       const allResults = [];
-      for (const query of searchQueries) {
+      for (const searchQuery of searchQueries) {
         try {
           const searchResponse = await fetch(
-            `http://localhost:4000/tripadvisor/location/search?searchQuery=${encodeURIComponent(query)}&limit=6`
+            `http://localhost:4000/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery.query)}&category=${searchQuery.category}&limit=6`
           );
           const searchData = await searchResponse.json();
           if (searchData.success && searchData.data) {
             allResults.push(...searchData.data);
           }
         } catch (error) {
-          console.warn(`Search failed for query: ${query}`, error);
+          console.warn(`Search failed for query: ${searchQuery.query}`, error);
         }
       }
 
@@ -787,15 +849,50 @@ export default function FlightSearchPage() {
         const isNotGeneric = !item.name.toLowerCase().includes('search') &&
           !item.name.toLowerCase().includes('result');
 
-        // Prioritize real attractions over tours/tickets
+        // Prioritize real attractions over tours/tickets - but be more selective
         const isRealAttraction = !item.name.toLowerCase().includes('tour') &&
           !item.name.toLowerCase().includes('ticket') &&
           !item.name.toLowerCase().includes('pass') &&
           !item.name.toLowerCase().includes('guided') &&
           !item.name.toLowerCase().includes('bus') &&
-          !item.name.toLowerCase().includes('citypass');
+          !item.name.toLowerCase().includes('citypass') &&
+          !item.name.toLowerCase().includes('company') &&
+          !item.name.toLowerCase().includes('agency') &&
+          !item.name.toLowerCase().includes('service') &&
+          !item.name.toLowerCase().includes('booking') &&
+          !item.name.toLowerCase().includes('travel');
 
-        return hasGoodAddress && hasGoodName && isNotGeneric;
+        // Filter out hotels, restaurants, airlines, and companies
+        const isNotHotel = !item.name.toLowerCase().includes('hotel');
+        const isNotRestaurant = !item.name.toLowerCase().includes('restaurant');
+        const isNotAirline = !item.name.toLowerCase().includes('airlines');
+        const isNotCompany = !item.name.toLowerCase().includes('company');
+        
+        // Since we're using API category filtering, we can be more lenient with location filtering
+        const address = item.address?.toLowerCase() || '';
+        const name = item.name?.toLowerCase() || '';
+        const destLower = dest.toLowerCase();
+        
+        // Extract the main destination word (first word)
+        const mainDest = destLower.split(' ')[0];
+        
+        // Check if the result is related to the destination (more lenient since API does the heavy lifting)
+        const isInDestination = address.includes(destLower) || 
+                               name.includes(destLower) ||
+                               address.includes(mainDest) ||
+                               name.includes(mainDest) ||
+                               // Check for common administrative divisions
+                               (address.includes('prefecture') && address.includes(mainDest)) ||
+                               (address.includes('province') && address.includes(mainDest)) ||
+                               (address.includes('state') && address.includes(mainDest)) ||
+                               (address.includes('region') && address.includes(mainDest)) ||
+                               (address.includes('county') && address.includes(mainDest)) ||
+                               (address.includes('district') && address.includes(mainDest)) ||
+                               // If no clear location match, include it anyway (API category filtering should handle this)
+                               (!address.includes('san francisco') && !address.includes('chicago') && !address.includes('new york'));
+
+        return hasGoodAddress && hasGoodName && isNotGeneric && isRealAttraction && 
+               isNotHotel && isNotRestaurant && isNotAirline && isNotCompany && isInDestination;
       }).sort((a, b) => {
         // Sort to prioritize real attractions first
         const aIsAttraction = !a.name.toLowerCase().includes('tour') &&
@@ -818,35 +915,23 @@ export default function FlightSearchPage() {
           category: getCategoryName(r.category)
         })));
 
-        // For each location, get detailed info with photos - limit to 3 best results
+        // For each location, get detailed info with photos - limit to 6 best results
         const detailedRecommendations = await Promise.all(
-          qualityResults.slice(0, 3).map(async (location: any) => {
+          qualityResults.slice(0, 6).map(async (location: any) => {
             try {
               console.log(`🔍 Fetching details for: ${location.name} (ID: ${location.location_id})`);
 
-              // Skip detail API call for tours, tickets, and passes as they often don't have detail endpoints
+              // Try to get details for all locations, but have shorter timeout for tours
               const isTourOrTicket = location.name.toLowerCase().includes('tour') ||
                 location.name.toLowerCase().includes('ticket') ||
                 location.name.toLowerCase().includes('pass') ||
                 location.name.toLowerCase().includes('guided') ||
                 location.name.toLowerCase().includes('bus');
 
-              if (isTourOrTicket) {
-                console.log(`⚠️ Skipping detail API for tour/ticket: ${location.name}`);
-                return {
-                  ...location,
-                  rating: 4.3 + Math.random() * 0.4, // Good rating for tours
-                  num_reviews: Math.floor(Math.random() * 3000) + 500,
-                  description: `Experience ${location.name}, a popular ${getCategoryName(location.category).toLowerCase()} in ${dest}. This activity offers visitors a unique experience and is highly recommended by travelers.`,
-                  photos: [],
-                  reviews: [],
-                  web_url: location.web_url || `https://www.tripadvisor.com/Search?q=${encodeURIComponent(location.name + ' ' + dest)}`
-                };
-              }
-
-              // Add timeout to prevent hanging
+              // Add timeout to prevent hanging - shorter for tours
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+              const timeout = isTourOrTicket ? 3000 : 5000; // 3s for tours, 5s for attractions
+              const timeoutId = setTimeout(() => controller.abort(), timeout);
 
               const detailResponse = await fetch(
                 `http://localhost:4000/tripadvisor/location/${location.location_id}/details?includePhotos=true&includeReviews=true&photoLimit=3&reviewLimit=2`,
@@ -871,42 +956,11 @@ export default function FlightSearchPage() {
                   );
                   const photosData = await photosResponse.json();
                   if (photosData.success && photosData.data) {
-                    // Filter out inappropriate and irrelevant photos
+                    // Simplified photo filtering - be more lenient
                     photos = photosData.data.filter(photo => {
                       const caption = (photo.caption || '').toLowerCase();
-                      const destLower = dest.toLowerCase();
-                      const destWords = destLower.split(' ').filter(word => word.length > 2);
-
-                      // Check if photo is relevant to destination
-                      const isRelevantToDestination = destWords.some(word =>
-                        caption.includes(word)
-                      ) || caption.includes(destLower) ||
-                        // Common travel-related keywords
-                        caption.includes('hotel') ||
-                        caption.includes('restaurant') ||
-                        caption.includes('attraction') ||
-                        caption.includes('landmark') ||
-                        caption.includes('building') ||
-                        caption.includes('street') ||
-                        caption.includes('view') ||
-                        caption.includes('skyline') ||
-                        caption.includes('park') ||
-                        caption.includes('museum') ||
-                        caption.includes('theater') ||
-                        caption.includes('beach') ||
-                        caption.includes('mountain') ||
-                        caption.includes('garden') ||
-                        caption.includes('plaza') ||
-                        caption.includes('square') ||
-                        caption.includes('tower') ||
-                        caption.includes('bridge') ||
-                        caption.includes('cathedral') ||
-                        caption.includes('palace') ||
-                        caption.includes('castle') ||
-                        caption.includes('monument') ||
-                        caption.includes('memorial');
-
-                      // Reject inappropriate and irrelevant content
+                      
+                      // Only reject clearly inappropriate content
                       const isInappropriate = caption.includes('underwear') ||
                         caption.includes('diet') ||
                         caption.includes('keto') ||
@@ -925,8 +979,6 @@ export default function FlightSearchPage() {
                         caption.includes('fitness') ||
                         caption.includes('gym') ||
                         caption.includes('workout') ||
-                        caption.includes('food') && !caption.includes('restaurant') ||
-                        caption.includes('drink') && !caption.includes('bar') ||
                         caption.includes('clothing') ||
                         caption.includes('shoes') ||
                         caption.includes('bag') ||
@@ -938,14 +990,15 @@ export default function FlightSearchPage() {
                         caption.includes('magazine') ||
                         caption.includes('newspaper');
 
-                      return isRelevantToDestination && !isInappropriate;
-                    }).slice(0, 3); // Limit to 3 good photos
+                      return !isInappropriate;
+                    }).slice(0, 3); // Limit to 3 photos
 
-                    console.log(`📸 Filtered to ${photos.length} relevant photos for ${location.name}`);
+                    console.log(`📸 Found ${photos.length} photos for ${location.name}`);
 
-                    // If no good photos found, use empty array to show placeholder
-                    if (photos.length === 0) {
-                      console.log(`⚠️ No appropriate photos found for ${location.name}, will show placeholder`);
+                    // If no photos found, try to use any available photos
+                    if (photos.length === 0 && photosData.data.length > 0) {
+                      photos = photosData.data.slice(0, 3);
+                      console.log(`📸 Using ${photos.length} unfiltered photos for ${location.name}`);
                     }
                   }
                 } catch (photoError) {
@@ -964,13 +1017,29 @@ export default function FlightSearchPage() {
                 };
               } else {
                 console.warn(`❌ No details data for ${location.name}:`, detailData);
+                
+                // Try to get photos even if details failed
+                let photos = [];
+                try {
+                  const photosResponse = await fetch(
+                    `http://localhost:4000/tripadvisor/location/${location.location_id}/photos?limit=3`
+                  );
+                  const photosData = await photosResponse.json();
+                  if (photosData.success && photosData.data) {
+                    photos = photosData.data.slice(0, 3);
+                    console.log(`📸 Got ${photos.length} photos for ${location.name} (details failed)`);
+                  }
+                } catch (photoError) {
+                  console.warn(`⚠️ Failed to get photos for ${location.name}:`, photoError);
+                }
+                
                 // Return enhanced basic location data with some defaults
                 return {
                   ...location,
                   rating: location.rating || 4.2 + Math.random() * 0.6,
                   num_reviews: location.num_reviews || Math.floor(Math.random() * 5000) + 100,
                   description: `Discover ${location.name}, a popular ${getCategoryName(location.category).toLowerCase()} in ${dest}. This location offers visitors a unique experience and is highly recommended by travelers.`,
-                  photos: [],
+                  photos: photos,
                   reviews: [],
                   web_url: location.web_url || `https://www.tripadvisor.com/Search?q=${encodeURIComponent(location.name + ' ' + dest)}`
                 };
@@ -984,13 +1053,28 @@ export default function FlightSearchPage() {
                 console.warn(`❌ Failed to get details for ${location.name}:`, error);
               }
 
+              // Try to get photos even when detailed API fails
+              let photos = [];
+              try {
+                const photosResponse = await fetch(
+                  `http://localhost:4000/tripadvisor/location/${location.location_id}/photos?limit=3`
+                );
+                const photosData = await photosResponse.json();
+                if (photosData.success && photosData.data) {
+                  photos = photosData.data.slice(0, 3);
+                  console.log(`📸 Got ${photos.length} photos for ${location.name} (fallback)`);
+                }
+              } catch (photoError) {
+                console.warn(`⚠️ Failed to get photos for ${location.name}:`, photoError);
+              }
+              
               // Return enhanced basic data even when detailed API fails
               return {
                 ...location,
                 rating: 4.2 + Math.random() * 0.6, // Random rating between 4.2-4.8
                 num_reviews: Math.floor(Math.random() * 5000) + 100, // Random reviews 100-5100
                 description: `Discover ${location.name}, a popular ${getCategoryName(location.category).toLowerCase()} in ${dest}. This location offers visitors a unique experience and is highly recommended by travelers.`,
-                photos: [], // No photos available
+                photos: photos, // Try to get photos
                 reviews: [], // No reviews available
                 web_url: location.web_url || `https://www.tripadvisor.com/Search?q=${encodeURIComponent(location.name + ' ' + dest)}` // Generate search URL
               };
@@ -999,7 +1083,7 @@ export default function FlightSearchPage() {
         );
 
         // Apply personalized filtering and ranking based on user preferences
-        const personalizedRecommendations = personalizeRecommendations(detailedRecommendations, userPreferences, dest);
+        const personalizedRecommendations = personalizeRecommendations(detailedRecommendations, userPreferences, searchDestination);
 
         console.log('🎯 Final personalized recommendations:', personalizedRecommendations.map(r => ({
           name: r.name,
@@ -1010,11 +1094,12 @@ export default function FlightSearchPage() {
         })));
 
         setAutoRecommendations(personalizedRecommendations);
+        setDestination(searchDestination); // Update destination to show city name
         setShowTripAdvisor(true); // Automatically show recommendations
       } else if (uniqueResults.length > 0) {
         console.log(`⚠️ Using fallback results (${uniqueResults.length} items) for ${dest}`);
-        // Use unique results as fallback - simplified version, limit to 3
-        const fallbackRecommendations = uniqueResults.slice(0, 3).map(location => ({
+        // Use unique results as fallback - simplified version, limit to 6
+        const fallbackRecommendations = uniqueResults.slice(0, 6).map(location => ({
           ...location,
           rating: 4.2 + Math.random() * 0.6,
           num_reviews: Math.floor(Math.random() * 5000) + 100,
@@ -1024,8 +1109,9 @@ export default function FlightSearchPage() {
           web_url: location.web_url || '' // Include web_url if available
         }));
 
-        const personalizedRecommendations = personalizeRecommendations(fallbackRecommendations, userPreferences, dest);
+        const personalizedRecommendations = personalizeRecommendations(fallbackRecommendations, userPreferences, searchDestination);
         setAutoRecommendations(personalizedRecommendations);
+        setDestination(searchDestination); // Update destination to show city name
         setShowTripAdvisor(true);
       } else {
         console.log(`❌ No results found for ${dest}`);
@@ -2100,7 +2186,7 @@ export default function FlightSearchPage() {
                   display: 'grid',
                   gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
                   gap: '16px',
-                  maxWidth: '1000px',
+                  maxWidth: '1200px',
                   margin: '0 auto'
                 }}>
                   {getFilteredRecommendations().length > 0 ? (
@@ -2468,7 +2554,7 @@ export default function FlightSearchPage() {
                                 fontSize: '0.8rem',
                                 fontWeight: '600',
                                 transition: 'all 0.2s',
-                                flex: 1,
+                                width: '100%',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -2486,35 +2572,6 @@ export default function FlightSearchPage() {
                               🌟 View on TripAdvisor
                             </button>
 
-                            {/* Add to Trip Button */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                console.log('Selected location:', location);
-                              }}
-                              style={{
-                                background: 'transparent',
-                                border: '1px solid #d1d5db',
-                                color: '#374151',
-                                padding: '8px 16px',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '0.8rem',
-                                fontWeight: '500',
-                                transition: 'all 0.2s',
-                                flex: 1
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#f3f4f6';
-                                e.currentTarget.style.borderColor = '#9ca3af';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'transparent';
-                                e.currentTarget.style.borderColor = '#d1d5db';
-                              }}
-                            >
-                              + Add to Trip
-                            </button>
                           </div>
                         </div>
                       </div>

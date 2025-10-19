@@ -1825,6 +1825,10 @@ class IntegratedAITravelAgent {
     };
     messages.push(itineraryMessage);
     
+    // Return only the itinerary - no flight, hotel, or attractions recommendations
+    return messages;
+    
+    /* COMMENTED OUT - Flight, Hotel, and Attractions recommendations
     // Message 2: Flight Recommendations with individual Google Flights buttons
     console.log('🔍 DEBUG: Checking flight message condition...');
     console.log('🔍 DEBUG: realData exists:', !!realData);
@@ -2262,6 +2266,8 @@ class IntegratedAITravelAgent {
     }
     
     return messages;
+    */ // END OF COMMENTED OUT CODE
+
   }
 
   /**
