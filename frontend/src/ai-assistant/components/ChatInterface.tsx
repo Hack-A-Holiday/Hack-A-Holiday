@@ -15,6 +15,7 @@ interface ChatInterfaceProps {
   onPromptClick: (prompt: string) => void;
   showSidebar: boolean;
   onToggleSidebar: () => void;
+  onNewChat?: () => void;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -30,7 +31,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   suggestedPrompts,
   onPromptClick,
   showSidebar,
-  onToggleSidebar
+  onToggleSidebar,
+  onNewChat
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -54,76 +56,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       `}</style>
       
       <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: isDarkMode ? '#0a0f1c' : '#f8fafc',
         display: 'flex',
-        zIndex: 1000
+        flexDirection: 'column',
+        height: '100%',
+        background: isDarkMode ? '#0a0f1c' : '#f8fafc'
       }}>
-      {/* Sidebar */}
-      <div style={{
-        width: showSidebar ? '300px' : '0',
-        background: isDarkMode ? '#1e293b' : '#ffffff',
-        borderRight: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
-        transition: 'width 0.3s ease',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        {/* Sidebar Header */}
-        <div style={{
-          padding: '20px',
-          borderBottom: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb'
-        }}>
-          <h3 style={{
-            margin: 0,
-            fontSize: '1.1rem',
-            fontWeight: '600',
-            color: isDarkMode ? '#f1f5f9' : '#1e293b'
-          }}>
-            Chat History
-          </h3>
-        </div>
-        
-        {/* Chat History List */}
-        <div style={{
-          flex: 1,
-          padding: '16px',
-          overflowY: 'auto'
-        }}>
-          {/* Sample chat history items */}
-          {[
-            'Trip to Japan Planning',
-            'Flight Search NYC to Paris',
-            'Hotel Recommendations Bali',
-            'Adventure Travel Ideas'
-          ].map((title, idx) => (
-            <div key={idx} style={{
-              padding: '12px 16px',
-              borderRadius: '8px',
-              background: isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(248, 250, 252, 0.8)',
-              border: isDarkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)',
-              marginBottom: '8px',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              fontSize: '0.9rem',
-              color: isDarkMode ? '#e2e8f0' : '#334155'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(241, 245, 249, 1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(248, 250, 252, 0.8)';
-            }}
-            >
-              {title}
-            </div>
-          ))}
-        </div>
-      </div>
+
 
       {/* Main Chat Area */}
       <div style={{
@@ -201,6 +139,37 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 <path d="m15 18-6-6 6-6"/>
               </svg>
               Back
+            </button>
+            {/* New Chat Button */}
+            <button
+              onClick={onNewChat}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                background: 'transparent',
+                border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                color: isDarkMode ? '#94a3b8' : '#64748b',
+                fontSize: '0.9rem',
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(241, 245, 249, 0.8)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="16"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+              New Chat
             </button>
           </div>
 
@@ -402,13 +371,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div style={{
           position: 'fixed',
           bottom: 0,
-          left: showSidebar ? '300px' : '0',
+          left: 0,
           right: 0,
           background: isDarkMode ? 'rgba(10, 15, 28, 0.95)' : 'rgba(248, 250, 252, 0.95)',
           backdropFilter: 'blur(10px)',
           borderTop: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
-          padding: '20px 24px',
-          transition: 'left 0.3s ease'
+          padding: '20px 24px'
         }}>
           <div style={{
             maxWidth: '900px',

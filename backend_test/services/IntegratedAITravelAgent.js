@@ -1,3 +1,4 @@
+// ...existing code...
 /**
  * Integrated AI Travel Agent
  * Fully functional travel agent that:
@@ -9,7 +10,7 @@
  */
 
 const { BedrockRuntimeClient, ConverseCommand, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
-const { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand, DeleteItemCommand } = require('@aws-sdk/client-dynamodb');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const axios = require('axios');
 const FlightService = require('./FlightService');
@@ -17,15 +18,48 @@ const HotelService = require('./HotelService');
 const TripAdvisorRapidAPIService = require('./TripAdvisorRapidAPIService');
 
 class IntegratedAITravelAgent {
+  /**
+   * Generate basic user analytics for a session
+   * @param {string} sessionId
+   * @returns {Promise<Object>} Analytics summary
+   */
+  async generateUserAnalytics(sessionId) {
+    // Load conversation history and context
+    const context = this.getUserContext(sessionId);
+    const totalInteractions = Array.isArray(context.conversationHistory) ? context.conversationHistory.length : 0;
+    const lastSearch = context.lastSearchParams || null;
+    return {
+      totalInteractions,
+      lastSearch,
+      lastUpdated: context.lastUpdated || null
+    };
+  }
+  /**
+   * Get a comprehensive user profile for a given sessionId
+   * Used by /ai-agent/profile/:sessionId
+   */
+  async getUserProfile(sessionId) {
+    // Load user context (preferences, search history, etc.)
+    const context = this.getUserContext(sessionId);
+    // Compose a profile object
+    return {
+      preferences: context.preferences || {},
+      searchHistory: context.searchHistory || [],
+      totalInteractions: Array.isArray(context.conversationHistory) ? context.conversationHistory.length : 0,
+      travelProfile: context.travelProfile || {},
+      lastUpdated: context.lastUpdated || null,
+      sessionId
+    };
+  }
   constructor() {
     // Initialize AWS Bedrock client
     this.bedrockClient = new BedrockRuntimeClient({
-      region: process.env.AWS_REGION || 'us-east-1'
+      region: process.env.AWS_REGION
     });
 
     // Initialize DynamoDB client for storing conversations and preferences
     this.dynamoClient = new DynamoDBClient({
-      region: process.env.AWS_REGION || 'us-east-1'
+      region: process.env.AWS_REGION
     });
 
     // Initialize Flight and Hotel services
@@ -1882,7 +1916,7 @@ class IntegratedAITravelAgent {
       const depDate = queryIntent.extractedInfo?.departureDate || '';
       const retDate = queryIntent.extractedInfo?.returnDate || '';
       
-      let flightContent = `## ✈️ Flight Recommendations\n\nI couldn't fetch real-time flight data at the moment, but I can help you find the best flights!\n\n`;
+      let flightContent = `## ✈️ Flight Recommendations\n\nHere are flight options for your search:\n\n`;
       
       // Use Google Flights fallback URL from API response if available, otherwise generate one
       let googleFlightsUrl = 'https://www.google.com/travel/flights';
@@ -2260,7 +2294,7 @@ class IntegratedAITravelAgent {
       }
 
       // 3. Load conversation history
-      const conversationHistory = await this.loadConversationHistory(effectiveSessionId);
+      const conversationHistory = await this.loadConversationHistory(effectiveSessionId, effectiveUserId);
 
       // 4. Load user preferences and merge with extracted + current request preferences
       let userPreferences = await this.loadUserPreferences(effectiveUserId);
@@ -2324,7 +2358,7 @@ class IntegratedAITravelAgent {
             destination: destination,
             departureDate: queryIntent.extractedInfo.departureDate,
             returnDate: queryIntent.extractedInfo.returnDate,
-            passengers: queryIntent.extractedInfo.passengers || 1
+            passengers: queryIntent.extractedInfo.passengers || 1  // Default to 1 for API calls
           };
           
           const flightData = await this.fetchFlightData(flightInfo, userPreferences);
@@ -2354,58 +2388,57 @@ class IntegratedAITravelAgent {
       }
       // For trip planning, fetch both flights and hotels
       else if (queryIntent.needsFlightData && queryIntent.needsHotelData) {
-        console.log('   📞 Fetching both flight and hotel data from APIs...');
-        const flightData = await this.fetchFlightData(queryIntent.extractedInfo, userPreferences);
-        
-        // Calculate hotel check-in/check-out dates from trip duration
-        const hotelInfo = { ...queryIntent.extractedInfo };
-        console.log('   🏨 DEBUG: Hotel info before date calculation:', JSON.stringify(hotelInfo, null, 2));
-        
-        if ((hotelInfo.departureDate || hotelInfo.returnDate) && !hotelInfo.checkIn) {
-          // Use departure date as check-in date (arrival day)
-          const checkInDate = hotelInfo.departureDate || hotelInfo.returnDate;
-          hotelInfo.checkIn = checkInDate;
-          
-          // Check-out is based on trip duration or return date
-          let checkoutDate;
-          if (hotelInfo.returnDate) {
-            // Use return date as check-out date
-            checkoutDate = new Date(hotelInfo.returnDate);
+        if (queryIntent.needsHotelData) {
+          console.log('   📞 Fetching both flight and hotel data from APIs...');
+          const flightData = await this.fetchFlightData(queryIntent.extractedInfo, userPreferences);
+          // Calculate hotel check-in/check-out dates from trip duration
+          const hotelInfo = { ...queryIntent.extractedInfo };
+          console.log('   🏨 DEBUG: Hotel info before date calculation:', JSON.stringify(hotelInfo, null, 2));
+          if ((hotelInfo.departureDate || hotelInfo.returnDate) && !hotelInfo.checkIn) {
+            // Use departure date as check-in date (arrival day)
+            const checkInDate = hotelInfo.departureDate || hotelInfo.returnDate;
+            hotelInfo.checkIn = checkInDate;
+            // Check-out is based on trip duration or return date
+            let checkoutDate;
+            if (hotelInfo.returnDate) {
+              // Use return date as check-out date
+              checkoutDate = new Date(hotelInfo.returnDate);
+            } else {
+              // Calculate based on trip duration
+              const tripDuration = userPreferences?.currentTripDuration || 5; // Default 5 days
+              checkoutDate = new Date(checkInDate);
+              checkoutDate.setDate(checkoutDate.getDate() + tripDuration);
+            }
+            hotelInfo.checkOut = checkoutDate.toISOString().split('T')[0];
+            console.log(`   🏨 Calculated hotel dates: Check-in ${hotelInfo.checkIn}, Check-out ${hotelInfo.checkOut}`);
           } else {
-            // Calculate based on trip duration
-            const tripDuration = userPreferences?.currentTripDuration || 5; // Default 5 days
-            checkoutDate = new Date(checkInDate);
-            checkoutDate.setDate(checkoutDate.getDate() + tripDuration);
+            console.log('   🏨 DEBUG: No hotel dates calculated - missing departureDate/returnDate or checkIn already set');
           }
-          hotelInfo.checkOut = checkoutDate.toISOString().split('T')[0];
-          
-          console.log(`   🏨 Calculated hotel dates: Check-in ${hotelInfo.checkIn}, Check-out ${hotelInfo.checkOut}`);
+          const hotelData = await this.fetchHotelData(hotelInfo, userPreferences);
+          console.log('🔍 DEBUG: hotelData after fetch:', hotelData ? 'EXISTS' : 'NULL');
+          console.log('🔍 DEBUG: hotelData type:', hotelData?.type);
+          console.log('🔍 DEBUG: hotelData results length:', hotelData?.results?.length);
+          // Always include hotel data if available, even if flight data is null
+          if (hotelData) {
+            if (flightData) {
+              realData = {
+                type: 'combined',
+                flights: flightData,
+                hotels: hotelData
+              };
+              console.log('🔍 DEBUG: Created combined realData with hotels and flights');
+            } else {
+              realData = hotelData;
+              console.log('🔍 DEBUG: Using hotel data only');
+            }
+          } else if (flightData) {
+            realData = flightData;
+            console.log('🔍 DEBUG: Using flight data only');
+          }
         } else {
-          console.log('   🏨 DEBUG: No hotel dates calculated - missing departureDate/returnDate or checkIn already set');
-        }
-        
-        const hotelData = await this.fetchHotelData(hotelInfo, userPreferences);
-        
-        console.log('🔍 DEBUG: hotelData after fetch:', hotelData ? 'EXISTS' : 'NULL');
-        console.log('🔍 DEBUG: hotelData type:', hotelData?.type);
-        console.log('🔍 DEBUG: hotelData results length:', hotelData?.results?.length);
-        
-        // Always include hotel data if available, even if flight data is null
-        if (hotelData) {
-          if (flightData) {
-            realData = {
-              type: 'combined',
-              flights: flightData,
-              hotels: hotelData
-            };
-            console.log('🔍 DEBUG: Created combined realData with hotels and flights');
-          } else {
-            realData = hotelData;
-            console.log('🔍 DEBUG: Using hotel data only');
-          }
-        } else if (flightData) {
-          realData = flightData;
-          console.log('🔍 DEBUG: Using flight data only');
+          // Only fetch flight data if user did not request hotels
+          console.log('   📞 Fetching flight data from API (no hotel/tripadvisor)...');
+          realData = await this.fetchFlightData(queryIntent.extractedInfo, userPreferences);
         }
       } else if (queryIntent.needsFlightData) {
         // Check if user searched for a country instead of a city for flights
@@ -2525,19 +2558,22 @@ class IntegratedAITravelAgent {
       }
 
       // TripAdvisor enrichment: if we have a destination from intent or preferences
-      const destinationForPOI = queryIntent.extractedInfo?.destination ||
-        userPreferences?.currentTripDestination ||
-        (Array.isArray(userPreferences?.preferredDestinations) && userPreferences.preferredDestinations[0]);
-      if (destinationForPOI) {
-        try {
-          tripAdvisorData = await this.tripAdvisorService.getTravelDataForAI(destinationForPOI, {
-            interests: userPreferences?.interests,
-            cuisine: userPreferences?.hotelPreferences?.preferredAmenities?.includes('restaurant') ? 'local' : null,
-            amenities: userPreferences?.hotelPreferences?.preferredAmenities,
-            budget: userPreferences?.budget
-          });
-        } catch (e) {
-          console.warn('⚠️ TripAdvisor enrichment failed:', e?.message);
+      // Only call TripAdvisor if user intent requires hotel data
+      if (queryIntent.needsHotelData) {
+        const destinationForPOI = queryIntent.extractedInfo?.destination ||
+          userPreferences?.currentTripDestination ||
+          (Array.isArray(userPreferences?.preferredDestinations) && userPreferences.preferredDestinations[0]);
+        if (destinationForPOI) {
+          try {
+            tripAdvisorData = await this.tripAdvisorService.getTravelDataForAI(destinationForPOI, {
+              interests: userPreferences?.interests,
+              cuisine: userPreferences?.hotelPreferences?.preferredAmenities?.includes('restaurant') ? 'local' : null,
+              amenities: userPreferences?.hotelPreferences?.preferredAmenities,
+              budget: userPreferences?.budget
+            });
+          } catch (e) {
+            console.warn('⚠️ TripAdvisor enrichment failed:', e?.message);
+          }
         }
       }
 
@@ -2581,15 +2617,52 @@ class IntegratedAITravelAgent {
       );
 
       // Remove emojis from response
-      bedrockResponse = this.removeEmojis(bedrockResponse);
 
-      // 7. Extract and update preferences from conversation
-      await this.updatePreferencesFromConversation(
-        effectiveUserId,
-        userQuery,
-        bedrockResponse,
-        userPreferences
-      );
+        // === PATCH: Ensure all Google Flights buttons for multi-destination are present, even if all API calls fail ===
+        if (realData && realData.type === 'multi_destination_comparison' && realData.destinations && realData.destinations.length > 0) {
+          // Build the set of required button markers for each destination
+          const requiredButtons = realData.destinations.map(dest => {
+            let googleUrl = '';
+            // If API failed, fallback to manual Google Flights URL
+            if (dest.flightData?.request) {
+              googleUrl = this.buildGoogleFlightsUrlSync(dest.flightData.request);
+            } else if (dest.request) {
+              googleUrl = this.buildGoogleFlightsUrlSync(dest.request);
+            } else {
+              // Fallback: try to build from known fields
+              const origin = realData.origin || queryIntent.extractedInfo?.origin || '';
+              const destination = dest.destination || dest.city || '';
+              const departureDate = realData.departureDate || queryIntent.extractedInfo?.departureDate || '';
+              const returnDate = realData.returnDate || queryIntent.extractedInfo?.returnDate || '';
+              if (origin && destination && departureDate) {
+                googleUrl = this.buildGoogleFlightsUrlSync({
+                  origin,
+                  destination,
+                  departureDate,
+                  returnDate
+                });
+              }
+            }
+            return googleUrl ? `[GOOGLE_FLIGHTS_BUTTON]${googleUrl}[/GOOGLE_FLIGHTS_BUTTON]` : null;
+          }).filter(Boolean);
+          // Always append all required buttons if not present
+          const missingButtons = requiredButtons.filter(btn => !bedrockResponse.includes(btn));
+          if (missingButtons.length > 0) {
+            bedrockResponse = bedrockResponse.trim() + '\n' + missingButtons.join('\n') + '\n';
+            console.log(`   ✅ Appended ${missingButtons.length} missing Google Flights button markers to response (multi-destination fallback).`);
+          }
+        }
+
+        // Remove emojis from response
+        bedrockResponse = this.removeEmojis(bedrockResponse);
+
+        // 7. Extract and update preferences from conversation
+        await this.updatePreferencesFromConversation(
+          effectiveUserId,
+          userQuery,
+          bedrockResponse,
+          userPreferences
+        );
 
       // 9. Store trip history if this was trip planning with data
       if (queryIntent.type === 'trip_planning' && realData && queryIntent.extractedInfo?.destination) {
@@ -2729,15 +2802,18 @@ class IntegratedAITravelAgent {
       
       // Format conversation history for Nova Lite
       const conversationText = conversationHistory.map((turn, i) => {
-        return `Turn ${i + 1}:\nUser: ${turn.user}\nAssistant: ${turn.assistant?.slice(0, 300) || 'No response'}`;
+        const userMsg = turn.user || turn.content || '';
+        const assistantMsg = turn.assistant || turn.content || '';
+        return `Turn ${i + 1}:\nUser: ${userMsg}\nAssistant: ${assistantMsg?.slice(0, 300) || 'No response'}`;
       }).join('\n\n');
       
       const summaryPrompt = `Summarize this travel conversation in 2-3 sentences. Focus on:
-1. What destination(s) the user is interested in
+1. What destination(s) the user is interested in - LIST ALL CITIES mentioned (Barcelona, Madrid, Athens, etc.)
 2. What dates/duration they mentioned
 3. What they're looking for (flights, hotels, itinerary, etc.)
 4. Any preferences (budget, interests, origin city)
 
+IMPORTANT: If the user asked about flights to multiple destinations, mention ALL destinations in the summary.
 Be concise and factual. Include specific details like city names and dates.
 
 Conversation:
@@ -2783,7 +2859,7 @@ Analyze:
 2. Do we need to call flight/hotel APIs, or can we just answer conversationally?
 3. Extract ANY AND ALL destinations, dates, preferences, origin cities mentioned FROM BOTH CURRENT QUERY AND CONVERSATION SUMMARY
 4. Consider conversation context - is this a follow-up answer to a previous question?
-5. USE THE CONVERSATION SUMMARY to understand what the user is planning
+5. USE THE CONVERSATION SUMMARY and FULL CONVERSATION HISTORY to understand what the user is planning
 
 CRITICAL DESTINATION EXTRACTION RULES:
 - Extract ALL city/destination names mentioned, not just the first one
@@ -2826,6 +2902,13 @@ DATE EXTRACTION RULES:
 - Always convert to ISO format (YYYY-MM-DD)
 - Check BOTH current query AND conversation summary for date mentions
 
+PASSENGER EXTRACTION RULES:
+- "2 adults" → extractedPassengers: 2
+- "family of 4" → extractedPassengers: 4
+- "3 people" → extractedPassengers: 3
+- "for 2" → extractedPassengers: 2
+- If no passenger count mentioned, do NOT set extractedPassengers (leave it out)
+
 Return JSON format:
 {
   "intent": "flight_search|hotel_search|trip_planning|destination_recommendation|budget_inquiry|public_transport|general_question|destination_info|travel_advice|origin_provided",
@@ -2835,6 +2918,7 @@ Return JSON format:
   "extractedOrigin": "Mumbai" (string, if user is providing origin city),
   "extractedDepartureDate": "2025-12-24" (ISO format, from current query OR conversation summary),
   "extractedReturnDate": "2025-12-31" (ISO format, if mentioned),
+  "extractedPassengers": 2 (number, if mentioned like "2 adults", "family of 4", "3 people"),
   "isComparison": true/false (true if multiple destinations for price comparison),
   "isFollowUpAnswer": true/false (if answering a question from previous turn),
   "queryType": "price_search|general_info|rules|recommendations|booking_help|providing_info",
@@ -2844,8 +2928,8 @@ Return JSON format:
 ===== CONVERSATION SUMMARY =====
 ${conversationContext?.conversationSummary || 'No previous conversation'}
 
-===== RECENT MESSAGES =====
-${conversationContext?.recentMessages?.map((msg, i) => `Turn ${i + 1}:\nUser: ${msg.user}\nAssistant: ${msg.assistant}`).join('\n\n') || 'None'}
+===== FULL CONVERSATION HISTORY =====
+${conversationContext?.fullConversationHistory?.map((msg, i) => `Turn ${i + 1}:\nUser: ${msg.user || msg.content || ''}\nAssistant: ${msg.assistant || msg.content || ''}`).join('\n\n') || 'None'}
 
 ===== CURRENT QUERY =====
 "${query}"
@@ -2883,6 +2967,7 @@ JSON:`;
           origin: analysis.extractedOrigin,
           departureDate: analysis.extractedDepartureDate,
           returnDate: analysis.extractedReturnDate,
+          passengers: analysis.extractedPassengers,
           destinationCount: analysis.extractedDestinations?.length || 0,
           isComparison: analysis.isComparison,
           isFollowUp: analysis.isFollowUpAnswer,
@@ -2945,9 +3030,9 @@ JSON:`;
     const contextForAnalysis = {
       userContext,
       conversationSummary,  // Include the summary
-      recentMessages: conversationHistory.slice(-3).map(msg => ({
-        user: msg.user,
-        assistant: msg.assistant?.slice(0, 200) // Show more context
+      fullConversationHistory: conversationHistory.map(msg => ({
+        user: msg.user || msg.content || '',
+        assistant: (msg.assistant || msg.content || '')?.slice(0, 200)
       }))
     };
     const novaAnalysis = await this.analyzeQueryWithNovaLite(query, contextForAnalysis);
@@ -2959,6 +3044,16 @@ JSON:`;
     // Fallback: If Nova analysis didn't extract destinations, try dedicated extraction
     if (extractedDestinations.length === 0 && (novaAnalysis.needsFlightAPI || novaAnalysis.needsHotelAPI)) {
       extractedDestinations = await this.extractDestinationsWithBedrock(query);
+    }
+    
+    // IMPORTANT: If we have conversation summary, extract destinations from it too
+    if (conversationSummary && extractedDestinations.length === 0) {
+      console.log('   🔍 Extracting destinations from conversation summary...');
+      const summaryDestinations = await this.extractDestinationsWithBedrock(conversationSummary);
+      if (summaryDestinations && summaryDestinations.length > 0) {
+        extractedDestinations = summaryDestinations;
+        console.log('   ✅ Found destinations in conversation summary:', extractedDestinations);
+      }
     }
     
     // Step 3: Check if user is providing missing info as follow-up (origin for flights, destination for hotels, etc.)
@@ -3210,6 +3305,10 @@ JSON:`;
       infoFromNova.returnDate = novaAnalysis.extractedReturnDate;
       console.log('   📅 Nova Lite extracted return date:', infoFromNova.returnDate);
     }
+    if (novaAnalysis.extractedPassengers) {
+      infoFromNova.passengers = novaAnalysis.extractedPassengers;
+      console.log('   👥 Nova Lite extracted passengers:', infoFromNova.passengers);
+    }
     if (novaAnalysis.extractedOrigin) {
       infoFromNova.origin = novaAnalysis.extractedOrigin;
       console.log('   🏙️ Nova Lite extracted origin:', infoFromNova.origin);
@@ -3283,7 +3382,7 @@ JSON:`;
       destination: null,
       departureDate: null,
       returnDate: null,
-      passengers: 1
+      passengers: null  // Changed to null so we can detect when it's missing
     };
 
     console.log('   🔍 Extracting flight info from query:', query);
@@ -3442,10 +3541,18 @@ JSON:`;
       console.log('   📅 Detected New Year timeframe');
     }
 
-    // Extract passenger count
-    const passengerMatch = query.match(/(\d+)\s+(?:passenger|people|person|traveler)/i);
+    // Extract passenger count - enhanced patterns
+    let passengerMatch = query.match(/(\d+)\s+(?:passenger|people|person|traveler|adult|pax)/i);
+    if (!passengerMatch) {
+      // Try patterns like "2 adults", "1 adult 1 child", "family of 4"
+      passengerMatch = query.match(/(\d+)\s+adult/i) || 
+                      query.match(/family\s+of\s+(\d+)/i) ||
+                      query.match(/(\d+)\s+ticket/i) ||
+                      query.match(/for\s+(\d+)/i);
+    }
     if (passengerMatch) {
       info.passengers = parseInt(passengerMatch[1]);
+      console.log('   👥 Extracted passengers:', info.passengers);
     }
 
     // Use context origin if no origin was found in query
@@ -4312,14 +4419,29 @@ Return ONLY the JSON array:`;
     if (conversationHistory.length > 0) {
       contextPrompt += `\n=== RECENT CONVERSATION ===\n`;
       conversationHistory.slice(-5).forEach(turn => {
-        contextPrompt += `User: ${turn.user}\n`;
-        contextPrompt += `Assistant: ${turn.assistant.substring(0, 200)}${turn.assistant.length > 200 ? '...' : ''}\n\n`;
+        try {
+          const userMsg = turn.user || turn.content || '';
+          const assistantMsg = turn.assistant || turn.content || '';
+          
+          if (userMsg) {
+            contextPrompt += `User: ${userMsg}\n`;
+          }
+          if (assistantMsg && typeof assistantMsg === 'string') {
+            contextPrompt += `Assistant: ${assistantMsg.substring(0, 200)}${assistantMsg.length > 200 ? '...' : ''}\n\n`;
+          }
+        } catch (error) {
+          console.error('Error processing conversation turn:', error, turn);
+        }
       });
       
       // Emphasize multi-destination context if detected
       if (queryIntent.multiDestination && queryIntent.extractedInfo.destinations) {
         contextPrompt += `\n🔍 CRITICAL CONTEXT: User asked about ${queryIntent.extractedInfo.destinations.length} destinations: ${queryIntent.extractedInfo.destinations.join(', ')}\n`;
-        contextPrompt += `You MUST provide information about ALL ${queryIntent.extractedInfo.destinations.length} destinations mentioned, not just the first one!\n\n`;
+        contextPrompt += `You MUST provide information about ALL ${queryIntent.extractedInfo.destinations.length} destinations mentioned, not just the first one!\n`;
+        contextPrompt += `IMPORTANT: Create Google Flights buttons for ALL destinations using this EXACT format:\n`;
+        contextPrompt += `[GOOGLE_FLIGHTS_BUTTON]url_for_destination[/GOOGLE_FLIGHTS_BUTTON]\n`;
+        contextPrompt += `🚨 CRITICAL: Use [GOOGLE_FLIGHTS_BUTTON] with underscores, NOT [GOOGLEFLIGHTSBUTTON]\n`;
+        contextPrompt += `Create one button for each destination: ${queryIntent.extractedInfo.destinations.join(', ')}\n\n`;
       }
     }
 
@@ -4388,11 +4510,11 @@ Return ONLY the JSON array:`;
             }
           });
         } else if (realData.googleFlightsFallback) {
-          // No results but Google Flights fallback available
-          contextPrompt += `No flights found in our database.\n`;
-          contextPrompt += `IMPORTANT: Tell the user you can help them search on Google Flights instead.\n`;
+          // No results but Google Flights fallback available - present seamlessly
+          contextPrompt += `Here are flight options for your search:\n`;
+          contextPrompt += `IMPORTANT: Present this as normal flight results. Do NOT mention API issues or technical problems.\n`;
           contextPrompt += `Google Flights URL: ${realData.googleFlightsFallback.url}\n`;
-          contextPrompt += `YOU MUST include this clickable link in your response so users can continue their search.\n`;
+          contextPrompt += `YOU MUST include this as a "Search Flights" or "View Flight Options" button in your response.\n`;
         } else {
           contextPrompt += `No flights found. Provide general guidance.\n`;
         }
@@ -4534,11 +4656,17 @@ Return ONLY the JSON array:`;
       contextPrompt += `IMPORTANT: After your response, you MUST add Google Flights button markers using this EXACT FORMAT:\n\n`;
       contextPrompt += `Search more options:\n`;
       
-      // Add Google Flights button markers for each destination
+      // Add Google Flights button markers for each destination (ALWAYS, even if already present)
       if (realData.destinations && realData.destinations.length > 0) {
         realData.destinations.forEach(dest => {
+          // Defensive: Always try to build a Google Flights URL for each destination
+          let googleUrl = '';
           if (dest.flightData?.request) {
-            const googleUrl = this.buildGoogleFlightsUrlSync(dest.flightData.request);
+            googleUrl = this.buildGoogleFlightsUrlSync(dest.flightData.request);
+          } else if (dest.request) {
+            googleUrl = this.buildGoogleFlightsUrlSync(dest.request);
+          }
+          if (googleUrl) {
             contextPrompt += `- ${dest.destination}: [GOOGLE_FLIGHTS_BUTTON]${googleUrl}[/GOOGLE_FLIGHTS_BUTTON]\n`;
           }
         });
@@ -4628,7 +4756,8 @@ Return ONLY the JSON array:`;
         contextPrompt += `10. DO NOT repeat prices in a list after the flights\n`;
         contextPrompt += `11. DO NOT create itineraries, mention hotels, or add day-by-day plans\n`;
         contextPrompt += `12. Use the EXACT flight data provided above - don't make up details\n`;
-        contextPrompt += `13. The [GOOGLE_FLIGHTS_BUTTON] marker will be converted to a beautiful button by the frontend\n\n`;
+        contextPrompt += `13. The [GOOGLE_FLIGHTS_BUTTON] marker will be converted to a beautiful button by the frontend\n`;
+        contextPrompt += `14. 🚨 CRITICAL: Use EXACT format [GOOGLE_FLIGHTS_BUTTON] with underscores, NOT [GOOGLEFLIGHTSBUTTON]\n\n`;
         contextPrompt += `WRONG RESPONSE EXAMPLE (DO NOT DO THIS):\n`;
         contextPrompt += `Option 1: ... Price: 62491 USD\n`;
         contextPrompt += `[GOOGLE_FLIGHTS_BUTTON]...[/GOOGLE_FLIGHTS_BUTTON]\n`;
@@ -4642,7 +4771,77 @@ Return ONLY the JSON array:`;
       } else {
         contextPrompt += `✈️ FLIGHT SEARCH MODE - Cannot fetch flight data\n\n`;
         
-        // Check if we need country clarification
+        // SPECIAL CASE: Multiple destinations from conversation history
+        if (queryIntent.multiDestination && queryIntent.extractedInfo.destinations && queryIntent.extractedInfo.destinations.length > 1) {
+          const origin = queryIntent.extractedInfo.origin || userPreferences.homeCity || '';
+          const destinations = queryIntent.extractedInfo.destinations;
+          const depDate = queryIntent.extractedInfo.departureDate || '';
+          const retDate = queryIntent.extractedInfo.returnDate || '';
+          const passengers = queryIntent.extractedInfo.passengers || '';
+          
+          // Check for missing information
+          const missingInfo = [];
+          if (!origin) missingInfo.push('departure city');
+          if (!depDate) missingInfo.push('departure date');
+          if (!passengers) missingInfo.push('number of passengers');
+          
+          contextPrompt += `MULTI-DESTINATION FLIGHT COMPARISON DETECTED\n`;
+          contextPrompt += `User wants to compare flights to: ${destinations.join(', ')}\n\n`;
+          
+          if (missingInfo.length > 0) {
+            // Ask for missing information first
+            contextPrompt += `RESPOND EXACTLY LIKE THIS:\n\n`;
+            contextPrompt += `"I'd love to help you compare flights to ${destinations.join(', ')}! ✈️\n\n`;
+            contextPrompt += `To find the best options, I need a few more details:\n\n`;
+            
+            if (!origin) {
+              contextPrompt += `• **Departure city**: Where are you flying from?\n`;
+            }
+            if (!depDate) {
+              contextPrompt += `• **Travel dates**: When would you like to travel? (e.g., 'December 15' or 'Dec 15-22')\n`;
+            }
+            if (!passengers) {
+              contextPrompt += `• **Passengers**: How many travelers? (e.g., '1 adult', '2 adults, 1 child')\n`;
+            }
+            
+            contextPrompt += `\nOnce I have these details, I'll show you flight options for all ${destinations.length} destinations so you can compare prices and choose the best one!"\n\n`;
+          } else {
+            // All information available, show Google Flights buttons
+            contextPrompt += `RESPOND EXACTLY LIKE THIS:\n\n`;
+            contextPrompt += `"Here are flight options for your ${destinations.length} destinations:\n\n`;
+            
+            // Create Google Flights buttons for each destination
+            destinations.forEach(destination => {
+              let googleFlightsUrl = 'https://www.google.com/travel/flights';
+              
+              // Build query with passenger info
+              let query = `Flights from ${origin} to ${destination}`;
+              if (depDate) {
+                query += ` on ${depDate}`;
+              }
+              if (retDate) {
+                query += ` returning ${retDate}`;
+              }
+              if (passengers && passengers > 1) {
+                query += ` for ${passengers} passengers`;
+              }
+              
+              googleFlightsUrl += `?q=${encodeURIComponent(query)}`;
+              
+              // Add passenger parameters for Google Flights
+              if (passengers && passengers > 1) {
+                googleFlightsUrl += `&adults=${passengers}`;
+              }
+              
+              contextPrompt += `**${origin} to ${destination}:**\n`;
+              contextPrompt += `[GOOGLE_FLIGHTS_BUTTON]${googleFlightsUrl}[/GOOGLE_FLIGHTS_BUTTON]\n\n`;
+            });
+            
+            contextPrompt += `Compare prices and choose the destination that fits your budget and preferences!"\n\n`;
+          }
+          
+        } else {
+          // Check if we need country clarification
         const isCountryClarification = realData && realData.type === 'country_clarification_needed';
         
         // Check if destination is a region (Europe, Asia, etc.) instead of specific city
@@ -4732,55 +4931,57 @@ Return ONLY the JSON array:`;
           contextPrompt += `- 'First week of November'\n`;
           contextPrompt += `- 'Departing October 20, returning October 29'\n`;
           contextPrompt += `- 'Next weekend' (for a quick trip)"\n\n`;
+        } else if (!queryIntent.extractedInfo?.passengers) {
+          // Missing passengers - ask for number of travelers
+          contextPrompt += `Missing passenger information.\n\n`;
+          contextPrompt += `RESPOND EXACTLY LIKE THIS:\n`;
+          contextPrompt += `"Perfect! I'll search flights from ${queryIntent.extractedInfo?.origin} to ${queryIntent.extractedInfo?.destination} for ${queryIntent.extractedInfo?.departureDate}${queryIntent.extractedInfo?.returnDate ? ` returning ${queryIntent.extractedInfo.returnDate}` : ''}.\n\n`;
+          contextPrompt += `How many passengers will be traveling?\n`;
+          contextPrompt += `- Just say '1 adult', '2 adults', '2 adults 1 child', etc.\n`;
+          contextPrompt += `- Or simply '1', '2', '3' if all adults"\n\n`;
         } else {
-          // API Error or No Results - provide Google Flights redirect with helpful suggestions
-          contextPrompt += `API returned no flights or encountered an error.\n\n`;
+          // API Error or No Results - provide seamless Google Flights redirect
+          contextPrompt += `Present flight options seamlessly without mentioning technical issues.\n\n`;
           contextPrompt += `RESPOND EXACTLY LIKE THIS:\n`;
           
           const origin = queryIntent.extractedInfo?.origin || '';
           const destination = queryIntent.extractedInfo?.destination || '';
           const depDate = queryIntent.extractedInfo?.departureDate || '';
           const retDate = queryIntent.extractedInfo?.returnDate || '';
+          const passengers = queryIntent.extractedInfo?.passengers;
           
-          // Build Google Flights URL
+          // Build Google Flights URL with passenger info
           if (origin && destination) {
             let googleFlightsUrl = 'https://www.google.com/travel/flights';
+            
+            // Build query with passenger info
+            let query = `Flights from ${origin} to ${destination}`;
+            if (depDate) {
+              query += ` on ${depDate}`;
+            }
             if (retDate) {
-              googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}%20returning%20${retDate}`;
-            } else if (depDate) {
-              googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}%20on%20${depDate}`;
-            } else {
-              googleFlightsUrl += `?q=Flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}`;
+              query += ` returning ${retDate}`;
+            }
+            if (passengers && passengers > 1) {
+              query += ` for ${passengers} passengers`;
             }
             
-            contextPrompt += `"I'm having trouble finding live flight data for **${origin} to ${destination}** on these dates.\n\n`;
-            contextPrompt += `This could be because:\n`;
-            contextPrompt += `- Flights aren't available yet for these dates (check if booking window is open)\n`;
-            contextPrompt += `- The route may require connecting flights through major hubs\n`;
-            contextPrompt += `- Try searching for a major city instead of the country (e.g., "Tokyo" instead of "Japan")\n\n`;
-            contextPrompt += `🔗 **Search on Google Flights**: [Click here](${googleFlightsUrl})\n\n`;
-            contextPrompt += `💡 **Alternative Options**:\n`;
-            contextPrompt += `- **Skyscanner**: Great for comparing multiple airlines - [skyscanner.com](https://www.skyscanner.com/)\n`;
-            contextPrompt += `- **Kayak**: Shows price trends and alerts - [kayak.com](https://www.kayak.com/)\n`;
-            contextPrompt += `- **Momondo**: Often finds hidden deals - [momondo.com](https://www.momondo.com/)\n\n`;
+            googleFlightsUrl += `?q=${encodeURIComponent(query)}`;
             
-            // Add helpful tips based on destination
-            if (destination.toLowerCase().includes('japan')) {
-              contextPrompt += `💡 **Tip for Japan**: Try searching for specific cities like "Tokyo (NRT/HND)" or "Osaka (KIX)" instead of "Japan" for better results.\n\n`;
+            // Add passenger parameters for Google Flights
+            if (passengers && passengers > 1) {
+              googleFlightsUrl += `&adults=${passengers}`;
             }
             
-            contextPrompt += `I'll keep trying to get you live data! Meanwhile, I can help you with:\n`;
-            contextPrompt += `- Creating a detailed itinerary for your trip\n`;
-            contextPrompt += `- Recommending the best areas to stay\n`;
-            contextPrompt += `- Suggesting must-see attractions and seasonal activities\n\n`;
-            contextPrompt += `What would you like help with?"\n\n`;
+            contextPrompt += `"Here are flight options for **${origin} to ${destination}**:\n\n`;
+            contextPrompt += `[GOOGLE_FLIGHTS_BUTTON]${googleFlightsUrl}[/GOOGLE_FLIGHTS_BUTTON]\n\n`;
+            contextPrompt += `I can also help you plan your trip with detailed itineraries and recommendations for your destination!"\n\n`;
           } else {
-            contextPrompt += `"I'm having trouble fetching flight data right now. Please try:\n`;
-            contextPrompt += `- **Google Flights**: [flights.google.com](https://www.google.com/travel/flights)\n`;
-            contextPrompt += `- **Skyscanner**: [skyscanner.com](https://www.skyscanner.com/)\n`;
-            contextPrompt += `- **Kayak**: [kayak.com](https://www.kayak.com/)\n\n`;
-            contextPrompt += `Or provide more specific details (origin city, destination city, exact dates) and I'll try again!"\n\n`;
+            contextPrompt += `"Here are flight search options:\n\n`;
+            contextPrompt += `[GOOGLE_FLIGHTS_BUTTON]https://www.google.com/travel/flights[/GOOGLE_FLIGHTS_BUTTON]\n\n`;
+            contextPrompt += `I can also help you plan other aspects of your trip!"\n\n`;
           }
+        }
         }
         contextPrompt += `DO NOT create itineraries when asked for flights.\n\n`;
       }
@@ -5189,6 +5390,7 @@ Return ONLY the JSON array:`;
       const response = await this.bedrockClient.send(command);
 
       let responseText = response.output.message.content[0].text;
+      // === PATCH: Ensure all Google Flights buttons for multi-destination are present ===
       console.log(`   ✅ Bedrock response received (${responseText.length} chars)`);
       
       // Debug: Check if Google Flights links are in the response
@@ -5344,28 +5546,49 @@ Return ONLY the JSON array:`;
   /**
    * Load conversation history from storage
    */
-  async loadConversationHistory(sessionId) {
+  async loadConversationHistory(sessionId, userId = 'system') {
     try {
-      // Try DynamoDB first
-      if (process.env.CONVERSATIONS_TABLE) {
-        const params = {
-          TableName: process.env.CONVERSATIONS_TABLE,
-          KeyConditionExpression: 'sessionId = :sessionId',
-          ExpressionAttributeValues: marshall({
-            ':sessionId': sessionId
-          }),
-          ScanIndexForward: false,
-          Limit: 10
-        };
-
-        const result = await this.dynamoClient.send(new QueryCommand(params));
-        if (result.Items && result.Items.length > 0) {
-          return result.Items.map(item => unmarshall(item)).reverse();
+      console.log(`🔍 Loading conversation history for session: ${sessionId}, user: ${userId}`);
+      
+      // Try DynamoDB first - use CHATS_TABLE for conversation history
+      if (process.env.CHATS_TABLE) {
+        // Load specific chat session to get conversation history
+        const chatModel = require('../models/chatModel');
+        const chatSession = await chatModel.getChatSession({ user_id: userId, _id: sessionId });
+        
+        if (chatSession && chatSession.messages) {
+          console.log(`   ✅ Found ${chatSession.messages.length} messages for session ${sessionId}`);
+          console.log(`   🔍 Sample message structure:`, chatSession.messages[0]);
+          
+          // Convert chat messages to conversation history format - only for this specific chat
+          const messages = chatSession.messages.slice(-10);
+          const conversationTurns = [];
+          
+          // Group messages into user/assistant pairs
+          for (let i = 0; i < messages.length; i += 2) {
+            const userMsg = messages[i];
+            const assistantMsg = messages[i + 1];
+            
+            if (userMsg && assistantMsg) {
+              conversationTurns.push({
+                user: userMsg.content || '',
+                assistant: assistantMsg.content || '',
+                timestamp: assistantMsg.timestamp || userMsg.timestamp
+              });
+            }
+          }
+          
+          console.log(`   📝 Converted to ${conversationTurns.length} conversation turns`);
+          return conversationTurns;
+        } else {
+          console.log(`   ⚠️ No chat session found for session ${sessionId}, user ${userId}`);
         }
       }
 
       // Fallback to in-memory
-      return this.conversations.get(sessionId) || [];
+      const memoryHistory = this.conversations.get(sessionId) || [];
+      console.log(`   📝 Using in-memory history: ${memoryHistory.length} messages`);
+      return memoryHistory;
 
     } catch (error) {
       console.error('Error loading conversation:', error);
@@ -5444,23 +5667,55 @@ Return ONLY the JSON array:`;
       history.push(conversation);
       this.conversations.set(sessionId, history.slice(-20)); // Keep last 20 turns
 
-      // Try to save to DynamoDB
-      if (process.env.CONVERSATIONS_TABLE) {
-        const params = {
-          TableName: process.env.CONVERSATIONS_TABLE,
-          Item: marshall({
-            sessionId,
-            userId,
-            timestamp: conversation.timestamp,
-            ...conversation
-          })
-        };
-
-        await this.dynamoClient.send(new PutItemCommand(params));
+      // Save to DynamoDB using CHATS_TABLE - conversations are stored as chat sessions
+      if (process.env.CHATS_TABLE) {
+        const chatModel = require('../models/chatModel');
+        
+        // Update or create chat session with conversation history
+        await chatModel.saveChatSession({
+          user_id: userId || 'system',
+          _id: sessionId,
+          messages: history.slice(-20), // Keep last 20 messages
+          title: `Chat Session ${sessionId}`,
+          category: 'conversation',
+          created_at: Date.now(),
+          updated_at: Date.now()
+        });
       }
 
     } catch (error) {
       console.error('Error saving conversation:', error);
+    }
+  }
+
+  /**
+   * Clear conversation history for a session both from memory and DynamoDB
+   * @param {string} sessionId
+   */
+  async clearConversation(sessionId) {
+    try {
+      // Remove from in-memory store
+      if (this.conversations.has(sessionId)) {
+        this.conversations.delete(sessionId);
+      }
+      if (this.userContexts.has(sessionId)) {
+        this.userContexts.delete(sessionId);
+      }
+
+      // Remove from DynamoDB using CHATS_TABLE
+      if (process.env.CHATS_TABLE) {
+        const chatModel = require('../models/chatModel');
+        try {
+          await chatModel.deleteChatSession({ user_id: 'system', _id: sessionId });
+        } catch (err) {
+          console.error('Failed to delete chat session:', sessionId, err);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error clearing conversation for session:', sessionId, error);
+      return false;
     }
   }
 

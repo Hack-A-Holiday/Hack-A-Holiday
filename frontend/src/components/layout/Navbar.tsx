@@ -4,65 +4,44 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDarkMode } from '../../contexts/DarkModeContext';
+import Swal from 'sweetalert2';
 
 export default function Navbar() {
+  // Toggle user menu dropdown
+  const toggleUserMenu = () => {
+    setIsUserMenuOpen((prev) => !prev);
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+    setIsUserMenuOpen(false);
+    // Optionally redirect to login or home
+    router.push('/login');
+  };
+
+  // Close mobile menu
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
   const { state, logout } = useAuth();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  // Close user menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-    };
-
-    if (isUserMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isUserMenuOpen]);
-
-  const handleLogout = () => {
-    logout();
-    router.push('/');
-  };
-
+  // Fix: Define toggleMobileMenu to toggle the mobile menu state
   const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
+    setIsMobileMenuOpen((prev) => !prev);
   };
+  // user menu controls (Dark Mode / Clear History) are rendered in the dropdown below
 
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
-  };
-
-  const toggleUserMenu = () => {
-    setIsUserMenuOpen(!isUserMenuOpen);
-  };
-
+  // Fix: getLinkStyle function for navigation links
   const getLinkStyle = (path: string) => {
-    // Special case: /ai-agent should highlight Plan Trip since users get redirected there after planning
     const isActive = router.pathname === path || (path === '/plantrip' && router.pathname === '/ai-agent');
-    
     return {
       textDecoration: 'none',
       color: isActive ? '#667eea' : (isDarkMode ? '#e0e0e0' : '#666'),
@@ -369,6 +348,70 @@ export default function Navbar() {
                       background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e0e0e0',
                       margin: '8px 0'
                     }} />
+
+                    <button
+                      onClick={async () => {
+                        if (!state.user?.id) return;
+                        const confirmed = await Swal.fire({
+                          title: 'Clear all chat history?',
+                          text: 'This will permanently delete all your saved chat sessions from the server. This cannot be undone.',
+                          icon: 'warning',
+                          showCancelButton: true,
+                          confirmButtonText: 'Yes, clear it',
+                          cancelButtonText: 'Cancel'
+                        });
+                        if (!confirmed.isConfirmed) return;
+                        setIsClearingHistory(true);
+                        try {
+                          const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                          const response = await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
+                            method: 'DELETE',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': state.token ? `Bearer ${state.token}` : ''
+                            }
+                          });
+                          const data = await response.json().catch(() => ({}));
+                          if (!response.ok || !data.success) {
+                            console.error('Clear history failed:', data);
+                            await Swal.fire('Error', data.error || 'Failed to clear server chat history', 'error');
+                            return;
+                          }
+                          setIsUserMenuOpen(false);
+                          await Swal.fire('Cleared', 'All chat history has been removed from the server.', 'success');
+                          window.location.reload();
+                        } catch (err) {
+                          console.error('Error clearing server history:', err);
+                          await Swal.fire('Error', 'Failed to clear chat history. Please try again.', 'error');
+                        } finally {
+                          setIsClearingHistory(false);
+                        }
+                      }}
+                      disabled={isClearingHistory}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '12px 16px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#ef4444',
+                        textAlign: 'left',
+                        cursor: isClearingHistory ? 'not-allowed' : 'pointer',
+                        fontSize: '0.9rem',
+                        transition: 'background 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isClearingHistory) e.currentTarget.style.background = isDarkMode ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.12)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <span style={{ fontSize: '1.1rem' }}>{isClearingHistory ? '...' : '🗑️'}</span>
+                      <span style={{ fontSize: '0.9rem' }}>{isClearingHistory ? 'Clearing...' : 'Clear All Chat History'}</span>
+                    </button>
 
                     <button
                       onClick={() => {

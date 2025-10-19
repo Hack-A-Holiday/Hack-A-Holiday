@@ -6,10 +6,10 @@ const { BedrockRuntimeClient, ConverseCommand } = require('@aws-sdk/client-bedro
 class GeocodingService {
   constructor() {
     this.bedrockClient = new BedrockRuntimeClient({ 
-      region: process.env.AWS_REGION || 'us-east-1' 
+      region: process.env.AWS_REGION 
     });
     // Use Nova Lite for fast geocoding
-    this.model = process.env.FAST_MODEL || 'amazon.nova-lite-v1:0';
+    this.model = process.env.FAST_MODEL;
     
     console.log('🌍 Geocoding Service initialized with Nova Pro');
   }

@@ -26,7 +26,7 @@ exports.googleUser = async (req, res) => {
     // Create JWT token (same behavior as regular login)
     const token = jwt.sign(
       { userId: userObj.id || userObj.uid || userObj.userId, email: userObj.email },
-      process.env.JWT_SECRET || 'devsecret',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 

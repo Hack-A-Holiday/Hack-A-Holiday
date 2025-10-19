@@ -1,5 +1,55 @@
 import axios from 'axios';
 import React, { useState, useEffect, useRef } from 'react';
+// Sidebar component for chat sessions
+const Sidebar = ({ userId, sessions, onSelect, selectedSessionId }) => (
+  <div style={{
+    width: '320px',
+    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+    borderRight: '1px solid #e5e7eb',
+    padding: '32px 0 0 0',
+    height: '100%',
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '2px 0 12px rgba(102,126,234,0.08)',
+    position: 'relative',
+    zIndex: 2
+  }}>
+    <div style={{ fontWeight: '700', fontSize: '1.2rem', padding: '0 32px 24px 32px', color: '#667eea' }}>
+      🗂️ Chat History
+    </div>
+    {sessions && sessions.length > 0 ? (
+      sessions.map((session) => (
+        <div
+          key={session._id}
+          onClick={() => onSelect(session._id)}
+          style={{
+            padding: '18px 32px',
+            margin: '0 0 8px 0',
+            background: selectedSessionId === session._id ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'rgba(102,126,234,0.07)',
+            color: selectedSessionId === session._id ? 'white' : '#333',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            boxShadow: selectedSessionId === session._id ? '0 2px 8px rgba(102,126,234,0.15)' : 'none',
+            transition: 'all 0.2s',
+            border: selectedSessionId === session._id ? '2px solid #667eea' : 'none',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            textOverflow: 'ellipsis'
+          }}
+        >
+          {session.preview ? session.preview : 'New Chat'}
+          <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '4px' }}>
+            {new Date(session.created_at || Date.now()).toLocaleString()}
+          </div>
+        </div>
+      ))
+    ) : (
+      <div style={{ padding: '18px 32px', color: '#aaa' }}>No chat sessions found.</div>
+    )}
+  </div>
+);
 import Head from 'next/head';
 import { useAuth } from '../contexts/AuthContext';
 import { useDarkMode } from '../contexts/DarkModeContext';
@@ -2062,6 +2112,8 @@ const AiAgentPage: React.FC = () => {
   const [userContext, setUserContext] = useState<LocalUserContext>({
     sessionId: `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   });
+  // In-memory conversation id (do not persist to sessionStorage/localStorage)
+  const [conversationId, setConversationId] = useState<string>(userContext.sessionId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const [messages, setMessages] = useState<Message[]>([
@@ -2162,11 +2214,59 @@ const AiAgentPage: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [aiModel, setAiModel] = useState<'bedrock' | 'sagemaker'>('bedrock');
+  // Sidebar state and logic
+  const [sidebarSessions, setSidebarSessions] = useState<any[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+
+  // Fetch sidebar sessions
+  useEffect(() => {
+    if (userContext.userId) {
+      axios.get(`/ai-agent/user-sessions/${userContext.userId}`)
+        .then(res => {
+          setSidebarSessions(res.data.sessions || []);
+        })
+        .catch(() => setSidebarSessions([]));
+    }
+  }, [userContext.userId, messages.length]);
+
+  // Handle sidebar session selection
+  const handleSidebarSelect = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    // Fetch messages for selected session
+    axios.get(`/ai-agent/chat-history?userId=${userContext.userId}&sessionId=${sessionId}`)
+      .then(res => {
+        const session = res.data.session;
+        if (session && session.messages) {
+          setMessages(session.messages.map((msg: any, idx: number) => ({ ...msg, id: `${sessionId}_${idx}` })));
+        }
+      });
+  };
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Clear any legacy client-side chat storage (do not persist chat on client)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('ai_chat_') || key === 'ai_user_contexts')) {
+            localStorage.removeItem(key);
+          }
+        }
+        try {
+          sessionStorage.removeItem('ai_conversation_id');
+        } catch (err) {
+          // ignore
+        }
+      } catch (err) {
+        console.warn('Failed to clear legacy chat keys from localStorage:', err);
+      }
+    }
+  }, []);
 
   // Load user context from profile
   useEffect(() => {
@@ -2185,16 +2285,7 @@ const AiAgentPage: React.FC = () => {
     }
   }, [state?.user, userContext.sessionId, contextService]);
 
-  // Save conversation to localStorage for persistence
-  useEffect(() => {
-    if (messages.length > 1) {
-      localStorage.setItem(`ai_chat_${userContext.sessionId}`, JSON.stringify({
-        messages,
-        userContext,
-        timestamp: Date.now()
-      }));
-    }
-  }, [messages, userContext]);
+  // Conversation persistence handled server-side (DynamoDB). Do not persist chat in browser storage.
 
   const createMessage = (role: 'user' | 'ai' | 'system', content: string | Record<string, any>): Message => ({
     role,
@@ -2246,7 +2337,7 @@ const AiAgentPage: React.FC = () => {
           role: msg.role === 'ai' ? 'assistant' : 'user',
           content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
         })),
-        conversationId: sessionStorage.getItem('ai_conversation_id') || userContext.sessionId,
+  conversationId: conversationId || userContext.sessionId,
         preferences: userContext.preferences,
         userContext: {
           ...enhancedContext,
@@ -2261,9 +2352,10 @@ const AiAgentPage: React.FC = () => {
         withCredentials: true // Send cookies with request
       });
       
-      // Store conversation ID for context
+      // Store conversation ID in-memory and update user context; server is authoritative
       if (response.data.data?.conversationId) {
-        sessionStorage.setItem('ai_conversation_id', response.data.data.conversationId);
+        setConversationId(response.data.data.conversationId);
+        setUserContext(prev => ({ ...prev, sessionId: response.data.data.conversationId }));
       }
       
       // Extract AI content from response
@@ -2640,24 +2732,17 @@ const AiAgentPage: React.FC = () => {
           : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
       }}>
         <Navbar />
-        
-        <main style={{ 
-          height: 'calc(100vh - 60px)',
-          display: 'flex',
-          flexDirection: 'column',
-          marginTop: '60px'
-        }}>
+        <main style={{ height: 'calc(100vh - 60px)', display: 'flex', flexDirection: 'row', marginTop: '60px' }}>
+          {/* Sidebar for chat sessions */}
+          <Sidebar
+            userId={userContext.userId}
+            sessions={sidebarSessions}
+            onSelect={handleSidebarSelect}
+            selectedSessionId={selectedSessionId}
+          />
           {/* Chat Container - Full Screen */}
-          <div style={{ 
-            flex: 1,
-            width: '100%',
-            maxWidth: '100%',
-            margin: '0 auto', 
-            background: isDarkMode ? '#0f172a' : 'rgba(255,255,255,0.98)', 
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
+          <div style={{ flex: 1, width: '100%', maxWidth: '100%', margin: '0 auto', background: isDarkMode ? '#0f172a' : 'rgba(255,255,255,0.98)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+// (Sidebar state and hooks are now at the top of the component)
             {/* Chat Header */}
             <div style={{ 
               background: isDarkMode 
