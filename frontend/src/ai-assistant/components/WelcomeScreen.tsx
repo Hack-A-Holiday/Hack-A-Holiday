@@ -5,9 +5,10 @@ interface WelcomeScreenProps {
   isDarkMode: boolean;
   isMobile: boolean;
   onStartChat: () => void;
+  chatSessions?: any[];
 }
 
-export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isDarkMode, isMobile, onStartChat }) => {
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isDarkMode, isMobile, onStartChat, chatSessions }) => {
   return (
     <div style={{
       position: 'relative',
@@ -109,57 +110,33 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isDarkMode, isMobi
           Start Chat
         </button>
 
-        {/* Features */}
-        <div style={{
-          marginTop: '80px',
-          display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
-          gap: '32px',
-          maxWidth: '900px',
-          margin: '80px auto 0'
-        }}>
-          {[
-            { icon: '✈️', title: 'Flight Planning', desc: 'Find best flights and routes' },
-            { icon: '🏨', title: 'Hotel Booking', desc: 'Discover perfect accommodations' },
-            { icon: '🗺️', title: 'Itinerary Creation', desc: 'Plan detailed travel schedules' }
-          ].map((feature, idx) => (
-            <div key={idx} style={{
-              textAlign: 'center',
-              padding: '24px',
-              background: isDarkMode 
-                ? 'rgba(30, 41, 59, 0.4)' 
-                : 'rgba(255, 255, 255, 0.6)',
-              borderRadius: '20px',
-              border: isDarkMode 
-                ? '1px solid rgba(148, 163, 184, 0.1)' 
-                : '1px solid rgba(226, 232, 240, 0.6)',
-              backdropFilter: 'blur(10px)',
-              boxShadow: isDarkMode 
-                ? '0 8px 32px rgba(0, 0, 0, 0.3)'
-                : '0 8px 32px rgba(0, 0, 0, 0.1)'
-            }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '16px' }}>
-                {feature.icon}
-              </div>
-              <h3 style={{
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: isDarkMode ? '#f1f5f9' : '#1e293b',
-                margin: '0 0 8px 0'
-              }}>
-                {feature.title}
-              </h3>
-              <p style={{
-                fontSize: '0.95rem',
-                color: isDarkMode ? '#94a3b8' : '#64748b',
-                margin: 0,
-                lineHeight: '1.4'
-              }}>
-                {feature.desc}
-              </p>
-            </div>
-          ))}
-        </div>
+        {/* User Chat History */}
+        {chatSessions && chatSessions.length > 0 && (
+          <div style={{
+            marginTop: '60px',
+            textAlign: 'left',
+            maxWidth: '600px',
+            margin: '60px auto 0',
+            background: isDarkMode ? 'rgba(30,41,59,0.4)' : 'rgba(255,255,255,0.7)',
+            borderRadius: '18px',
+            padding: '32px',
+            boxShadow: isDarkMode ? '0 8px 32px rgba(0,0,0,0.3)' : '0 8px 32px rgba(0,0,0,0.1)'
+          }}>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '18px', color: isDarkMode ? '#fff' : '#222' }}>Your Recent Chats</h2>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {chatSessions.map(sess => (
+                <li key={sess._id} style={{
+                  marginBottom: '18px',
+                  paddingBottom: '12px',
+                  borderBottom: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0'
+                }}>
+                  <div style={{ fontWeight: 600, fontSize: '1.1rem', color: isDarkMode ? '#fff' : '#222' }}>{sess.preview || 'New chat'}</div>
+                  <div style={{ fontSize: '0.95rem', color: isDarkMode ? '#94a3b8' : '#64748b', marginTop: '2px' }}>{new Date(sess.created_at).toLocaleString()}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

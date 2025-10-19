@@ -15,6 +15,9 @@ interface ChatInterfaceProps {
   onPromptClick: (prompt: string) => void;
   showSidebar: boolean;
   onToggleSidebar: () => void;
+  chatSessions?: any[];
+  onResumeSession?: (sessionId: string) => void;
+  onNewChat?: () => void;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -30,7 +33,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   suggestedPrompts,
   onPromptClick,
   showSidebar,
-  onToggleSidebar
+  onToggleSidebar,
+  chatSessions = [],
+  onResumeSession,
+  onNewChat
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -88,40 +94,42 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </h3>
         </div>
         
-        {/* Chat History List */}
+        {/* Chat History List - Real user sessions */}
         <div style={{
           flex: 1,
           padding: '16px',
           overflowY: 'auto'
         }}>
-          {/* Sample chat history items */}
-          {[
-            'Trip to Japan Planning',
-            'Flight Search NYC to Paris',
-            'Hotel Recommendations Bali',
-            'Adventure Travel Ideas'
-          ].map((title, idx) => (
-            <div key={idx} style={{
-              padding: '12px 16px',
-              borderRadius: '8px',
-              background: isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(248, 250, 252, 0.8)',
-              border: isDarkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)',
-              marginBottom: '8px',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              fontSize: '0.9rem',
-              color: isDarkMode ? '#e2e8f0' : '#334155'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(241, 245, 249, 1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(248, 250, 252, 0.8)';
-            }}
-            >
-              {title}
-            </div>
-          ))}
+          {chatSessions.length === 0 ? (
+            <div style={{ color: '#888', padding: 24 }}>No chats yet.</div>
+          ) : (
+            chatSessions.map(sess => (
+              <div
+                key={sess._id}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  background: isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(248, 250, 252, 0.8)',
+                  border: isDarkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)',
+                  marginBottom: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  fontSize: '0.9rem',
+                  color: isDarkMode ? '#e2e8f0' : '#334155'
+                }}
+                onClick={() => onResumeSession && onResumeSession(sess._id)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(241, 245, 249, 1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(248, 250, 252, 0.8)';
+                }}
+              >
+                <div style={{ fontWeight: 600 }}>{sess.preview || 'New chat'}</div>
+                <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: 2 }}>{new Date(sess.created_at).toLocaleString()}</div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -201,6 +209,37 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 <path d="m15 18-6-6 6-6"/>
               </svg>
               Back
+            </button>
+            {/* New Chat Button */}
+            <button
+              onClick={onNewChat}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                background: 'transparent',
+                border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                color: isDarkMode ? '#94a3b8' : '#64748b',
+                fontSize: '0.9rem',
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(241, 245, 249, 0.8)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="16"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+              New Chat
             </button>
           </div>
 

@@ -6,6 +6,23 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useDarkMode } from '../../contexts/DarkModeContext';
 
 export default function Navbar() {
+  // Toggle user menu dropdown
+  const toggleUserMenu = () => {
+    setIsUserMenuOpen((prev) => !prev);
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+    setIsUserMenuOpen(false);
+    // Optionally redirect to login or home
+    router.push('/login');
+  };
+
+  // Close mobile menu
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
   const { state, logout } = useAuth();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -14,55 +31,108 @@ export default function Navbar() {
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  // Close user menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-    };
-
-    if (isUserMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isUserMenuOpen]);
-
-  const handleLogout = () => {
-    logout();
-    router.push('/');
-  };
-
+  // Fix: Define toggleMobileMenu to toggle the mobile menu state
   const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
+    setIsMobileMenuOpen((prev) => !prev);
   };
+                    <div>
+                      <button
+                        onClick={() => {
+                          toggleDarkMode();
+                          setIsUserMenuOpen(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          padding: '12px 16px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: isDarkMode ? '#e0e0e0' : '#333',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          transition: 'background 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(102, 126, 234, 0.08)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '1.1rem' }}>{isDarkMode ? '🌙' : '☀️'}</span>
+                          <span>Dark Mode</span>
+                        </div>
+                        <div style={{
+                          width: '40px',
+                          height: '20px',
+                          borderRadius: '10px',
+                          background: isDarkMode ? '#667eea' : '#ccc',
+                          position: 'relative',
+                          transition: 'background 0.3s ease'
+                        }}>
+                          <div style={{
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '50%',
+                            background: 'white',
+                            position: 'absolute',
+                            top: '2px',
+                            left: isDarkMode ? '22px' : '2px',
+                            transition: 'left 0.3s ease'
+                          }} />
+                        </div>
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!state.user?.id) return;
+                          if (!window.confirm('Are you sure you want to clear ALL your chat history? This cannot be undone.')) return;
+                          const apiUrl = process.env.NODE_ENV === 'production'
+                            ? 'https://hack-travel-backend.onrender.com'
+                            : 'http://localhost:4000';
+                          await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
+                            method: 'DELETE',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': state.token ? `Bearer ${state.token}` : ''
+                            }
+                          });
+                          setIsUserMenuOpen(false);
+                          window.location.reload();
+                        }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '12px 16px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#ef4444',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          transition: 'background 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = isDarkMode ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.12)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        <span style={{ fontSize: '1.1rem' }}>🗑️</span>
+                        <span style={{ fontSize: '0.9rem' }}>Clear All Chat History</span>
+                      </button>
+                    </div>
 
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
-  };
-
-  const toggleUserMenu = () => {
-    setIsUserMenuOpen(!isUserMenuOpen);
-  };
-
+  // Fix: getLinkStyle function for navigation links
   const getLinkStyle = (path: string) => {
-    // Special case: /ai-agent should highlight Plan Trip since users get redirected there after planning
     const isActive = router.pathname === path || (path === '/plantrip' && router.pathname === '/ai-agent');
-    
     return {
       textDecoration: 'none',
       color: isActive ? '#667eea' : (isDarkMode ? '#e0e0e0' : '#666'),

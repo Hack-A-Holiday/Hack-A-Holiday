@@ -1,3 +1,4 @@
+// ...existing code...
 /**
  * Integrated AI Travel Agent
  * Fully functional travel agent that:
@@ -17,6 +18,39 @@ const HotelService = require('./HotelService');
 const TripAdvisorRapidAPIService = require('./TripAdvisorRapidAPIService');
 
 class IntegratedAITravelAgent {
+  /**
+   * Generate basic user analytics for a session
+   * @param {string} sessionId
+   * @returns {Promise<Object>} Analytics summary
+   */
+  async generateUserAnalytics(sessionId) {
+    // Load conversation history and context
+    const context = this.getUserContext(sessionId);
+    const totalInteractions = Array.isArray(context.conversationHistory) ? context.conversationHistory.length : 0;
+    const lastSearch = context.lastSearchParams || null;
+    return {
+      totalInteractions,
+      lastSearch,
+      lastUpdated: context.lastUpdated || null
+    };
+  }
+  /**
+   * Get a comprehensive user profile for a given sessionId
+   * Used by /ai-agent/profile/:sessionId
+   */
+  async getUserProfile(sessionId) {
+    // Load user context (preferences, search history, etc.)
+    const context = this.getUserContext(sessionId);
+    // Compose a profile object
+    return {
+      preferences: context.preferences || {},
+      searchHistory: context.searchHistory || [],
+      totalInteractions: Array.isArray(context.conversationHistory) ? context.conversationHistory.length : 0,
+      travelProfile: context.travelProfile || {},
+      lastUpdated: context.lastUpdated || null,
+      sessionId
+    };
+  }
   constructor() {
     // Initialize AWS Bedrock client
     this.bedrockClient = new BedrockRuntimeClient({
@@ -2282,58 +2316,57 @@ class IntegratedAITravelAgent {
       }
       // For trip planning, fetch both flights and hotels
       else if (queryIntent.needsFlightData && queryIntent.needsHotelData) {
-        console.log('   📞 Fetching both flight and hotel data from APIs...');
-        const flightData = await this.fetchFlightData(queryIntent.extractedInfo, userPreferences);
-        
-        // Calculate hotel check-in/check-out dates from trip duration
-        const hotelInfo = { ...queryIntent.extractedInfo };
-        console.log('   🏨 DEBUG: Hotel info before date calculation:', JSON.stringify(hotelInfo, null, 2));
-        
-        if ((hotelInfo.departureDate || hotelInfo.returnDate) && !hotelInfo.checkIn) {
-          // Use departure date as check-in date (arrival day)
-          const checkInDate = hotelInfo.departureDate || hotelInfo.returnDate;
-          hotelInfo.checkIn = checkInDate;
-          
-          // Check-out is based on trip duration or return date
-          let checkoutDate;
-          if (hotelInfo.returnDate) {
-            // Use return date as check-out date
-            checkoutDate = new Date(hotelInfo.returnDate);
+        if (queryIntent.needsHotelData) {
+          console.log('   📞 Fetching both flight and hotel data from APIs...');
+          const flightData = await this.fetchFlightData(queryIntent.extractedInfo, userPreferences);
+          // Calculate hotel check-in/check-out dates from trip duration
+          const hotelInfo = { ...queryIntent.extractedInfo };
+          console.log('   🏨 DEBUG: Hotel info before date calculation:', JSON.stringify(hotelInfo, null, 2));
+          if ((hotelInfo.departureDate || hotelInfo.returnDate) && !hotelInfo.checkIn) {
+            // Use departure date as check-in date (arrival day)
+            const checkInDate = hotelInfo.departureDate || hotelInfo.returnDate;
+            hotelInfo.checkIn = checkInDate;
+            // Check-out is based on trip duration or return date
+            let checkoutDate;
+            if (hotelInfo.returnDate) {
+              // Use return date as check-out date
+              checkoutDate = new Date(hotelInfo.returnDate);
+            } else {
+              // Calculate based on trip duration
+              const tripDuration = userPreferences?.currentTripDuration || 5; // Default 5 days
+              checkoutDate = new Date(checkInDate);
+              checkoutDate.setDate(checkoutDate.getDate() + tripDuration);
+            }
+            hotelInfo.checkOut = checkoutDate.toISOString().split('T')[0];
+            console.log(`   🏨 Calculated hotel dates: Check-in ${hotelInfo.checkIn}, Check-out ${hotelInfo.checkOut}`);
           } else {
-            // Calculate based on trip duration
-            const tripDuration = userPreferences?.currentTripDuration || 5; // Default 5 days
-            checkoutDate = new Date(checkInDate);
-            checkoutDate.setDate(checkoutDate.getDate() + tripDuration);
+            console.log('   🏨 DEBUG: No hotel dates calculated - missing departureDate/returnDate or checkIn already set');
           }
-          hotelInfo.checkOut = checkoutDate.toISOString().split('T')[0];
-          
-          console.log(`   🏨 Calculated hotel dates: Check-in ${hotelInfo.checkIn}, Check-out ${hotelInfo.checkOut}`);
+          const hotelData = await this.fetchHotelData(hotelInfo, userPreferences);
+          console.log('🔍 DEBUG: hotelData after fetch:', hotelData ? 'EXISTS' : 'NULL');
+          console.log('🔍 DEBUG: hotelData type:', hotelData?.type);
+          console.log('🔍 DEBUG: hotelData results length:', hotelData?.results?.length);
+          // Always include hotel data if available, even if flight data is null
+          if (hotelData) {
+            if (flightData) {
+              realData = {
+                type: 'combined',
+                flights: flightData,
+                hotels: hotelData
+              };
+              console.log('🔍 DEBUG: Created combined realData with hotels and flights');
+            } else {
+              realData = hotelData;
+              console.log('🔍 DEBUG: Using hotel data only');
+            }
+          } else if (flightData) {
+            realData = flightData;
+            console.log('🔍 DEBUG: Using flight data only');
+          }
         } else {
-          console.log('   🏨 DEBUG: No hotel dates calculated - missing departureDate/returnDate or checkIn already set');
-        }
-        
-        const hotelData = await this.fetchHotelData(hotelInfo, userPreferences);
-        
-        console.log('🔍 DEBUG: hotelData after fetch:', hotelData ? 'EXISTS' : 'NULL');
-        console.log('🔍 DEBUG: hotelData type:', hotelData?.type);
-        console.log('🔍 DEBUG: hotelData results length:', hotelData?.results?.length);
-        
-        // Always include hotel data if available, even if flight data is null
-        if (hotelData) {
-          if (flightData) {
-            realData = {
-              type: 'combined',
-              flights: flightData,
-              hotels: hotelData
-            };
-            console.log('🔍 DEBUG: Created combined realData with hotels and flights');
-          } else {
-            realData = hotelData;
-            console.log('🔍 DEBUG: Using hotel data only');
-          }
-        } else if (flightData) {
-          realData = flightData;
-          console.log('🔍 DEBUG: Using flight data only');
+          // Only fetch flight data if user did not request hotels
+          console.log('   📞 Fetching flight data from API (no hotel/tripadvisor)...');
+          realData = await this.fetchFlightData(queryIntent.extractedInfo, userPreferences);
         }
       } else if (queryIntent.needsFlightData) {
         // Check if user searched for a country instead of a city for flights
@@ -2453,19 +2486,22 @@ class IntegratedAITravelAgent {
       }
 
       // TripAdvisor enrichment: if we have a destination from intent or preferences
-      const destinationForPOI = queryIntent.extractedInfo?.destination ||
-        userPreferences?.currentTripDestination ||
-        (Array.isArray(userPreferences?.preferredDestinations) && userPreferences.preferredDestinations[0]);
-      if (destinationForPOI) {
-        try {
-          tripAdvisorData = await this.tripAdvisorService.getTravelDataForAI(destinationForPOI, {
-            interests: userPreferences?.interests,
-            cuisine: userPreferences?.hotelPreferences?.preferredAmenities?.includes('restaurant') ? 'local' : null,
-            amenities: userPreferences?.hotelPreferences?.preferredAmenities,
-            budget: userPreferences?.budget
-          });
-        } catch (e) {
-          console.warn('⚠️ TripAdvisor enrichment failed:', e?.message);
+      // Only call TripAdvisor if user intent requires hotel data
+      if (queryIntent.needsHotelData) {
+        const destinationForPOI = queryIntent.extractedInfo?.destination ||
+          userPreferences?.currentTripDestination ||
+          (Array.isArray(userPreferences?.preferredDestinations) && userPreferences.preferredDestinations[0]);
+        if (destinationForPOI) {
+          try {
+            tripAdvisorData = await this.tripAdvisorService.getTravelDataForAI(destinationForPOI, {
+              interests: userPreferences?.interests,
+              cuisine: userPreferences?.hotelPreferences?.preferredAmenities?.includes('restaurant') ? 'local' : null,
+              amenities: userPreferences?.hotelPreferences?.preferredAmenities,
+              budget: userPreferences?.budget
+            });
+          } catch (e) {
+            console.warn('⚠️ TripAdvisor enrichment failed:', e?.message);
+          }
         }
       }
 
@@ -2509,15 +2545,52 @@ class IntegratedAITravelAgent {
       );
 
       // Remove emojis from response
-      bedrockResponse = this.removeEmojis(bedrockResponse);
 
-      // 7. Extract and update preferences from conversation
-      await this.updatePreferencesFromConversation(
-        effectiveUserId,
-        userQuery,
-        bedrockResponse,
-        userPreferences
-      );
+        // === PATCH: Ensure all Google Flights buttons for multi-destination are present, even if all API calls fail ===
+        if (realData && realData.type === 'multi_destination_comparison' && realData.destinations && realData.destinations.length > 0) {
+          // Build the set of required button markers for each destination
+          const requiredButtons = realData.destinations.map(dest => {
+            let googleUrl = '';
+            // If API failed, fallback to manual Google Flights URL
+            if (dest.flightData?.request) {
+              googleUrl = this.buildGoogleFlightsUrlSync(dest.flightData.request);
+            } else if (dest.request) {
+              googleUrl = this.buildGoogleFlightsUrlSync(dest.request);
+            } else {
+              // Fallback: try to build from known fields
+              const origin = realData.origin || queryIntent.extractedInfo?.origin || '';
+              const destination = dest.destination || dest.city || '';
+              const departureDate = realData.departureDate || queryIntent.extractedInfo?.departureDate || '';
+              const returnDate = realData.returnDate || queryIntent.extractedInfo?.returnDate || '';
+              if (origin && destination && departureDate) {
+                googleUrl = this.buildGoogleFlightsUrlSync({
+                  origin,
+                  destination,
+                  departureDate,
+                  returnDate
+                });
+              }
+            }
+            return googleUrl ? `[GOOGLE_FLIGHTS_BUTTON]${googleUrl}[/GOOGLE_FLIGHTS_BUTTON]` : null;
+          }).filter(Boolean);
+          // Always append all required buttons if not present
+          const missingButtons = requiredButtons.filter(btn => !bedrockResponse.includes(btn));
+          if (missingButtons.length > 0) {
+            bedrockResponse = bedrockResponse.trim() + '\n' + missingButtons.join('\n') + '\n';
+            console.log(`   ✅ Appended ${missingButtons.length} missing Google Flights button markers to response (multi-destination fallback).`);
+          }
+        }
+
+        // Remove emojis from response
+        bedrockResponse = this.removeEmojis(bedrockResponse);
+
+        // 7. Extract and update preferences from conversation
+        await this.updatePreferencesFromConversation(
+          effectiveUserId,
+          userQuery,
+          bedrockResponse,
+          userPreferences
+        );
 
       // 9. Store trip history if this was trip planning with data
       if (queryIntent.type === 'trip_planning' && realData && queryIntent.extractedInfo?.destination) {
@@ -2711,7 +2784,7 @@ Analyze:
 2. Do we need to call flight/hotel APIs, or can we just answer conversationally?
 3. Extract ANY AND ALL destinations, dates, preferences, origin cities mentioned FROM BOTH CURRENT QUERY AND CONVERSATION SUMMARY
 4. Consider conversation context - is this a follow-up answer to a previous question?
-5. USE THE CONVERSATION SUMMARY to understand what the user is planning
+5. USE THE CONVERSATION SUMMARY and FULL CONVERSATION HISTORY to understand what the user is planning
 
 CRITICAL DESTINATION EXTRACTION RULES:
 - Extract ALL city/destination names mentioned, not just the first one
@@ -2772,8 +2845,8 @@ Return JSON format:
 ===== CONVERSATION SUMMARY =====
 ${conversationContext?.conversationSummary || 'No previous conversation'}
 
-===== RECENT MESSAGES =====
-${conversationContext?.recentMessages?.map((msg, i) => `Turn ${i + 1}:\nUser: ${msg.user}\nAssistant: ${msg.assistant}`).join('\n\n') || 'None'}
+===== FULL CONVERSATION HISTORY =====
+${conversationContext?.fullConversationHistory?.map((msg, i) => `Turn ${i + 1}:\nUser: ${msg.user}\nAssistant: ${msg.assistant}`).join('\n\n') || 'None'}
 
 ===== CURRENT QUERY =====
 "${query}"
@@ -2873,9 +2946,9 @@ JSON:`;
     const contextForAnalysis = {
       userContext,
       conversationSummary,  // Include the summary
-      recentMessages: conversationHistory.slice(-3).map(msg => ({
+      fullConversationHistory: conversationHistory.map(msg => ({
         user: msg.user,
-        assistant: msg.assistant?.slice(0, 200) // Show more context
+        assistant: msg.assistant?.slice(0, 200)
       }))
     };
     const novaAnalysis = await this.analyzeQueryWithNovaLite(query, contextForAnalysis);
@@ -4277,11 +4350,17 @@ Return ONLY the JSON array:`;
       contextPrompt += `IMPORTANT: After your response, you MUST add Google Flights button markers using this EXACT FORMAT:\n\n`;
       contextPrompt += `Search more options:\n`;
       
-      // Add Google Flights button markers for each destination
+      // Add Google Flights button markers for each destination (ALWAYS, even if already present)
       if (realData.destinations && realData.destinations.length > 0) {
         realData.destinations.forEach(dest => {
+          // Defensive: Always try to build a Google Flights URL for each destination
+          let googleUrl = '';
           if (dest.flightData?.request) {
-            const googleUrl = this.buildGoogleFlightsUrlSync(dest.flightData.request);
+            googleUrl = this.buildGoogleFlightsUrlSync(dest.flightData.request);
+          } else if (dest.request) {
+            googleUrl = this.buildGoogleFlightsUrlSync(dest.request);
+          }
+          if (googleUrl) {
             contextPrompt += `- ${dest.destination}: [GOOGLE_FLIGHTS_BUTTON]${googleUrl}[/GOOGLE_FLIGHTS_BUTTON]\n`;
           }
         });
@@ -4932,6 +5011,7 @@ Return ONLY the JSON array:`;
       const response = await this.bedrockClient.send(command);
 
       let responseText = response.output.message.content[0].text;
+      // === PATCH: Ensure all Google Flights buttons for multi-destination are present ===
       console.log(`   ✅ Bedrock response received (${responseText.length} chars)`);
       
       // Debug: Check if Google Flights links are in the response
