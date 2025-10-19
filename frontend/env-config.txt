@@ -12,19 +12,19 @@ NEXT_PUBLIC_APP_NAME=Hack-A-Holiday
 # ============================================
 # RAPIDAPI CONFIGURATION
 # ============================================
-NEXT_PUBLIC_RAPIDAPI_KEY=24f23bfac5mshfe0b77ad3d50a04p1ab5acjsnf565c088c8b4
+NEXT_PUBLIC_RAPIDAPI_KEY=aba2b27f34mshedfa8f474fb6b7fp1a0bd0jsnbc0027f4cdf8
 NEXT_PUBLIC_RAPIDAPI_HOST=kiwi-com-cheap-flights.p.rapidapi.com
 
 # ============================================
 # BOOKING.COM API
 # ============================================
-NEXT_PUBLIC_BOOKING_API_KEY=24f23bfac5mshfe0b77ad3d50a04p1ab5acjsnf565c088c8b4
-NEXT_PUBLIC_BOOKING_API_HOST=booking-com18.p.rapidapi.com
+NEXT_PUBLIC_BOOKING_API_KEY=aba2b27f34mshedfa8f474fb6b7fp1a0bd0jsnbc0027f4cdf8
+NEXT_PUBLIC_BOOKING_API_HOST=booking-com15.p.rapidapi.com
 
 # ============================================
 # TRIPADVISOR API
 # ============================================
-NEXT_PUBLIC_TRIPADVISOR_API_KEY=24f23bfac5mshfe0b77ad3d50a04p1ab5acjsnf565c088c8b4
+NEXT_PUBLIC_TRIPADVISOR_API_KEY=aba2b27f34mshedfa8f474fb6b7fp1a0bd0jsnbc0027f4cdf8
 NEXT_PUBLIC_TRIPADVISOR_API_HOST=tripadvisor-api.p.rapidapi.com
 
 # ============================================

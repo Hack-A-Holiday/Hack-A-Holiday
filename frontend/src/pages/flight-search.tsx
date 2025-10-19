@@ -537,11 +537,11 @@ export default function FlightSearchPage() {
         }));
       }
 
-      return recommendations.slice(0, 3); // Final fallback to original results
+      return recommendations.slice(0, 6); // Final fallback to original results
     }
 
     if (!userPreferences || Object.keys(userPreferences).length === 0) {
-      return filteredRecommendations.slice(0, 3); // Return first 3 filtered results
+      return filteredRecommendations.slice(0, 6); // Return first 6 filtered results
     }
 
     const { interests = [], travelStyle, budget } = userPreferences;
@@ -660,7 +660,7 @@ export default function FlightSearchPage() {
     });
 
     // Return top 3 personalized recommendations
-    return sortedRecommendations.slice(0, 3);
+    return sortedRecommendations.slice(0, 6);
   };
 
   useEffect(() => {
@@ -852,14 +852,14 @@ export default function FlightSearchPage() {
 
       // Use more specific search queries to get better attraction results
       const searchQueries = [
-        `${cityName} attractions`, // More specific search
-        `${cityName} landmarks`, // Landmarks and monuments
-        `${cityName} top attractions`, // Top attractions
-        `${cityName} must see`, // Must see places
-        `${cityName} landmarks`, // Landmarks
-        `${cityName} famous places`, // Famous places
-        `${cityName} tourist attractions`, // Tourist attractions
-        `${cityName} things to do` // Things to do
+        { query: `${cityName} attractions`, category: 'attractions' }, // More specific search
+        { query: `${cityName} landmarks`, category: 'attractions' }, // Landmarks and monuments
+        { query: `${cityName} top attractions`, category: 'attractions' }, // Top attractions
+        { query: `${cityName} must see`, category: 'attractions' }, // Must see places
+        { query: `${cityName} famous places`, category: 'attractions' }, // Famous places
+        { query: `${cityName} tourist attractions`, category: 'attractions' }, // Tourist attractions
+        { query: `${cityName} things to do`, category: 'attractions' }, // Things to do
+        { query: cityName, category: 'geos' } // Geographic locations as fallback
       ];
 
       // Try multiple search queries to get better results
@@ -870,12 +870,12 @@ export default function FlightSearchPage() {
             `http://localhost:4000/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery.query)}&category=${searchQuery.category}&limit=6`
           );
           const searchData = await searchResponse.json();
-          console.log(`🔍 TripAdvisor API response for "${query}":`, searchData);
+          console.log(`🔍 TripAdvisor API response for "${searchQuery.query}":`, searchData);
           if (searchData.success && searchData.data) {
-            console.log(`✅ Found ${searchData.data.length} results for "${query}"`);
+            console.log(`✅ Found ${searchData.data.length} results for "${searchQuery.query}"`);
             allResults.push(...searchData.data);
           } else {
-            console.warn(`❌ No results for "${query}":`, searchData);
+            console.warn(`❌ No results for "${searchQuery.query}":`, searchData);
           }
         } catch (error) {
           console.warn(`Search failed for query: ${searchQuery.query}`, error);
@@ -910,14 +910,13 @@ export default function FlightSearchPage() {
 
       // Quality check: ensure we have good results and prioritize real attractions
       const qualityResults = uniqueResults.filter(item => {
-        const hasGoodAddress = item.address && item.address.length > 10;
+        const hasGoodAddress = item.address && item.address.length > 5;
         const hasGoodName = item.name && item.name.length > 3;
         const isNotGeneric = !item.name.toLowerCase().includes('search') &&
           !item.name.toLowerCase().includes('result');
 
         // Prioritize real attractions over tours/tickets - but be more selective
-        const isRealAttraction = !item.name.toLowerCase().includes('tour') &&
-          !item.name.toLowerCase().includes('ticket') &&
+        const isRealAttraction = !item.name.toLowerCase().includes('ticket') &&
           !item.name.toLowerCase().includes('pass') &&
           !item.name.toLowerCase().includes('guided') &&
           !item.name.toLowerCase().includes('bus') &&
@@ -961,11 +960,9 @@ export default function FlightSearchPage() {
                isNotHotel && isNotRestaurant && isNotAirline && isNotCompany && isInDestination;
       }).sort((a, b) => {
         // Sort to prioritize real attractions first
-        const aIsAttraction = !a.name.toLowerCase().includes('tour') &&
-          !a.name.toLowerCase().includes('ticket') &&
+        const aIsAttraction = !a.name.toLowerCase().includes('ticket') &&
           !a.name.toLowerCase().includes('pass');
-        const bIsAttraction = !b.name.toLowerCase().includes('tour') &&
-          !b.name.toLowerCase().includes('ticket') &&
+        const bIsAttraction = !b.name.toLowerCase().includes('ticket') &&
           !b.name.toLowerCase().includes('pass');
 
         if (aIsAttraction && !bIsAttraction) return -1;
@@ -980,6 +977,9 @@ export default function FlightSearchPage() {
           address: r.address,
           category: getCategoryName(r.category)
         })));
+        
+        // Debug: Log the first few results to see what we're getting
+        console.log('🔍 First 3 quality results:', qualityResults.slice(0, 3));
 
         // For each location, get detailed info with photos - limit to 6 best results
         const detailedRecommendations = await Promise.all(
@@ -1173,7 +1173,7 @@ export default function FlightSearchPage() {
         })));
 
         setAutoRecommendations(personalizedRecommendations);
-        setDestination(searchDestination); // Update destination to show city name
+        setDestination(cityName); // Update destination to show city name
         setShowTripAdvisor(true); // Automatically show recommendations
       } else if (uniqueResults.length > 0) {
         console.log(`⚠️ Using fallback results (${uniqueResults.length} items) for ${cityName}`);
@@ -1190,7 +1190,7 @@ export default function FlightSearchPage() {
 
         const personalizedRecommendations = personalizeRecommendations(fallbackRecommendations, userPreferences, cityName);
         setAutoRecommendations(personalizedRecommendations);
-        setDestination(searchDestination); // Update destination to show city name
+        setDestination(cityName); // Update destination to show city name
         setShowTripAdvisor(true);
       } else {
         console.log(`❌ No results found for ${cityName}`);

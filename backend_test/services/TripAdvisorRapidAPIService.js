@@ -1523,9 +1523,9 @@ class TripAdvisorRapidAPIService {
         return this.getMockLocationSearch(searchQuery);
       }
 
-      // Temporarily disable real API calls due to authorization issues
-      console.warn('⚠️ TripAdvisor Content API temporarily disabled due to auth issues, using mock data');
-      return this.getMockLocationSearch(searchQuery);
+      // Try real API first, fallback to mock if it fails
+      try {
+        console.log('🔍 Attempting real TripAdvisor Content API call...');
 
       const response = await this.fetchWithRetry(async () => {
         const params = {
@@ -1554,6 +1554,10 @@ class TripAdvisorRapidAPIService {
 
       console.log(`✅ Successfully found ${locations.length} locations`);
       return locations;
+      } catch (apiError) {
+        console.warn('⚠️ TripAdvisor Content API failed, using mock data:', apiError.message);
+        return this.getMockLocationSearch(searchQuery);
+      }
 
     } catch (error) {
       console.error('❌ TripAdvisor Content API error (search):', error.message);
@@ -1643,6 +1647,166 @@ class TripAdvisorRapidAPIService {
           rating: 4.4,
           num_reviews: 60000,
           price_level: '$$$',
+          distance: null,
+          distance_string: null
+        }
+      ],
+      'mumbai': [
+        {
+          location_id: '304554',
+          name: 'Gateway of India',
+          address: 'Apollo Bandar, Colaba, Mumbai, Maharashtra 400001, India',
+          latitude: 18.9220,
+          longitude: 72.8347,
+          category: 'attraction',
+          rating: 4.3,
+          num_reviews: 25678,
+          price_level: 'Free',
+          distance: null,
+          distance_string: null
+        },
+        {
+          location_id: '304555',
+          name: 'Marine Drive',
+          address: 'Marine Drive, Mumbai, Maharashtra, India',
+          latitude: 18.9440,
+          longitude: 72.8258,
+          category: 'attraction',
+          rating: 4.4,
+          num_reviews: 18765,
+          price_level: 'Free',
+          distance: null,
+          distance_string: null
+        },
+        {
+          location_id: '304556',
+          name: 'Chhatrapati Shivaji Terminus',
+          address: 'Chhatrapati Shivaji Terminus Area, Fort, Mumbai, Maharashtra 400001, India',
+          latitude: 18.9400,
+          longitude: 72.8350,
+          category: 'attraction',
+          rating: 4.2,
+          num_reviews: 12345,
+          price_level: 'Free',
+          distance: null,
+          distance_string: null
+        },
+        {
+          location_id: '304557',
+          name: 'Elephanta Caves',
+          address: 'Elephanta Island, Mumbai, Maharashtra, India',
+          latitude: 18.9630,
+          longitude: 72.9310,
+          category: 'attraction',
+          rating: 4.1,
+          num_reviews: 9876,
+          price_level: '$$',
+          distance: null,
+          distance_string: null
+        },
+        {
+          location_id: '304558',
+          name: 'Dhobi Ghat',
+          address: 'Dr. E Moses Rd, Mahalaxmi, Mumbai, Maharashtra 400011, India',
+          latitude: 18.9800,
+          longitude: 72.8200,
+          category: 'attraction',
+          rating: 3.9,
+          num_reviews: 7654,
+          price_level: 'Free',
+          distance: null,
+          distance_string: null
+        },
+        {
+          location_id: '304559',
+          name: 'Haji Ali Dargah',
+          address: 'Haji Ali, Mumbai, Maharashtra 400026, India',
+          latitude: 18.9800,
+          longitude: 72.8100,
+          category: 'attraction',
+          rating: 4.3,
+          num_reviews: 11234,
+          price_level: 'Free',
+          distance: null,
+          distance_string: null
+        }
+      ],
+      'bombay': [
+        {
+          location_id: '304554',
+          name: 'Gateway of India',
+          address: 'Apollo Bandar, Colaba, Mumbai, Maharashtra 400001, India',
+          latitude: 18.9220,
+          longitude: 72.8347,
+          category: 'attraction',
+          rating: 4.3,
+          num_reviews: 25678,
+          price_level: 'Free',
+          distance: null,
+          distance_string: null
+        },
+        {
+          location_id: '304555',
+          name: 'Marine Drive',
+          address: 'Marine Drive, Mumbai, Maharashtra, India',
+          latitude: 18.9440,
+          longitude: 72.8258,
+          category: 'attraction',
+          rating: 4.4,
+          num_reviews: 18765,
+          price_level: 'Free',
+          distance: null,
+          distance_string: null
+        },
+        {
+          location_id: '304556',
+          name: 'Chhatrapati Shivaji Terminus',
+          address: 'Chhatrapati Shivaji Terminus Area, Fort, Mumbai, Maharashtra 400001, India',
+          latitude: 18.9400,
+          longitude: 72.8350,
+          category: 'attraction',
+          rating: 4.2,
+          num_reviews: 12345,
+          price_level: 'Free',
+          distance: null,
+          distance_string: null
+        },
+        {
+          location_id: '304557',
+          name: 'Elephanta Caves',
+          address: 'Elephanta Island, Mumbai, Maharashtra, India',
+          latitude: 18.9630,
+          longitude: 72.9310,
+          category: 'attraction',
+          rating: 4.1,
+          num_reviews: 9876,
+          price_level: '$$',
+          distance: null,
+          distance_string: null
+        },
+        {
+          location_id: '304558',
+          name: 'Dhobi Ghat',
+          address: 'Dr. E Moses Rd, Mahalaxmi, Mumbai, Maharashtra 400011, India',
+          latitude: 18.9800,
+          longitude: 72.8200,
+          category: 'attraction',
+          rating: 3.9,
+          num_reviews: 7654,
+          price_level: 'Free',
+          distance: null,
+          distance_string: null
+        },
+        {
+          location_id: '304559',
+          name: 'Haji Ali Dargah',
+          address: 'Haji Ali, Mumbai, Maharashtra 400026, India',
+          latitude: 18.9800,
+          longitude: 72.8100,
+          category: 'attraction',
+          rating: 4.3,
+          num_reviews: 11234,
+          price_level: 'Free',
           distance: null,
           distance_string: null
         }

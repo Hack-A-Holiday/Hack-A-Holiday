@@ -48,9 +48,9 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=1053415549741-web.apps.googleusercontent.com
 # ============================================
 # RAPIDAPI - FLIGHT & HOTEL APIS
 # ============================================
-RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY_HERE
+RAPIDAPI_KEY=aba2b27f34mshedfa8f474fb6b7fp1a0bd0jsnbc0027f4cdf8
 RAPIDAPI_HOST=kiwi-com-cheap-flights.p.rapidapi.com
-BOOKING_API_KEY=YOUR_BOOKING_API_KEY_HERE
+BOOKING_API_KEY=aba2b27f34mshedfa8f474fb6b7fp1a0bd0jsnbc0027f4cdf8
 BOOKING_API_HOST=booking-com15.p.rapidapi.com
 
 # ============================================
@@ -58,9 +58,9 @@ BOOKING_API_HOST=booking-com15.p.rapidapi.com
 # ============================================
 NEXT_PUBLIC_API_URL=http://localhost:4000
 NEXT_PUBLIC_APP_NAME=Hack-A-Holiday
-NEXT_PUBLIC_RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY_HERE
+NEXT_PUBLIC_RAPIDAPI_KEY=aba2b27f34mshedfa8f474fb6b7fp1a0bd0jsnbc0027f4cdf8
 NEXT_PUBLIC_RAPIDAPI_HOST=kiwi-com-cheap-flights.p.rapidapi.com
-NEXT_PUBLIC_BOOKING_API_KEY=YOUR_BOOKING_API_KEY_HERE
+NEXT_PUBLIC_BOOKING_API_KEY=aba2b27f34mshedfa8f474fb6b7fp1a0bd0jsnbc0027f4cdf8
 NEXT_PUBLIC_BOOKING_API_HOST=booking-com15.p.rapidapi.com
 
 # ============================================
