@@ -1,7 +1,10 @@
 /**
- * Booking.com Hotel API Service
- * Integration with Booking.com API via RapidAPI for hotel search
+ * Hotel API Service
+ * Integration with booking-com15 API via RapidAPI for hotel search
+ * With retry logic and enhanced error handling
  */
+
+import { executeWithRetry, DEFAULT_RETRY_CONFIG } from '../utils/retry';
 
 // Airport coordinates mapping for major cities
 const AIRPORT_COORDINATES: Record<string, { latitude: number; longitude: number; cityName: string }> = {
@@ -111,6 +114,8 @@ export interface BookingApiResponse {
     guests: number;
     location: string;
   };
+  fallbackUsed?: boolean;
+  fallbackReason?: string;
 }
 
 export class BookingApiService {
@@ -133,7 +138,7 @@ export class BookingApiService {
    */
   async searchHotels(params: HotelSearchParams): Promise<BookingApiResponse> {
     if (!this.apiKey || !this.host || !this.baseUrl) {
-      throw new Error('Booking.com RapidAPI environment variables are not configured. Please set NEXT_PUBLIC_BOOKING_API_KEY and NEXT_PUBLIC_BOOKING_API_HOST in .env.');
+      throw new Error('Hotel API environment variables are not configured. Please set NEXT_PUBLIC_BOOKING_API_KEY and NEXT_PUBLIC_BOOKING_API_HOST in .env.');
     }
     const coordinates = AIRPORT_COORDINATES[params.airportCode];
     
@@ -144,6 +149,8 @@ export class BookingApiService {
     }
 
     try {
+      // Use retry logic for hotel search
+      return await executeWithRetry(async () => {
       const checkIn = new Date(params.checkInDate);
       const checkOut = new Date(params.checkOutDate);
       const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
@@ -170,6 +177,7 @@ export class BookingApiService {
       console.log(`🔗 API URL: ${url.split('?')[0]}`);
       console.log(`🔑 Using API Key: ${this.apiKey.substring(0, 10)}...`);
 
+      // Execute request directly
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -181,7 +189,7 @@ export class BookingApiService {
       if (!response.ok) {
         if (response.status === 429) {
           console.warn(`⚠️ Booking.com API rate limit exceeded (429). Using mock data.`);
-          return this.getMockHotels(params);
+          throw new Error(`Rate limit exceeded: ${response.status}`);
         }
         throw new Error(`API request failed: ${response.status} ${response.statusText}`);
       }
@@ -215,12 +223,15 @@ export class BookingApiService {
           nights,
           guests: params.adults + (params.children || 0),
           location: coordinates.cityName
-        }
+        },
+        fallbackUsed: false,
+        fallbackReason: 'Using real hotel API data'
       };
+      }, DEFAULT_RETRY_CONFIG, `hotel-api-${params.airportCode}`);
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('❌ Booking.com API error:', errorMessage);
+      console.error('❌ Hotel API error:', errorMessage);
       
       if (errorMessage.includes('429')) {
         console.warn('⚠️ Rate limit exceeded. Consider upgrading RapidAPI plan or implementing caching.');
@@ -352,7 +363,9 @@ export class BookingApiService {
         nights,
         guests: params.adults + (params.children || 0),
         location: cityName
-      }
+      },
+      fallbackUsed: true,
+      fallbackReason: 'Using mock hotel data - real-time data temporarily unavailable'
     };
   }
 

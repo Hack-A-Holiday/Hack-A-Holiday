@@ -1,10 +1,11 @@
 /**
- * Kiwi.com Flight API Service
- * Direct integration with Kiwi API for real flight data
- * With Google Flights fallback integration
+ * Flight API Service
+ * Direct integration with flights-scraper-real-time API for real flight data
+ * With Google Flights fallback integration and retry logic
  */
 
 import { GoogleFlightsFallbackService, GoogleFlightsParams } from './google-flights-fallback';
+import { executeWithRetry, DEFAULT_RETRY_CONFIG } from '../utils/retry';
 
 export interface KiwiFlight {
   id: string;
@@ -73,8 +74,18 @@ export interface KiwiApiResponse {
 
 export class KiwiApiService {
   private readonly apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '';
-  private readonly host = process.env.NEXT_PUBLIC_RAPIDAPI_HOST || '';
-  private readonly baseUrl = this.host ? `https://${this.host}` : '';
+  private readonly host = process.env.NEXT_PUBLIC_RAPIDAPI_HOST || 'kiwi-com-cheap-flights.p.rapidapi.com';
+  private readonly baseUrl = `https://${this.host}`;
+
+  constructor() {
+    console.log('🔧 KiwiApiService Environment Check:', {
+      apiKey: this.apiKey ? `${this.apiKey.substring(0, 10)}...` : 'NOT SET',
+      host: this.host,
+      baseUrl: this.baseUrl,
+      envHost: process.env.NEXT_PUBLIC_RAPIDAPI_HOST,
+      envKey: process.env.NEXT_PUBLIC_RAPIDAPI_KEY ? `${process.env.NEXT_PUBLIC_RAPIDAPI_KEY.substring(0, 10)}...` : 'NOT SET'
+    });
+  }
 
   /**
    * Search flights with automatic Google Flights fallback
@@ -99,82 +110,19 @@ export class KiwiApiService {
       const currentBags = bagConfigs[i];
       
       try {
-        const params: Record<string, string> = {
-          source: `City:${origin}`,
-          destination: `City:${destination}`,
-          departureDate: departureDate,
-          currency: 'usd',
-          locale: 'en',
-          adults: passengers.adults.toString(),
-          children: (passengers.children || 0).toString(),
-          infants: (passengers.infants || 0).toString(),
-          handbags: '1',
-          holdbags: currentBags.toString(),
-          cabinClass: 'ECONOMY',
-          sortBy: 'QUALITY',
-          sortOrder: 'ASCENDING',
-          limit: '20'
-        };
+        // Use retry logic for each bag configuration attempt
+        const result = await executeWithRetry(async () => {
+          return await this.tryMultipleEndpoints(origin, destination, departureDate, passengers, currentBags, returnDate);
+        }, DEFAULT_RETRY_CONFIG, `flights-api-${origin}-${destination}`);
         
-        // Add return date if provided (for round-trip searches)
-        if (returnDate) {
-          params.returnDate = returnDate;
-        }
-        
-        const urlParams = new URLSearchParams(params);
-        const url = `${this.baseUrl}/round-trip?${urlParams.toString()}`;
-
-        console.log(`🛫 Trying Kiwi API search with ${currentBags} checked bags...`);
-
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'x-rapidapi-host': this.host,
-            'x-rapidapi-key': this.apiKey
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`API request failed: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        
-        // DEBUG: Log the actual API response structure
-        console.log('🔍 Kiwi API Response Structure:', {
-          hasData: !!data,
-          hasItineraries: !!data.itineraries,
-          itinerariesCount: data.itineraries?.length || 0,
-          firstItinerary: data.itineraries?.[0],
-          fullResponse: data
-        });
-        
-        // Check if we got results
-        if (data.itineraries && data.itineraries.length > 0) {
-          console.log(`✅ Found ${data.itineraries.length} flights with ${currentBags} checked bags`);
-          
-          // Add metadata about bag configuration used
-          if (currentBags !== checkedBags) {
-            data.bagConfigUsed = currentBags;
-            data.requestedBags = checkedBags;
-            data.note = `Search returned results with ${currentBags} checked bags (requested ${checkedBags})`;
-          }
-          
-          return data;
-        } else {
-          console.log(`❌ No flights found with ${currentBags} checked bags`);
-          console.log('Data structure:', data);
-          if (i < bagConfigs.length - 1) {
-            console.log(`🔄 Trying with fewer bags...`);
-            continue;
-          }
-        }
+        return result;
       } catch (error) {
-        console.error(`❌ Kiwi API search error with ${currentBags} bags:`, error);
+        console.error(`❌ Flight API search error with ${currentBags} bags:`, error);
         if (i < bagConfigs.length - 1) {
           console.log(`🔄 Trying with fewer bags...`);
           continue;
         }
+        // If all bag configurations failed, throw the last error
         throw error;
       }
     }
@@ -201,6 +149,107 @@ export class KiwiApiService {
     }
     
     throw new Error(`No flights found for ${origin} to ${destination} with any bag configuration`);
+  }
+
+  /**
+   * Search flights using the correct Kiwi API format
+   */
+  private async tryMultipleEndpoints(
+    origin: string,
+    destination: string,
+    departureDate: string,
+    passengers: { adults: number; children?: number; infants?: number },
+    currentBags: number,
+    returnDate?: string
+  ): Promise<KiwiApiResponse> {
+    console.log(`🛫 Trying Kiwi API search with ${currentBags} checked bags...`);
+
+    // Use the correct Kiwi API parameters format based on the working curl example
+    const params: Record<string, string> = {
+      source: `City:${origin}`,
+      destination: `City:${destination}`,
+      departureDate: departureDate,
+      currency: 'usd',
+      locale: 'en',
+      adults: passengers.adults.toString(),
+      children: (passengers.children || 0).toString(),
+      infants: (passengers.infants || 0).toString(),
+      handbags: '1',
+      holdbags: currentBags.toString(),
+      cabinClass: 'ECONOMY',
+      sortBy: 'QUALITY',
+      sortOrder: 'ASCENDING',
+      applyMixedClasses: 'true',
+      allowReturnFromDifferentCity: 'true',
+      allowChangeInboundDestination: 'true',
+      allowChangeInboundSource: 'true',
+      allowDifferentStationConnection: 'true',
+      enableSelfTransfer: 'true',
+      allowOvernightStopover: 'true',
+      enableTrueHiddenCity: 'true',
+      enableThrowAwayTicketing: 'true',
+      outbound: 'SUNDAY,WEDNESDAY,THURSDAY,FRIDAY,SATURDAY,MONDAY,TUESDAY',
+      transportTypes: 'FLIGHT',
+      contentProviders: 'FLIXBUS_DIRECTS,FRESH,KAYAK,KIWI',
+      limit: '20'
+    };
+
+    // Add return date if provided (for round-trip searches)
+    if (returnDate) {
+      params.returnDate = returnDate;
+    }
+
+    const urlParams = new URLSearchParams(params);
+    const url = `${this.baseUrl}/round-trip?${urlParams.toString()}`;
+    
+    console.log(`🔗 Kiwi API URL: ${url}`);
+
+    // Execute request directly
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': this.host,
+        'x-rapidapi-key': this.apiKey
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    // DEBUG: Log the actual API response structure
+    console.log('🔍 Kiwi API Response Structure:', {
+      hasData: !!data,
+      hasItineraries: !!data.itineraries,
+      hasFlights: !!data.flights,
+      hasResults: !!data.results,
+      hasData: !!data.data,
+      itinerariesCount: data.itineraries?.length || 0,
+      flightsCount: data.flights?.length || 0,
+      resultsCount: data.results?.length || 0,
+      dataCount: data.data?.length || 0,
+      firstItem: data.itineraries?.[0] || data.flights?.[0] || data.results?.[0] || data.data?.[0],
+      keys: Object.keys(data)
+    });
+    
+    // Check if we got results (handle different API response formats)
+    const flights = data.itineraries || data.flights || data.results || data.data || [];
+    if (flights && flights.length > 0) {
+      console.log(`✅ Found ${flights.length} flights from Kiwi API`);
+      
+      // Normalize response format
+      const normalizedData = {
+        itineraries: flights,
+        metadata: data.metadata || {}
+      };
+      
+      return normalizedData;
+    } else {
+      console.log(`❌ No flights found from Kiwi API`);
+      throw new Error(`No flights found from Kiwi API`);
+    }
   }
 
   convertToFlightOption(kiwiFlight: KiwiFlight, index: number) {

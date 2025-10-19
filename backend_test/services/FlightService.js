@@ -199,12 +199,18 @@ Response format: Just the 3-letter code (e.g., "BOM")`
       if (this.rapidApiKey) {
         try {
           const kiwiResults = await this.searchKiwiFlights(searchRequest);
-          return {
-            ...kiwiResults,
-            searchStartTime,
-            provider: 'kiwi',
-            fallbackUsed: false
-          };
+          
+          // Check if we got actual flight results
+          if (kiwiResults.flights && kiwiResults.flights.length > 0) {
+            return {
+              ...kiwiResults,
+              searchStartTime,
+              provider: 'kiwi',
+              fallbackUsed: false
+            };
+          } else {
+            console.log('Kiwi API returned no flights, trying fallback...');
+          }
         } catch (error) {
           console.log('Kiwi API failed, trying Amadeus...', error.message);
         }

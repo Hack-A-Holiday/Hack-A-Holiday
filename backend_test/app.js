@@ -54,6 +54,7 @@ const planTripRoutes = require('./routes/planTripRoutes');
 const bookingRoutes = require('./routes/booking');
 const globeRoutes = require('./routes/globe');
 const tripadvisorRoutes = require('./routes/tripadvisor');
+const hotelRoutes = require('./routes/hotels');
 
 // Register routes
 app.use('/api/auth', authRoutes);
@@ -69,6 +70,7 @@ app.use('/api/plantrip', planTripRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/globe', globeRoutes);
 app.use('/api/tripadvisor', tripadvisorRoutes);
+app.use('/api/hotels', hotelRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

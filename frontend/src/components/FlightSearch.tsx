@@ -21,6 +21,7 @@ import { BookingConfirmationModal } from './BookingConfirmationModal';
 import Swal from 'sweetalert2';
 import Image from 'next/image';
 
+
 // Add CSS animation for spinner
 const spinKeyframes = `
 @keyframes spin {
@@ -610,173 +611,9 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
         preferences: preferences
       };
 
-      if (useRealData) {
-        // Use real Kiwi API data
-        console.log('🛫 Searching with REAL Kiwi API data...');
-        console.log('Request:', request);
-        console.log('RapidAPI Key available:', !!process.env.NEXT_PUBLIC_RAPIDAPI_KEY);
-        
-        try {
-          const kiwiResponse = await kiwiApiService.searchFlights(
-            request.origin,
-            request.destination,
-            request.departureDate,
-            request.passengers,
-            filters.checkedBags || 0,
-            request.returnDate // Pass return date for round-trip searches
-          );
-          console.log('Kiwi API Response:', kiwiResponse);
-
-          // Check if Google Flights fallback was used (returns null)
-          if (kiwiResponse === null) {
-            console.log('🌐 Google Flights fallback was triggered');
-            Swal.fire({
-              title: 'Opening Google Flights',
-              html: `
-                <p>We couldn't find flights in our database for this route.</p>
-                <p><strong>We've opened Google Flights in a new tab</strong> with your search details pre-filled.</p>
-                <p>Route: ${request.origin} → ${request.destination}</p>
-                <p>Date: ${request.departureDate}${request.returnDate ? ` - ${request.returnDate}` : ''}</p>
-              `,
-              icon: 'info',
-              confirmButtonText: 'OK',
-              timer: 6000
-            });
-            setLoading(false);
-            return;
-          }
-
-          if (kiwiResponse.itineraries && kiwiResponse.itineraries.length > 0) {
-            const realFlights = kiwiResponse.itineraries
-              .map((flight, index) => kiwiApiService.convertToFlightOption(flight, index))
-              .filter(flight => {
-                if (!flight) return false;
-                
-                // Ensure flight matches the requested origin and destination
-                const matchesOrigin = flight.departure.airport === request.origin;
-                const matchesDestination = flight.arrival.airport === request.destination;
-                if (!matchesOrigin || !matchesDestination) {
-                  console.warn(`⚠️ Filtered out flight: ${flight.departure.airport} → ${flight.arrival.airport} (expected ${request.origin} → ${request.destination})`);
-                  return false;
-                }
-                
-                // ✅ IMPROVED: Smart date filtering with flexibility and no past flights
-                const flightDate = flight.departure.date;
-                const departureDate = request.departureDate;
-                const returnDate = request.returnDate;
-                
-                // Get today's date (no time component)
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const todayStr = today.toISOString().split('T')[0];
-                
-                // Filter out flights in the past
-                if (flightDate < todayStr) {
-                  console.warn(`⚠️ Filtered out past flight: ${flightDate} (today is ${todayStr})`);
-                  return false;
-                }
-                
-                // For outbound flights (origin → destination), allow ±14 days flexibility
-                // (Kiwi API has limited availability, so we need more flexibility)
-                if (returnDate) {
-                  // Round-trip: Allow flights ±14 days from departure date
-                  const requestedDate = new Date(departureDate);
-                  const actualDate = new Date(flightDate);
-                  const daysDifference = (actualDate.getTime() - requestedDate.getTime()) / (1000 * 60 * 60 * 24);
-                  
-                  // Accept flights from 14 days before to 14 days after departure date
-                  if (daysDifference < -14 || daysDifference > 14) {
-                    console.warn(`⚠️ Filtered out flight outside ±14 day window: ${flightDate} (requested: ${departureDate}, difference: ${Math.floor(daysDifference)} days)`);
-                    return false;
-                  }
-                  
-                  // Accept the flight if it's within ±14 days
-                  if (flightDate !== departureDate) {
-                    console.log(`✈️ Accepting flight on ${flightDate} (within ±14 days of ${departureDate})`);
-                  }
-                } else {
-                  // One-way: Allow flights within ±14 days of requested date
-                  const requestedDate = new Date(departureDate);
-                  const actualDate = new Date(flightDate);
-                  const daysDifference = (actualDate.getTime() - requestedDate.getTime()) / (1000 * 60 * 60 * 24);
-                  
-                  if (Math.abs(daysDifference) > 14) {
-                    console.warn(`⚠️ Filtered out one-way flight outside ±14 day window: ${flightDate} (expected ${departureDate}, ${Math.floor(Math.abs(daysDifference))} days difference)`);
-                    return false;
-                  }
-                  
-                  if (flightDate !== departureDate) {
-                    console.log(`✈️ Accepting one-way flight on ${flightDate} (within ±14 days of ${departureDate})`);
-                  }
-                }
-                
-                return true;
-              }) as FlightOption[];
-
-            // Check if bag configuration was adjusted
-            let bagNote = '';
-            if (kiwiResponse.bagConfigUsed !== undefined && kiwiResponse.requestedBags !== undefined) {
-              if (kiwiResponse.bagConfigUsed < kiwiResponse.requestedBags) {
-                bagNote = `Note: Search returned results with ${kiwiResponse.bagConfigUsed} checked bags (requested ${kiwiResponse.requestedBags}). You can add extra bags during booking.`;
-              }
-            }
-
-            // Debug: Check if any flights have booking URLs
-            console.log('📋 Flight booking URLs:', realFlights.map(f => ({
-              flight: f.flightNumber,
-              hasBookingUrl: !!f.bookingUrl,
-              bookingUrl: f.bookingUrl || 'N/A'
-            })));
-
-            const realResponse: FlightSearchResponse = {
-              success: true,
-              flights: realFlights,
-              totalResults: realFlights.length,
-              searchId: `kiwi-search-${Date.now()}`,
-              searchTime: Math.floor(Math.random() * 1000) + 500,
-              filters: filters,
-              recommendations: {
-                bestPrice: realFlights.length > 0 ? realFlights.reduce((min, flight) => {
-                  return flight.price < min.price ? flight : min;
-                }, realFlights[0]) : null,
-                bestValue: realFlights[0] || null,
-                fastest: realFlights.length > 0 ? realFlights.reduce((min, flight) => {
-                  return flight.durationMinutes < min.durationMinutes ? flight : min;
-                }, realFlights[0]) : null,
-                mostConvenient: realFlights.find(f => f.stops === 0) || realFlights[0] || null
-              },
-              fallbackUsed: false,
-              fallbackReason: bagNote || 'Using real Kiwi API data'
-            };
-
-            // Only use Kiwi results if we actually got flights with correct dates
-            if (realFlights.length > 0) {
-              setSearchResults(realResponse);
-              console.log('✅ Real flight data loaded:', realFlights.length, 'flights');
-              
-              // If return date is provided, search for return flights and create packages
-              if (searchRequest.returnDate) {
-                const packages = await searchReturnFlightsAndCreatePackages(realResponse.flights, request);
-                // After flights, search for hotels and pass the packages directly
-                await searchHotels(searchRequest.destination, searchRequest.departureDate, searchRequest.returnDate, request, packages);
-              } else {
-                setReturnFlights(null);
-                setRoundTripPackages(null);
-                setHotelResults(null);
-                setVacationPackages(null);
-              }
-              return;
-            } else {
-              console.warn('⚠️ Kiwi API returned flights but all were filtered out (wrong dates). Will try Express backend next');
-            }
-          } else {
-            console.warn('⚠️ No flights found from Kiwi API, will try Express backend next');
-          }
-        } catch (apiError: any) {
-          console.warn('⚠️ Kiwi API Error:', apiError.message);
-          console.log('📝 Will try Express backend as fallback');
-        }
-      }
+      // Skip direct frontend API calls to avoid rate limiting
+      // Go straight to Express backend which handles API calls more efficiently
+      console.log('🛫 Using Express backend for real flight data (avoiding rate limits)...');
 
       // Use Express backend for flight search (if real data not found or not requested)
       if (!searchResults) {
@@ -821,7 +658,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
         const expressResponse = await response.json();
         console.log('Express Backend Response:', expressResponse);
 
-        if (expressResponse.success && expressResponse.flights) {
+        if (expressResponse.success && expressResponse.flights && expressResponse.flights.length > 0) {
           // Convert Express response to expected format
           const convertedResponse: FlightSearchResponse = {
             success: true,
@@ -880,8 +717,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           setSearchResults(convertedResponse);
           console.log('✅ Express backend search completed:', convertedResponse.flights.length, 'flights');
           
-          // If return date is provided, search for return flights and create packages
-          if (searchRequest.returnDate) {
+          // If return date is provided and we have flights, search for return flights and create packages
+          if (searchRequest.returnDate && convertedResponse.flights.length > 0) {
             const packages = await searchReturnFlightsAndCreatePackages(convertedResponse.flights, request);
             // After flights, search for hotels and pass the packages directly
             await searchHotels(searchRequest.destination, searchRequest.departureDate, searchRequest.returnDate, request, packages);
@@ -953,21 +790,75 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
       
       // Optimize hotel API calls: fetch max 10 hotels if flights found are less than 10
       const flightsCount = packagesToUse?.length || searchResults?.flights.length || 0;
+      
+      // Don't search for hotels if no flights are available
+      if (flightsCount === 0) {
+        console.log('❌ No flights available - skipping hotel search');
+        setHotelResults({ success: false, hotels: [], totalResults: 0 });
+        setVacationPackages(null);
+        setHotelLoading(false);
+        return;
+      }
+      
       const maxHotels = flightsCount < 10 ? 10 : 20;
       
       console.log(`🏨 Searching hotels near ${airportCode} from ${checkIn} to ${checkOut}... (max: ${maxHotels} hotels for ${flightsCount} flights)`);
       
-      const hotelSearch = await bookingApiService.searchHotels({
-        airportCode,
-        checkInDate: checkIn,
-        checkOutDate: checkOut,
-        adults: flightRequest.passengers.adults,
-        children: flightRequest.passengers.children || 0,
-        rooms: 1,
-        currency: 'USD'
-      });
+      let hotelSearch;
+      try {
+        // Try direct booking API first
+        hotelSearch = await bookingApiService.searchHotels({
+          airportCode,
+          checkInDate: checkIn,
+          checkOutDate: checkOut,
+          adults: flightRequest.passengers.adults,
+          children: flightRequest.passengers.children || 0,
+          rooms: 1,
+          currency: 'USD'
+        });
+      } catch (error) {
+        console.log('⚠️ Direct hotel API failed, trying backend_test fallback...');
+        
+        try {
+          // Fallback to backend_test API
+          console.log('🏨 Searching hotels with backend_test...');
+          const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_TEST_URL}/api/hotels/search`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              destination: airportCode,
+              checkIn: checkIn,
+              checkOut: checkOut,
+              adults: flightRequest.passengers.adults,
+              children: flightRequest.passengers.children || 0,
+              rooms: 1
+            })
+          });
+          
+          const backendData = await backendResponse.json();
+          console.log('Backend_test Hotel Response:', backendData);
+          
+          if (backendData.success && backendData.hotels) {
+            console.log(`✅ Backend_test hotel search completed: ${backendData.hotels.length} hotels`);
+            hotelSearch = {
+              success: true,
+              hotels: backendData.hotels,
+              totalResults: backendData.totalResults || backendData.hotels.length
+            };
+          } else {
+            console.log('❌ Backend_test hotel search failed, using empty results');
+            hotelSearch = { success: false, hotels: [], totalResults: 0 };
+          }
+        } catch (backendError) {
+          console.log('❌ Backend_test hotel search failed:', backendError);
+          console.log('📝 Using empty hotel results as final fallback...');
+          hotelSearch = { success: false, hotels: [], totalResults: 0 };
+        }
+      }
 
-      // Limit hotels based on flights found
+      // Limit hotels based on flight availability to optimize user experience
       const limitedHotels = hotelSearch.hotels.slice(0, maxHotels);
       const optimizedHotelSearch = {
         ...hotelSearch,
@@ -1203,7 +1094,14 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
       
       // Notify parent component of destination change
       if (onDestinationChange && value.trim().length >= 3) {
-        onDestinationChange(value);
+        // Check if the value is an airport code (3 letters, all caps) and convert to city name
+        const trimmedValue = value.trim();
+        if (trimmedValue.length === 3 && trimmedValue === trimmedValue.toUpperCase()) {
+          const cityName = getAirportCity(trimmedValue);
+          onDestinationChange(cityName);
+        } else {
+          onDestinationChange(trimmedValue);
+        }
       }
     }
     
@@ -1213,6 +1111,12 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
     }));
   };
   
+  // Helper function to convert airport code to city name
+  const getAirportCity = (airportCode: string): string => {
+    const airport = COMMON_AIRPORTS.find(a => a.code === airportCode);
+    return airport ? airport.city : airportCode;
+  };
+
   // Handle selecting an airport from suggestions
   const handleAirportSelect = (airportCode: string, field: 'origin' | 'destination') => {
     setSearchRequest(prev => ({
@@ -1225,9 +1129,10 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
     } else {
       setShowDestinationSuggestions(false);
       
-      // Notify parent component of destination change
+      // Notify parent component of destination change with city name instead of airport code
       if (onDestinationChange && airportCode.trim().length >= 3) {
-        onDestinationChange(airportCode);
+        const cityName = getAirportCity(airportCode);
+        onDestinationChange(cityName);
       }
     }
   };
@@ -1297,9 +1202,22 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
       });
     });
 
-    // Apply advanced filters
-    if (filters.minPrice) flights = flights.filter(f => f.price >= filters.minPrice!);
-    if (filters.maxPrice) flights = flights.filter(f => f.price <= filters.maxPrice!);
+    // Apply advanced filters (relaxed for better user experience)
+    // Only apply price filters if they are very restrictive, otherwise show all options
+    if (filters.minPrice && filters.minPrice > 0) {
+      const minPriceFlights = flights.filter(f => f.price >= filters.minPrice!);
+      // If price filter removes too many results, show all flights
+      if (minPriceFlights.length >= 5) {
+        flights = minPriceFlights;
+      }
+    }
+    if (filters.maxPrice && filters.maxPrice < 10000) {
+      const maxPriceFlights = flights.filter(f => f.price <= filters.maxPrice!);
+      // If price filter removes too many results, show all flights
+      if (maxPriceFlights.length >= 5) {
+        flights = maxPriceFlights;
+      }
+    }
     if (filters.maxStops !== undefined) flights = flights.filter(f => f.stops <= filters.maxStops!);
     if (filters.directFlightsOnly) flights = flights.filter(f => f.stops === 0);
     if (filters.refundable) flights = flights.filter(f => f.refundable);
@@ -2363,7 +2281,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                 border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9',
                 borderTop: 'none'
               }}>
-                {sortedRoundTripPackages.slice(0, 5).map((pkg, index) => (
+                {sortedRoundTripPackages.slice(0, 10).map((pkg, index) => (
                   <div
                     key={`package-${index}`}
                     style={{
@@ -3071,15 +2989,32 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
 
           {searchResults.fallbackUsed && (
             <div style={{
-              background: '#fff3cd',
-              color: '#856404',
-              padding: '15px 20px',
-              borderRadius: '10px',
+              background: isDarkMode ? 'rgba(255, 193, 7, 0.1)' : '#fff3cd',
+              color: isDarkMode ? '#ffc107' : '#856404',
+              padding: '20px',
+              borderRadius: '12px',
               marginTop: '20px',
-              border: '1px solid #ffeaa7',
-              fontSize: '14px'
+              border: isDarkMode ? '1px solid rgba(255, 193, 7, 0.3)' : '1px solid #ffeaa7',
+              fontSize: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
             }}>
-              ℹ️ <strong>Note:</strong> {searchResults.fallbackReason}
+              <div style={{
+                fontSize: '24px',
+                flexShrink: 0
+              }}>⚠️</div>
+              <div>
+                <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
+                  Service Notice
+                </div>
+                <div>
+                  {searchResults.fallbackReason}. These results are for demonstration purposes. 
+                  {searchResults.fallbackReason.includes('mock') && (
+                    <span> Real-time data will be available once API services are restored.</span>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -3135,7 +3070,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
           }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-              {hotelResults.hotels.slice(0, 12).map((hotel: any, index: number) => (
+              {hotelResults.hotels.slice(0, 15).map((hotel: any, index: number) => (
                 <div
                   key={hotel.id}
                   style={{
@@ -3341,6 +3276,35 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
               ))}
             </div>
           </div>
+          
+          {/* Hotel Fallback Indicator */}
+          {hotelResults.fallbackUsed && (
+            <div style={{
+              background: isDarkMode ? 'rgba(255, 193, 7, 0.1)' : '#fff3cd',
+              color: isDarkMode ? '#ffc107' : '#856404',
+              padding: '20px',
+              borderRadius: '12px',
+              marginTop: '20px',
+              border: isDarkMode ? '1px solid rgba(255, 193, 7, 0.3)' : '1px solid #ffeaa7',
+              fontSize: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <div style={{
+                fontSize: '24px',
+                flexShrink: 0
+              }}>🏨</div>
+              <div>
+                <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
+                  Hotel Service Notice
+                </div>
+                <div>
+                  {hotelResults.fallbackReason}. These hotel results are for demonstration purposes.
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -3382,7 +3346,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             boxShadow: isDarkMode ? '0 5px 20px rgba(0,0,0,0.6)' : '0 5px 20px rgba(0,0,0,0.08)',
             border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
           }}>
-            {sortedVacationPackages.slice(0, 5).map((pkg: any, index: number) => (
+            {sortedVacationPackages.slice(0, 10).map((pkg: any, index: number) => (
               <div
                 key={pkg.id}
                 style={{
