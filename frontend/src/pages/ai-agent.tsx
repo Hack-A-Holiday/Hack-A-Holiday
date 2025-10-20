@@ -56,6 +56,12 @@ import { useDarkMode } from '../contexts/DarkModeContext';
 import Navbar from '../components/layout/Navbar';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import UserContextService from '../services/UserContextService';
+import { text } from 'stream/consumers';
+import { text } from 'stream/consumers';
+import { text } from 'stream/consumers';
+import { text } from 'stream/consumers';
+import { text } from 'stream/consumers';
+import { text } from 'stream/consumers';
 
 interface Message {
   role: 'user' | 'ai' | 'system';
@@ -184,14 +190,10 @@ const renderFormattedText = (text: string | any) => {
   const buttonMarkerWithCityPattern = /-\s*([^:]+):\s*\[GOOGLE_FLIGHTS_BUTTON\](https?:\/\/[^\]]+)\[\/GOOGLE_FLIGHTS_BUTTON\]/gi;
   let cityMarkerMatch;
   
-  console.log('🔍 Looking for button markers in text...');
-  console.log('📋 Text length:', text.length);
-  console.log('📋 Text preview:', text.substring(0, 300));
-  console.log('📋 Contains button marker:', text.includes('[GOOGLE_FLIGHTS_BUTTON]'));
+  // Look for Google Flights button markers
   
   // First try to match with city labels (multi-destination format)
   while ((cityMarkerMatch = buttonMarkerWithCityPattern.exec(text)) !== null) {
-    console.log(`✅ Found button marker for ${cityMarkerMatch[1]}: ${cityMarkerMatch[2]}`);
     googleFlightsButtons.push({
       city: cityMarkerMatch[1].trim(),
       url: cityMarkerMatch[2]
@@ -205,36 +207,24 @@ const renderFormattedText = (text: string | any) => {
     const simpleButtonPattern = /\[GOOGLE_FLIGHTS_BUTTON\](https?:\/\/[^\]]+)\[\/GOOGLE_FLIGHTS_BUTTON\]/gi;
     let simpleMatch;
     
-    console.log('🔍 Trying simple button pattern on text length:', text.length);
-    
     while ((simpleMatch = simpleButtonPattern.exec(text)) !== null) {
-      console.log('✅ Found simple button marker:', simpleMatch[1]);
       googleFlightsButtons.push({
         city: 'Search on Google Flights',
         url: simpleMatch[1]
       });
       textWithoutGoogleFlights = textWithoutGoogleFlights.replace(simpleMatch[0], '').trim();
     }
-    
-    if (googleFlightsButtons.length === 0) {
-      console.log('❌ Simple button pattern did not match');
       console.log('📋 Text sample around "GOOGLE":', text.substring(text.indexOf('GOOGLE') - 50, text.indexOf('GOOGLE') + 150));
     }
   }
   
-  if (googleFlightsButtons.length > 0) {
-    console.log(`✅ Total button markers found: ${googleFlightsButtons.length}`);
-  }
-  
   // If button marker NOT found, try other patterns as fallback
   if (googleFlightsButtons.length === 0) {
-    console.log('🔍 No button marker found, trying text-based patterns...');
 
     // New: Pattern A - Markdown single link: "Search on Google Flights: [Click here](https://www.google.com/travel/flights...)"
     const markdownSinglePattern = /Search on Google Flights:\s*\[.*?\]\((https:\/\/www\.google\.com\/travel\/flights[^)]+)\)/i;
     const mdSingleMatch = text.match(markdownSinglePattern);
     if (mdSingleMatch) {
-      console.log('✅ Found markdown-style Google Flights link:', mdSingleMatch[1]);
       googleFlightsButtons.push({ city: 'Search on Google Flights', url: mdSingleMatch[1] });
       textWithoutGoogleFlights = textWithoutGoogleFlights.replace(mdSingleMatch[0], '').trim();
     }
@@ -243,11 +233,9 @@ const renderFormattedText = (text: string | any) => {
     const markdownMultiPattern = /(?:Search more options:|Need more options\?)?\s*\n((?:\s*-\s*[^:]+:\s*\[.*?\]\(https:\/\/www\.google\.com\/travel\/flights[^)]+\)\n?)+)/i;
     const mdMultiMatch = text.match(markdownMultiPattern);
     if (mdMultiMatch && !mdSingleMatch) {
-      console.log('✅ Found multiple markdown Google Flights links block');
       const cityMdPattern = /-\s*([^:]+):\s*\[.*?\]\((https:\/\/www\.google\.com\/travel\/flights[^)]+)\)/gi;
       let cityMd;
       while ((cityMd = cityMdPattern.exec(mdMultiMatch[1])) !== null) {
-        console.log(`   - ${cityMd[1].trim()}: ${cityMd[2]}`);
         googleFlightsButtons.push({ city: cityMd[1].trim(), url: cityMd[2] });
       }
       textWithoutGoogleFlights = textWithoutGoogleFlights.replace(mdMultiMatch[0], '').trim();
@@ -258,7 +246,6 @@ const renderFormattedText = (text: string | any) => {
     const singleMatch = text.match(singleLinkPattern);
 
     if (singleMatch && googleFlightsButtons.length === 0) {
-      console.log('✅ Found single Google Flights link:', singleMatch[1]);
       googleFlightsButtons.push({ 
         city: 'Search on Google Flights', 
         url: singleMatch[1] 
@@ -272,13 +259,11 @@ const renderFormattedText = (text: string | any) => {
   const multiMatch = text.match(multiLinkPattern);
   
   if (multiMatch && !singleMatch) {  // Don't double-process if single link already found
-    console.log('✅ Found multiple Google Flights links:', multiMatch[0]);
     // Extract each city and URL
     const cityUrlPattern = /-\s*([^:]+):\s*(https:\/\/www\.google\.com\/travel\/flights[^\s\n]+)/gi;
     let cityMatch;
     
     while ((cityMatch = cityUrlPattern.exec(multiMatch[1])) !== null) {
-      console.log(`   - ${cityMatch[1].trim()}: ${cityMatch[2]}`);
       googleFlightsButtons.push({
         city: cityMatch[1].trim(),
         url: cityMatch[2]
@@ -288,16 +273,12 @@ const renderFormattedText = (text: string | any) => {
     textWithoutGoogleFlights = text.replace(multiMatch[0], '').trim();
   }
   
-  console.log(`🔍 Google Flights buttons found: ${googleFlightsButtons.length}`, googleFlightsButtons);
-  
   // Pattern 3: Fallback - catch ANY line with city and Google Flights URL
   if (googleFlightsButtons.length === 0) {
-    console.log('🔍 No buttons found via patterns 1-2, trying fallback pattern...');
     const fallbackPattern = /-\s*([^:]+):\s*(https:\/\/www\.google\.com\/travel\/flights[^\s\n]+)/gi;
     let fallbackMatch;
     
     while ((fallbackMatch = fallbackPattern.exec(text)) !== null) {
-      console.log(`   ✅ Fallback found: ${fallbackMatch[1].trim()}: ${fallbackMatch[2]}`);
       googleFlightsButtons.push({
         city: fallbackMatch[1].trim(),
         url: fallbackMatch[2]
@@ -307,43 +288,142 @@ const renderFormattedText = (text: string | any) => {
       const lineToRemove = fallbackMatch[0];
       textWithoutGoogleFlights = textWithoutGoogleFlights.replace(lineToRemove, '').trim();
     }
-    
-    console.log(`🔍 After fallback, total buttons: ${googleFlightsButtons.length}`);
     }
   } // Close the if (googleFlightsButtons.length === 0) block
   
-  // Split by markdown links [text](url) and ** for bold
-  const parts = textWithoutGoogleFlights.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/g);
+  // Process markdown with headers, bold, links, and line breaks
+  const processMarkdown = (text: string) => {
+    // Split by lines first to handle headers and structure
+    const lines = text.split('\n');
+    const elements: JSX.Element[] = [];
+    
+    lines.forEach((line, lineIdx) => {
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines
+      if (!trimmedLine) {
+        elements.push(<br key={`br-${lineIdx}`} />);
+        return;
+      }
+      
+      // Handle headers
+      if (trimmedLine.startsWith('#### ')) {
+        const headerText = trimmedLine.substring(5);
+        elements.push(
+          <h4 key={`h4-${lineIdx}`} style={{ 
+            fontSize: '1.1rem', 
+            fontWeight: '600', 
+            margin: '16px 0 8px 0',
+            color: '#2d3748'
+          }}>
+            {processInlineMarkdown(headerText)}
+          </h4>
+        );
+        return;
+      }
+      
+      if (trimmedLine.startsWith('### ')) {
+        const headerText = trimmedLine.substring(4);
+        elements.push(
+          <h3 key={`h3-${lineIdx}`} style={{ 
+            fontSize: '1.25rem', 
+            fontWeight: '700', 
+            margin: '20px 0 12px 0',
+            color: '#1a202c'
+          }}>
+            {processInlineMarkdown(headerText)}
+          </h3>
+        );
+        return;
+      }
+      
+      // Handle bullet points
+      if (trimmedLine.startsWith('- ')) {
+        const bulletText = trimmedLine.substring(2);
+        elements.push(
+          <div key={`bullet-${lineIdx}`} style={{ 
+            marginLeft: '16px', 
+            marginBottom: '4px',
+            display: 'flex',
+            alignItems: 'flex-start'
+          }}>
+            <span style={{ marginRight: '8px', color: '#667eea' }}>•</span>
+            <span>{processInlineMarkdown(bulletText)}</span>
+          </div>
+        );
+        return;
+      }
+      
+      // Handle numbered lists
+      const numberedMatch = trimmedLine.match(/^(\d+)\.\s+(.+)/);
+      if (numberedMatch) {
+        elements.push(
+          <div key={`numbered-${lineIdx}`} style={{ 
+            marginLeft: '16px', 
+            marginBottom: '4px',
+            display: 'flex',
+            alignItems: 'flex-start'
+          }}>
+            <span style={{ marginRight: '8px', color: '#667eea', fontWeight: '600' }}>
+              {numberedMatch[1]}.
+            </span>
+            <span>{processInlineMarkdown(numberedMatch[2])}</span>
+          </div>
+        );
+        return;
+      }
+      
+      // Regular paragraph
+      elements.push(
+        <p key={`p-${lineIdx}`} style={{ 
+          margin: '8px 0',
+          lineHeight: '1.5'
+        }}>
+          {processInlineMarkdown(trimmedLine)}
+        </p>
+      );
+    });
+    
+    return elements;
+  };
+  
+  // Process inline markdown (bold, links) within a line
+  const processInlineMarkdown = (text: string) => {
+    const parts = text.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/g);
+    
+    return parts.map((part, idx) => {
+      // Markdown link
+      const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
+      if (linkMatch) {
+        return (
+          <a 
+            key={idx} 
+            href={linkMatch[2]} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{
+              color: '#667eea',
+              textDecoration: 'underline',
+              fontWeight: '600'
+            }}
+          >
+            {linkMatch[1]}
+          </a>
+        );
+      }
+      
+      // Bold text
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={idx}>{part.slice(2, -2)}</strong>;
+      }
+      
+      return <span key={idx}>{part}</span>;
+    });
+  };
   
   return (
     <>
-      {parts.map((part, idx) => {
-        // Markdown link
-        const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
-        if (linkMatch) {
-          return (
-            <a 
-              key={idx} 
-              href={linkMatch[2]} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              style={{
-                color: '#667eea',
-                textDecoration: 'underline',
-                fontWeight: '600'
-              }}
-            >
-              {linkMatch[1]}
-            </a>
-          );
-        }
-        
-        // Bold text
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={idx}>{part.slice(2, -2)}</strong>;
-        }
-        return <span key={idx}>{part}</span>;
-      })}
+      {processMarkdown(textWithoutGoogleFlights)}
       
       {/* Render Google Flights buttons */}
       {googleFlightsButtons.length > 0 && (
@@ -940,9 +1020,8 @@ const MessageItem: React.FC<{
               <FlightOptionsList flights={flightOptions} isDarkMode={isDarkMode} />
             )}
             
-            {/* Render remaining text - but skip if we have structured data */}
-            {cleanedContent && typeof cleanedContent === 'string' && cleanedContent.trim() && 
-             !(typeof content === 'object' && content !== null && (content.flights || content.hotels || content.attractions)) && (
+            {/* Render text content with markdown processing */}
+            {cleanedContent && typeof cleanedContent === 'string' && cleanedContent.trim() && (
               <div style={{ marginTop: (flightComparison || flightOptions) ? '15px' : '0' }}>
                 {renderFormattedText(cleanedContent)}
               </div>
@@ -952,7 +1031,31 @@ const MessageItem: React.FC<{
             {typeof cleanedContent !== 'string' && !flightComparison && !flightOptions && 
              !(typeof content === 'object' && content !== null && (content.flights || content.hotels || content.attractions)) && (
               <div>
-                {renderFormattedText((cleanedContent as any).message || JSON.stringify(cleanedContent, null, 2))}
+                {(() => {
+                  // Try to extract meaningful content from the object
+                  const obj = cleanedContent as any;
+                  if (obj.message) return renderFormattedText(obj.message);
+                  if (obj.content) return renderFormattedText(obj.content);
+                  if (obj.response) return renderFormattedText(obj.response);
+                  if (obj.text) return renderFormattedText(obj.text);
+                  if (obj.aiResponse) return renderFormattedText(obj.aiResponse);
+                  
+                  // If it's an array, try to join meaningful parts
+                  if (Array.isArray(obj)) {
+                    const textParts = obj.map(item => {
+                      if (typeof item === 'string') return item;
+                      if (item?.message) return item.message;
+                      if (item?.content) return item.content;
+                      return '';
+                    }).filter(Boolean);
+                    if (textParts.length > 0) {
+                      return renderFormattedText(textParts.join('\n\n'));
+                    }
+                  }
+                  
+                  // Last resort: show a friendly message instead of JSON
+                  return renderFormattedText('I\'ve processed your request successfully! The response contains structured data that should be displayed above.');
+                })()}
               </div>
             )}
           </div>
@@ -2131,13 +2234,116 @@ const AiAgentPage: React.FC = () => {
       const params = new URLSearchParams(window.location.search);
       
       console.log('AI Assistant: Checking URL parameters...');
-      console.log('Messages param exists:', !!params.get('messages'));
-      console.log('Itinerary param exists:', !!params.get('itinerary'));
+      console.log('ConversationId param:', params.get('conversationId'));
+      console.log('FromPlanTrip param:', params.get('fromPlanTrip'));
       
-      // Check for messages parameter first (multi-message response)
+      // Check if coming from Plan Trip with conversation ID
+      const conversationId = params.get('conversationId');
+      const fromPlanTrip = params.get('fromPlanTrip');
+      
+      if (conversationId && fromPlanTrip) {
+        console.log('AI Assistant: Loading from Plan Trip with conversation ID:', conversationId);
+        
+        // Try to load messages from session storage
+        const storedMessages = sessionStorage.getItem(`chat_messages_${conversationId}`);
+        if (storedMessages) {
+          try {
+            const messagesArray = JSON.parse(storedMessages);
+            console.log('AI Assistant: Loaded messages from session storage, count:', messagesArray.length);
+            
+            if (Array.isArray(messagesArray)) {
+              const parsedMessages = messagesArray.map((msg: any) => {
+                console.log('AI Assistant: Processing message:', { id: msg.id, type: msg.type, hasContent: !!msg.content });
+                
+                let content = msg.content || msg.message || msg;
+                
+                // Handle specific message types from backend
+                if (msg.type === 'flight_recommendations') {
+                  content = {
+                    message: content,
+                    flights: msg.data?.flights || [],
+                    googleFlightsUrl: msg.data?.googleFlightsUrl,
+                    inHouseFlightUrl: msg.data?.inHouseFlightUrl,
+                    origin: msg.data?.origin,
+                    destination: msg.data?.destination,
+                    depDate: msg.data?.depDate,
+                    retDate: msg.data?.retDate
+                  };
+                } else if (msg.type === 'hotel_cards') {
+                  content = {
+                    message: content,
+                    hotels: msg.data?.hotels || [],
+                    hotelSearchUrl: msg.data?.hotelSearchUrl,
+                    bookingComUrl: msg.data?.bookingComUrl,
+                    showMoreText: msg.data?.showMoreText || 'Show more options'
+                  };
+                } else if (msg.type === 'attractions_recommendations') {
+                  content = {
+                    message: content,
+                    attractions: msg.data?.attractions || [],
+                    tripAdvisorUrl: msg.data?.tripAdvisorUrl,
+                    destination: msg.data?.destination,
+                    showMoreText: msg.data?.showMoreText || 'Show more options'
+                  };
+                } else if (msg.type === 'text' || !msg.type) {
+                  // For text messages (like itineraries), ensure we use the content directly
+                  content = msg.content || msg.message || content;
+                  console.log('AI Assistant: Text message content type:', typeof content);
+                  console.log('AI Assistant: Text message content preview:', typeof content === 'string' ? content.substring(0, 100) : 'Not a string');
+                }
+                
+                // Final safeguard: if content is still an object for text messages, extract the text
+                if ((msg.type === 'text' || !msg.type) && typeof content === 'object' && content !== null) {
+                  console.log('AI Assistant: Content is still an object for text message, extracting...');
+                  content = content.content || content.message || content.text || JSON.stringify(content);
+                }
+                
+                return {
+                  role: msg.role === 'assistant' ? 'ai' : msg.role,
+                  content: content,
+                  timestamp: msg.timestamp || Date.now(),
+                  id: msg.id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+                  type: msg.type
+                };
+              });
+              
+              console.log('AI Assistant: Mapped initial messages, count:', parsedMessages.length);
+              setMessages(parsedMessages);
+              
+              // Clean up session storage after loading
+              sessionStorage.removeItem(`chat_messages_${conversationId}`);
+              
+              // Auto-focus chat input when coming from plan trip
+              setTimeout(() => {
+                const chatInput = document.querySelector('input[placeholder*="Ask me anything"]') as HTMLInputElement;
+                if (chatInput) {
+                  chatInput.focus();
+                  chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  
+                  // Add a subtle highlight to indicate the chat is ready
+                  chatInput.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.3)';
+                  setTimeout(() => {
+                    chatInput.style.boxShadow = '';
+                  }, 2000);
+                }
+              }, 500);
+              
+              // Clean up URL parameters to make URL clean
+              const newUrl = window.location.pathname;
+              window.history.replaceState({}, '', newUrl);
+              
+              return; // Exit early if we found messages
+            }
+          } catch (error) {
+            console.error('Error parsing messages from session storage:', error);
+          }
+        }
+      }
+      
+      // Legacy: Check for messages parameter in URL (for backward compatibility)
       const messagesStr = params.get('messages');
       if (messagesStr) {
-        console.log('AI Assistant: Found messages parameter, length:', messagesStr.length);
+        console.log('AI Assistant: Found legacy messages parameter, length:', messagesStr.length);
         try {
           const messagesArray = JSON.parse(messagesStr);
           console.log('AI Assistant: Parsed messages array, length:', messagesArray.length);
@@ -2186,6 +2392,11 @@ const AiAgentPage: React.FC = () => {
             console.log('AI Assistant: Mapped initial messages, count:', parsedMessages.length);
             console.log('AI Assistant: First message:', parsedMessages[0]);
             setMessages(parsedMessages);
+            
+            // Clean up URL parameters
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+            
             return; // Exit early if we found messages
           }
         } catch (error) {

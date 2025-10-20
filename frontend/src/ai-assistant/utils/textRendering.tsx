@@ -158,12 +158,22 @@ export const renderFormattedText = (text: string | any) => {
 
   // If button marker NOT found, try other patterns as fallback
   if (googleFlightsButtons.length === 0) {
-    // New: Pattern A - Markdown single link: "Search on Google Flights: [Click here](https://www.google.com/travel/flights...)"
+    // Pattern A - Markdown single link: "Search on Google Flights: [Click here](https://www.google.com/travel/flights...)"
     const markdownSinglePattern = /Search on Google Flights:\s*\[.*?\]\((https:\/\/www\.google\.com\/travel\/flights[^)]+)\)/i;
     const mdSingleMatch = text.match(markdownSinglePattern);
     if (mdSingleMatch) {
       googleFlightsButtons.push({ city: 'Search on Google Flights', url: mdSingleMatch[1] });
       textWithoutGoogleFlights = textWithoutGoogleFlights.replace(mdSingleMatch[0], '').trim();
+    }
+
+    // Pattern A2 - Direct markdown link: "[Search Flights on Google Flights](https://www.google.com/travel/flights...)"
+    if (googleFlightsButtons.length === 0) {
+      const directMarkdownPattern = /\[Search Flights on Google Flights\]\((https:\/\/www\.google\.com\/travel\/flights[^)]+)\)/i;
+      const directMatch = text.match(directMarkdownPattern);
+      if (directMatch) {
+        googleFlightsButtons.push({ city: 'Search Flights on Google Flights', url: directMatch[1] });
+        textWithoutGoogleFlights = textWithoutGoogleFlights.replace(directMatch[0], '').trim();
+      }
     }
 
     // New: Pattern B - Multiple markdown links under a list

@@ -538,7 +538,22 @@ In the meantime, I can still help you with general travel advice and planning!`,
               color: isUser ? 'white' : (isDarkMode ? '#e2e8f0' : '#2d3748'),
               letterSpacing: '0.3px'
             }}>
-              {renderFormattedText(typeof message.content === 'string' ? message.content : JSON.stringify(message.content))}
+              {(() => {
+                // Extract text content from various possible formats
+                let textContent = '';
+                
+                if (typeof message.content === 'string') {
+                  textContent = message.content;
+                } else if (typeof message.content === 'object' && message.content !== null) {
+                  // Try to extract text from object in various ways
+                  const obj = message.content as any;
+                  textContent = obj.content || obj.message || obj.text || obj.aiResponse || JSON.stringify(message.content);
+                } else {
+                  textContent = String(message.content);
+                }
+                
+                return renderFormattedText(textContent);
+              })()}
             </div>
           )}
           

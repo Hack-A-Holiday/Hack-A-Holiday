@@ -518,27 +518,35 @@ Please help me create a detailed itinerary for this trip from ${originCity} to $
 			console.log('About to redirect...');
 			console.log('Is array check:', Array.isArray(data.data?.response));
 			
+			const conversationId = data.data?.conversationId || `trip_${Date.now()}`;
+			
 			if (Array.isArray(data.data?.response)) {
-				// Multi-message response - pass all messages
+				// Multi-message response - store in session storage instead of URL
 				console.log('Redirecting with multi-message response');
 				console.log('Messages to pass:', data.data.response.length);
-				router.push({ 
-					pathname: '/ai-assistant', 
-					query: { 
-						messages: JSON.stringify(data.data.response),
-						conversationId: data.data?.conversationId || `trip_${Date.now()}`
-					} 
-				});
+				
+				// Store messages in session storage to avoid long URLs
+				sessionStorage.setItem(`chat_messages_${conversationId}`, JSON.stringify(data.data.response));
+				
+				// Redirect directly to AI assistant chat (no intermediate page)
+				router.push(`/ai-assistant?conversationId=${conversationId}&fromPlanTrip=true`);
 			} else {
-				// Single response - pass itinerary as before
+				// Single response - store in session storage as well
 				console.log('Redirecting with single response');
-				router.push({ 
-					pathname: '/ai-assistant', 
-					query: { 
-						itinerary: JSON.stringify(itinerary),
-						conversationId: data.data?.conversationId || `trip_${Date.now()}`
-					} 
-				});
+				
+				// Convert single response to message format and store
+				const singleMessage = [{
+					id: `msg_${Date.now()}_itinerary`,
+					role: 'assistant',
+					content: aiResponseText,
+					timestamp: Date.now(),
+					type: 'text'
+				}];
+				
+				sessionStorage.setItem(`chat_messages_${conversationId}`, JSON.stringify(singleMessage));
+				
+				// Redirect directly to AI assistant chat (no intermediate page)
+				router.push(`/ai-assistant?conversationId=${conversationId}&fromPlanTrip=true`);
 			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Network error');
