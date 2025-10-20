@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDarkMode } from '@/contexts/DarkModeContext';
 import Navbar from '@/components/layout/Navbar';
+import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import { TravelPreferences, defaultTravelPreferences, PreferencesUtils } from '@/types/preferences';
 import { GlobeSection, TripForm, PreferencesModal, DestinationCard } from './components';
 import { useTripPlanner } from './hooks/useTripPlanner';
@@ -367,11 +368,13 @@ export default function PlanTrip() {
 			<div style={{ 
 				minHeight: '100vh', 
 				background: isDarkMode 
-					? 'linear-gradient(135deg, #1a1f2e 0%, #16213e 100%)' 
-					: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+					? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #1e293b 100%)' 
+					: 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 50%, #94a3b8 100%)',
+				position: 'relative'
 			}}>
+				<AnimatedBackground isDarkMode={isDarkMode} variant="plan-trip" />
 				<Navbar />
-				<main style={{ padding: getContainerPadding() }}>
+				<main style={{ padding: getContainerPadding(), position: 'relative', zIndex: 1 }}>
 					<div style={{ maxWidth: '800px', margin: '0 auto' }}>
 						<div style={{ textAlign: 'center', marginBottom: isMobile ? '30px' : '40px', color: 'white' }}>
 							<div style={{ 

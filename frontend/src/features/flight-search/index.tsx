@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDarkMode } from '@/contexts/DarkModeContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import Navbar from '@/components/layout/Navbar';
+import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import FlightSearch from '@/components/FlightSearch';
 import { FlightOption } from '@/types/flight';
 
@@ -86,17 +87,21 @@ export default function FlightSearchPage() {
       <div style={{
         minHeight: '100vh',
         background: isDarkMode
-          ? 'linear-gradient(135deg, #1a1f2e 0%, #252d3d 100%)'
-          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #1e293b 100%)'
+          : 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 50%, #94a3b8 100%)',
         paddingTop: '80px',
-        paddingBottom: '40px'
+        paddingBottom: '40px',
+        position: 'relative'
       }}>
+        <AnimatedBackground isDarkMode={isDarkMode} variant="flight-search" />
         <Navbar />
 
         <div style={{
           maxWidth: '1400px',
           margin: '0 auto',
-          padding: isMobile ? '20px' : '40px'
+          padding: isMobile ? '20px' : '40px',
+          position: 'relative',
+          zIndex: 1
         }}>
           {/* Header Section */}
           <div style={{
