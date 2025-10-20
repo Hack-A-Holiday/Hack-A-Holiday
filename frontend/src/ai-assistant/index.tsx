@@ -185,20 +185,24 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
     return () => window.removeEventListener('resize', checkScreenSize);
   }, [state.user, state.token]);
 
-  // Check for initial data in URL and auto-show chat
+  const [urlProcessed, setUrlProcessed] = useState(false);
+
+  // Check for initial data in URL and auto-show chat (only once on mount)
   useEffect(() => {
-    if (typeof window !== 'undefined' && state.user) {
+    if (typeof window !== 'undefined' && state.user && !urlProcessed) {
       const params = new URLSearchParams(window.location.search);
       const messagesStr = params.get('messages');
       const itineraryStr = params.get('itinerary');
       
       // If there's initial data in the URL, automatically show the chat
-      if ((messagesStr || itineraryStr) && !showChat) {
-        console.log('Auto-showing chat due to initial data in URL');
+      if (messagesStr || itineraryStr) {
+        console.log('🎯 Auto-showing chat due to initial data in URL');
         setShowChat(true);
       }
+      // Mark URL as processed so this only runs once
+      setUrlProcessed(true);
     }
-  }, [state.user, showChat]);
+  }, [state.user, urlProcessed]);
 
   useEffect(() => {
     // Initialize conversation only if user is present
