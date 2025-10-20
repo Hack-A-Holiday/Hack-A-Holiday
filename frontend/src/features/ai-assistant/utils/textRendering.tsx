@@ -131,6 +131,10 @@ export const renderFormattedText = (text: string | any) => {
   // Pattern 0: Button marker from backend (HIGHEST PRIORITY)
   // Match: - Barcelona: [GOOGLE_FLIGHTS_BUTTON]https://....[/GOOGLE_FLIGHTS_BUTTON]
   const buttonMarkerWithCityPattern = /-\s*([^:]+):\s*\[GOOGLE_FLIGHTS_BUTTON\](https?:\/\/[^^\]]+)\[\/GOOGLE_FLIGHTS_BUTTON\]/gi;
+  
+  // Pattern 0b: Markdown bold format: **Mumbai to Goa:**\n[GOOGLE_FLIGHTS_BUTTON]url[/GOOGLE_FLIGHTS_BUTTON]
+  const markdownBoldPattern = /\*\*([^*]+):\*\*\s*\n?\s*\[GOOGLE_FLIGHTS_BUTTON\](https?:\/\/[^\]]+)\[\/GOOGLE_FLIGHTS_BUTTON\]/gi;
+  
   let cityMarkerMatch;
   
   // First try to match with city labels (multi-destination format)
@@ -142,12 +146,32 @@ export const renderFormattedText = (text: string | any) => {
     textWithoutGoogleFlights = textWithoutGoogleFlights.replace(cityMarkerMatch[0], '').trim();
   }
   
+  // Try markdown bold format
+  while ((cityMarkerMatch = markdownBoldPattern.exec(text)) !== null) {
+    console.log('🔍 Frontend: Found markdown bold button:', {
+      city: cityMarkerMatch[1].trim(),
+      url: cityMarkerMatch[2],
+      fullMatch: cityMarkerMatch[0]
+    });
+    googleFlightsButtons.push({
+      city: cityMarkerMatch[1].trim(),
+      url: cityMarkerMatch[2]
+    });
+    textWithoutGoogleFlights = textWithoutGoogleFlights.replace(cityMarkerMatch[0], '').trim();
+  }
+  
   // If no city-labeled buttons found, try simple format (single destination)
   if (googleFlightsButtons.length === 0) {
+    console.log('🔍 Frontend: No city-labeled buttons found, trying simple pattern');
+    console.log('🔍 Frontend: Text sample:', text.substring(0, 500));
     // More permissive pattern - allow any characters in URL including +, =, etc.
     const simpleButtonPattern = /\[GOOGLE_FLIGHTS_BUTTON\](https?:\/\/[^\]]+)\[\/GOOGLE_FLIGHTS_BUTTON\]/gi;
     let simpleMatch;
     while ((simpleMatch = simpleButtonPattern.exec(text)) !== null) {
+      console.log('🔍 Frontend: Found simple button:', {
+        url: simpleMatch[1],
+        fullMatch: simpleMatch[0]
+      });
       googleFlightsButtons.push({
         city: 'Search on Google Flights',
         url: simpleMatch[1]
@@ -158,12 +182,22 @@ export const renderFormattedText = (text: string | any) => {
 
   // If button marker NOT found, try other patterns as fallback
   if (googleFlightsButtons.length === 0) {
-    // New: Pattern A - Markdown single link: "Search on Google Flights: [Click here](https://www.google.com/travel/flights...)"
+    // Pattern A - Markdown single link: "Search on Google Flights: [Click here](https://www.google.com/travel/flights...)"
     const markdownSinglePattern = /Search on Google Flights:\s*\[.*?\]\((https:\/\/www\.google\.com\/travel\/flights[^)]+)\)/i;
     const mdSingleMatch = text.match(markdownSinglePattern);
     if (mdSingleMatch) {
       googleFlightsButtons.push({ city: 'Search on Google Flights', url: mdSingleMatch[1] });
       textWithoutGoogleFlights = textWithoutGoogleFlights.replace(mdSingleMatch[0], '').trim();
+    }
+
+    // Pattern A2 - Direct markdown link: "[Search Flights on Google Flights](https://www.google.com/travel/flights...)"
+    if (googleFlightsButtons.length === 0) {
+      const directMarkdownPattern = /\[Search Flights on Google Flights\]\((https:\/\/www\.google\.com\/travel\/flights[^)]+)\)/i;
+      const directMatch = text.match(directMarkdownPattern);
+      if (directMatch) {
+        googleFlightsButtons.push({ city: 'Search Flights on Google Flights', url: directMatch[1] });
+        textWithoutGoogleFlights = textWithoutGoogleFlights.replace(directMatch[0], '').trim();
+      }
     }
 
     // New: Pattern B - Multiple markdown links under a list
@@ -208,6 +242,10 @@ export const renderFormattedText = (text: string | any) => {
       textWithoutGoogleFlights = textWithoutGoogleFlights.replace(fallbackMatch[0], '').trim();
     }
   }
+
+  // Debug final results
+  console.log('🔍 Frontend: Final Google Flights buttons:', googleFlightsButtons);
+  console.log('🔍 Frontend: Total buttons found:', googleFlightsButtons.length);
 
   // Use the new markdown renderer for the main text
   return (
