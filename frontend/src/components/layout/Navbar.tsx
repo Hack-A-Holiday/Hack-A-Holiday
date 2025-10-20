@@ -13,11 +13,11 @@ export default function Navbar() {
   };
 
   // Handle logout
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setIsUserMenuOpen(false);
-    // Optionally redirect to login or home
-    router.push('/login');
+    // Redirect to login
+    router.push('/');
   };
 
   // Close mobile menu

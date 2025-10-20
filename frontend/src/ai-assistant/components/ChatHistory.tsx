@@ -311,7 +311,7 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
                   : '1px solid transparent',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                position: 'relative'
+                position: 'relative',
               }}
               onClick={() => {
                 console.log('🖱️ ChatHistory: Session clicked:', session._id);
