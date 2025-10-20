@@ -613,7 +613,48 @@ In the meantime, I can still help you with general travel advice and planning!`,
         <title>AI Travel Assistant - HackTravel</title>
         <meta name="description" content="Get personalized travel recommendations powered by AI" />
       </Head>
-      <div style={{ minHeight: '100vh', position: 'relative' }}>
+      <div style={{
+        minHeight: '100vh',
+        background: isDarkMode
+          ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'
+          : 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%)',
+        position: 'relative'
+      }}>
+        {/* Animated background elements */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflow: 'hidden',
+          zIndex: 0
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '10%',
+            left: '10%',
+            width: '300px',
+            height: '300px',
+            background: isDarkMode
+              ? 'radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%)'
+              : 'radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, transparent 70%)',
+            borderRadius: '50%',
+            animation: 'float 6s ease-in-out infinite'
+          }} />
+          <div style={{
+            position: 'absolute',
+            bottom: '20%',
+            right: '15%',
+            width: '200px',
+            height: '200px',
+            background: isDarkMode
+              ? 'radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%)'
+              : 'radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%)',
+            borderRadius: '50%',
+            animation: 'float 8s ease-in-out infinite reverse'
+          }} />
+        </div>
         <Navbar />
 
         {!showChat ? (
