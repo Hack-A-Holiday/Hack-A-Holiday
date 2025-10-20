@@ -1,4 +1,4 @@
-import { Destination } from '../data/destinations';
+import { Destination } from '@/data/destinations';
 
 export interface TripPreferences {
   destination: string;

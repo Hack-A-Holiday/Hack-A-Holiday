@@ -1,2 +1,2 @@
-// Main AI Assistant Page - imports from src/ai-assistant/
-export { default } from '../ai-assistant';
+// Main AI Assistant Page - imports from features/ai-assistant/
+export { default } from '@/features/ai-assistant';

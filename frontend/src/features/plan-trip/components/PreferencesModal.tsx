@@ -1,5 +1,5 @@
 import React from 'react';
-import { TravelPreferences, preferenceOptions, PreferencesUtils } from '../../types/preferences';
+import { TravelPreferences, preferenceOptions, PreferencesUtils } from '@/types/preferences';
 
 interface PreferencesModalProps {
 	isDarkMode: boolean;

@@ -1,8 +1,8 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
-import { Destination } from '../../data/destinations';
+import { Destination } from '@/data/destinations';
 
-const InteractiveGlobe = dynamic(() => import('../../components/InteractiveGlobe'), {
+const InteractiveGlobe = dynamic(() => import('@/components/InteractiveGlobe'), {
 	ssr: false,
 	loading: () => <div style={{ height: '600px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading globe...</div>
 });
