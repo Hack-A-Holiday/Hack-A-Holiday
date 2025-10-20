@@ -225,7 +225,7 @@ export class KiwiApiService {
       hasItineraries: !!data.itineraries,
       hasFlights: !!data.flights,
       hasResults: !!data.results,
-      hasData: !!data.data,
+      hasNestedData: !!data.data,
       itinerariesCount: data.itineraries?.length || 0,
       flightsCount: data.flights?.length || 0,
       resultsCount: data.results?.length || 0,

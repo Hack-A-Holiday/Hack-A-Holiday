@@ -1851,7 +1851,7 @@ export default function FlightSearchPage() {
                   color: isDarkMode ? '#9ca3af' : '#6b7280',
                   marginBottom: '30px'
                 }}>
-                  We couldn't find hotels for your search. Visit Booking.com to search directly.
+                  We couldn&apos;t find hotels for your search. Visit Booking.com to search directly.
                 </div>
                 <button
                   onClick={() => {
