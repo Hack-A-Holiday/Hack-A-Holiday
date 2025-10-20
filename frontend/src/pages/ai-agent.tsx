@@ -2742,7 +2742,7 @@ const AiAgentPage: React.FC = () => {
           />
           {/* Chat Container - Full Screen */}
           <div style={{ flex: 1, width: '100%', maxWidth: '100%', margin: '0 auto', background: isDarkMode ? '#0f172a' : 'rgba(255,255,255,0.98)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-// (Sidebar state and hooks are now at the top of the component)
+            {/* Sidebar state and hooks are now at the top of the component */}
             {/* Chat Header */}
             <div style={{ 
               background: isDarkMode 

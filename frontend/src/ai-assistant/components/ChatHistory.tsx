@@ -312,7 +312,6 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 position: 'relative',
-                group: true
               }}
               onClick={() => {
                 console.log('🖱️ ChatHistory: Session clicked:', session._id);
