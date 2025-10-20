@@ -41,6 +41,8 @@ export default function AIAssistant() {
   const initializeConversation = useCallback(() => {
     // Check for messages or itinerary data from URL query parameters
     let initialMessages: ChatMessage[] = [];
+    let hasInitialData = false;
+    
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const messagesStr = params.get('messages');
@@ -53,6 +55,7 @@ export default function AIAssistant() {
       
       if (messagesStr) {
         // Multi-message response from trip planning
+        hasInitialData = true;
         console.log('Found messages in URL:', messagesStr);
         try {
           const messages = JSON.parse(messagesStr);
@@ -72,6 +75,7 @@ export default function AIAssistant() {
         }
       } else if (itineraryStr) {
         // Single itinerary response (backward compatibility)
+        hasInitialData = true;
         try {
           const itineraryObj = JSON.parse(itineraryStr);
           // Convert itinerary object to formatted text for display in chat
@@ -105,6 +109,12 @@ export default function AIAssistant() {
           console.error('Error parsing itinerary:', e);
         }
       }
+    }
+
+    // If we have initial data from trip planning, automatically show the chat
+    if (hasInitialData) {
+      console.log('✅ Initial data detected - showing chat directly');
+      setShowChat(true);
     }
 
     // If no conversation ID set, create a new one
@@ -174,6 +184,21 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
 
     return () => window.removeEventListener('resize', checkScreenSize);
   }, [state.user, state.token]);
+
+  // Check for initial data in URL and auto-show chat
+  useEffect(() => {
+    if (typeof window !== 'undefined' && state.user) {
+      const params = new URLSearchParams(window.location.search);
+      const messagesStr = params.get('messages');
+      const itineraryStr = params.get('itinerary');
+      
+      // If there's initial data in the URL, automatically show the chat
+      if ((messagesStr || itineraryStr) && !showChat) {
+        console.log('Auto-showing chat due to initial data in URL');
+        setShowChat(true);
+      }
+    }
+  }, [state.user, showChat]);
 
   useEffect(() => {
     // Initialize conversation only if user is present
