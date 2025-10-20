@@ -1,5 +1,5 @@
 import React from 'react';
-import { TravelPreferences } from '../../types/preferences';
+import { TravelPreferences } from '@/types/preferences';
 
 interface TripFormProps {
 	isDarkMode: boolean;

@@ -1,3 +1,3 @@
-import PlanTrip from '../plan-trip';
+import PlanTrip from '@/features/plan-trip';
 
 export default PlanTrip;

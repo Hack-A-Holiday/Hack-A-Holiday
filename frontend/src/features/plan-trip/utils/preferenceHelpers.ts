@@ -1,4 +1,4 @@
-import { TravelPreferences } from '../../types/preferences';
+import { TravelPreferences } from '@/types/preferences';
 
 /**
  * Validate trip preferences

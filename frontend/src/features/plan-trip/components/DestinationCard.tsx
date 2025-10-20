@@ -1,5 +1,5 @@
 import React from 'react';
-import { Destination } from '../../data/destinations';
+import { Destination } from '@/data/destinations';
 
 interface DestinationCardProps {
 	destination: Destination;
