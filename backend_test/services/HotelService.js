@@ -41,46 +41,66 @@ class HotelService {
               fallbackUsed: false
             };
           } else {
-            console.log('⚠️ Booking API returned no hotels, using mock data fallback...');
-            const mockResults = await this.generateEnhancedMockData(searchRequest);
+            console.log('⚠️ Booking API returned no hotels, returning empty results...');
             return {
-              ...mockResults,
+              success: false,
+              hotels: [],
+              totalResults: 0,
+              searchId: `booking-search-${Date.now()}`,
+              currency: searchRequest.currency || 'USD',
+              destination: searchRequest.destination,
+              provider: 'booking.com',
+              fallbackUsed: false,
               searchStartTime,
-              provider: 'booking.com (mock fallback)',
-              fallbackUsed: true
+              message: 'No hotels found. Please try a different search or visit Booking.com directly.'
             };
           }
         } catch (error) {
-          console.log('❌ Booking API failed, using mock data fallback...', error.message);
-          const mockResults = await this.generateEnhancedMockData(searchRequest);
+          console.log('❌ Booking API failed, returning empty results...', error.message);
           return {
-            ...mockResults,
+            success: false,
+            hotels: [],
+            totalResults: 0,
+            searchId: `booking-search-${Date.now()}`,
+            currency: searchRequest.currency || 'USD',
+            destination: searchRequest.destination,
+            provider: 'booking.com',
+            fallbackUsed: false,
             searchStartTime,
-            provider: 'booking.com (error fallback)',
-            fallbackUsed: true
+            message: 'Hotel search failed. Please try again or visit Booking.com directly.'
           };
         }
       }
 
-      // No API keys available - use mock data
-      console.log('⚠️ No hotel API keys available, using mock data');
-      const mockResults = await this.generateEnhancedMockData(searchRequest);
+      // No API keys available - return empty results
+      console.log('⚠️ No hotel API keys available, returning empty results');
       return {
-        ...mockResults,
+        success: false,
+        hotels: [],
+        totalResults: 0,
+        searchId: `booking-search-${Date.now()}`,
+        currency: searchRequest.currency || 'USD',
+        destination: searchRequest.destination,
+        provider: 'no-api',
+        fallbackUsed: false,
         searchStartTime,
-        provider: 'mock data',
-        fallbackUsed: true
+        message: 'Hotel search not available. Please visit Booking.com directly.'
       };
 
     } catch (error) {
       console.error('❌ All hotel search methods failed:', error);
-      // Final fallback to mock data
-      const mockResults = await this.generateEnhancedMockData(searchRequest);
+      // Final fallback - return empty results
       return {
-        ...mockResults,
+        success: false,
+        hotels: [],
+        totalResults: 0,
+        searchId: `booking-search-${Date.now()}`,
+        currency: searchRequest.currency || 'USD',
+        destination: searchRequest.destination,
+        provider: 'error',
+        fallbackUsed: false,
         searchStartTime,
-        provider: 'emergency fallback',
-        fallbackUsed: true
+        message: 'Hotel search encountered an error. Please try again or visit Booking.com directly.'
       };
     }
   }
@@ -107,13 +127,15 @@ class HotelService {
       search_type: 'CITY',
       arrival_date: checkIn,
       departure_date: checkOut,
-      adults: adults.toString(),
-      children_age: children.toString(),
-      room_qty: rooms.toString(),
+      adults: adults,
+      children_age: children > 0 ? Array(children).fill(17).join(',') : '0',
+      room_qty: rooms,
+      page_number: 1,
       units: 'metric',
       temperature_unit: 'c',
       languagecode: 'en-us',
-      currency_code: currency
+      currency_code: currency,
+      location: 'US'
     };
 
     const apiKey = this.bookingApiKey || this.rapidApiKey;
@@ -148,60 +170,86 @@ class HotelService {
         resultIsArray: Array.isArray(response.data?.result),
         resultLength: response.data?.result?.length || 0
       });
+      
+      // Debug: Log the actual response structure
+      console.log('   🔍 DEBUG: Full response.data keys:', response.data ? Object.keys(response.data) : 'No data');
+      if (response.data && response.data.result) {
+        console.log('   🔍 DEBUG: result is array:', Array.isArray(response.data.result));
+        console.log('   🔍 DEBUG: result length:', response.data.result.length);
+        if (response.data.result.length > 0) {
+          console.log('   🔍 DEBUG: First result keys:', Object.keys(response.data.result[0]));
+        }
+      }
 
       // Check if API returned an error or no results
-      if (!response.data || response.data.status === false || !response.data.result || response.data.result.length === 0) {
+      // The API response structure has hotels in response.data.data.hotels array
+      const hotels = response.data?.data?.hotels || [];
+      if (!response.data || response.data.status === false || !hotels || hotels.length === 0) {
         console.log('   ⚠️ No hotels found in API response or API error');
         console.log('   📄 Full Response:', JSON.stringify(response.data, null, 2));
-        console.log('   🔄 Falling back to mock data...');
-        console.log('🟣 ===== BOOKING API CALL END (FALLBACK TO MOCK) =====\n');
+        console.log('   🔄 No fallback - returning empty results');
+        console.log('🟣 ===== BOOKING API CALL END (NO RESULTS) =====\n');
         
-        // Return mock data instead of empty results
-        const mockResult = await this.generateEnhancedMockData(searchRequest);
+        // Return empty results instead of mock data
         return {
-          ...mockResult,
-          provider: 'booking.com (mock fallback)',
-          fallbackUsed: true
+          success: false,
+          hotels: [],
+          totalResults: 0,
+          searchId: `booking-search-${Date.now()}`,
+          currency: currency,
+          destination: destination,
+          provider: 'booking.com',
+          fallbackUsed: false,
+          message: 'No hotels found. Please try a different search or visit Booking.com directly.'
         };
       }
 
-      console.log(`   🏨 Found ${response.data.result.length} hotels`);
+      console.log(`   🏨 Found ${hotels.length} hotels`);
 
-      const hotels = (response.data.result || []).map((hotel, index) => ({
-        id: `booking-${hotel.hotel_id || index}`,
-        name: hotel.hotel_name || 'Hotel',
-        address: hotel.address || hotel.city_name || destination,
-        cityName: hotel.city_name || destination,
-        rating: hotel.class || 3,
-        reviewScore: hotel.review_score || 8.0,
-        reviewCount: hotel.review_nr || 100,
-        pricePerNight: hotel.min_total_price || 100,
-        totalPrice: this.calculateTotalPrice(hotel, checkIn, checkOut),
-        currency: hotel.currency_code || currency,
-        imageUrl: hotel.main_photo_url || '',
-        amenities: this.parseBookingAmenities(hotel),
-        distanceFromCenter: hotel.distance_to_cc ? `${hotel.distance_to_cc} km` : null,
-        distanceValue: hotel.distance_to_cc || null,
-        freeCancellation: hotel.is_free_cancellable || false,
-        breakfastIncluded: hotel.is_breakfast_included || false,
-        roomType: 'Standard Room',
-        coordinates: {
-          latitude: hotel.latitude || null,
-          longitude: hotel.longitude || null
-        },
-        bookingUrl: hotel.url || null,
-        checkinTime: '15:00',
-        checkoutTime: '11:00',
-        propertyType: this.getPropertyTypeFromClass(hotel.class)
-      }));
+      const processedHotels = hotels.map((hotel, index) => {
+        // Handle the new API structure where hotel data is nested under 'property'
+        const hotelData = hotel.property || hotel;
+        const priceData = hotelData.priceBreakdown || {};
+        const grossPrice = priceData.grossPrice || {};
+        
+        return {
+          id: `booking-${hotelData.id || hotel.hotel_id || index}`,
+          name: hotelData.name || hotel.hotel_name || 'Hotel',
+          address: hotelData.address || hotel.address || destination,
+          cityName: hotelData.cityName || hotel.city_name || destination,
+          rating: hotelData.propertyClass || hotelData.accuratePropertyClass || hotel.class || 3,
+          reviewScore: hotelData.reviewScore || hotel.review_score || 8.0,
+          reviewCount: hotelData.reviewCount || hotel.review_nr || 100,
+          pricePerNight: grossPrice.value || hotel.min_total_price || 100,
+          totalPrice: grossPrice.value || this.calculateTotalPrice(hotel, checkIn, checkOut),
+          currency: grossPrice.currency || hotelData.currency || hotel.currency_code || currency,
+          imageUrl: hotelData.photoUrls?.[0] || hotel.main_photo_url || '',
+          amenities: this.parseBookingAmenities(hotelData),
+          distanceFromCenter: hotelData.distanceFromCenter || hotel.distance_to_cc ? `${hotel.distance_to_cc} km` : null,
+          distanceValue: hotelData.distanceValue || hotel.distance_to_cc || null,
+          freeCancellation: hotelData.freeCancellation || hotel.is_free_cancellable || false,
+          breakfastIncluded: hotelData.breakfastIncluded || hotel.is_breakfast_included || false,
+          roomType: 'Standard Room',
+          coordinates: {
+            latitude: hotelData.latitude || hotel.latitude || null,
+            longitude: hotelData.longitude || hotel.longitude || null
+          },
+          bookingUrl: hotelData.bookingUrl || hotel.url || null,
+          checkinTime: hotelData.checkin?.fromTime || '15:00',
+          checkoutTime: hotelData.checkout?.untilTime || '11:00',
+          propertyType: this.getPropertyTypeFromClass(hotelData.propertyClass || hotel.class),
+          isPreferred: hotelData.isPreferred || false,
+          reviewScoreWord: hotelData.reviewScoreWord || 'Good'
+        };
+      });
 
       console.log('   ✅ Successfully parsed hotels');
       console.log('🟣 ===== BOOKING API CALL END (SUCCESS) =====\n');
 
       return {
         success: true,
-        hotels,
-        totalResults: hotels.length,
+        hotels: processedHotels,
+        totalResults: processedHotels.length,
         searchId: `booking-search-${Date.now()}`,
         currency,
         destination: destination
@@ -302,7 +350,33 @@ class HotelService {
    * Helper: Get destination ID for booking-com15 API
    */
   async getDestinationId(destination) {
-    // For booking-com15 API, we need to search for destinations first
+    const apiKey = this.bookingApiKey || this.rapidApiKey;
+    
+    try {
+      console.log(`   🔍 Searching destination ID for: ${destination}`);
+      
+      const response = await axios.get(`https://${this.bookingApiHost}/api/v1/hotels/searchDestination`, {
+        params: {
+          query: destination
+        },
+        headers: {
+          'X-RapidAPI-Key': apiKey,
+          'X-RapidAPI-Host': this.bookingApiHost
+        },
+        timeout: 10000
+      });
+
+      if (response.data && response.data.length > 0) {
+        const firstResult = response.data[0];
+        const destId = firstResult.dest_id || firstResult.id;
+        console.log(`   ✅ Found destination ID: ${destId} for ${destination}`);
+        return destId;
+      }
+    } catch (error) {
+      console.warn(`   ⚠️ Failed to get destination ID for ${destination}:`, error.message);
+    }
+
+    // Fallback to hardcoded map for common destinations
     const destMap = {
       'mumbai': '-2092174',
       'new york': '20088325', 
@@ -322,7 +396,9 @@ class HotelService {
     const dest = destination.toLowerCase();
     const match = Object.keys(destMap).find(key => dest.includes(key));
     
-    return match ? destMap[match] : destMap['mumbai']; // Default to Mumbai
+    const fallbackId = match ? destMap[match] : destMap['tokyo']; // Default to Tokyo
+    console.log(`   🔄 Using fallback destination ID: ${fallbackId} for ${destination}`);
+    return fallbackId;
   }
 
   /**

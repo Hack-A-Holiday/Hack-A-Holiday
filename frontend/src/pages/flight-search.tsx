@@ -732,19 +732,62 @@ export default function FlightSearchPage() {
       return;
     }
 
-    // Generate Booking.com URL with search parameters
+    setLoadingHotels(true);
+    setShowHotelResults(true);
+
+    try {
+      console.log('🏨 Searching hotels for:', {
+        destination: hotelDestination,
+        checkIn: hotelCheckIn,
+        checkOut: hotelCheckOut,
+        guests: hotelGuests
+      });
+
+      // Call the backend hotel search API
+      const response = await fetch('http://localhost:4000/api/hotels/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          destination: hotelDestination.trim(),
+          checkIn: hotelCheckIn,
+          checkOut: hotelCheckOut,
+          adults: hotelGuests,
+          rooms: 1
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('🏨 Hotel search response:', data);
+
+      if (data.success && data.hotels) {
+        setHotelResults(data.hotels);
+        console.log(`✅ Found ${data.hotels.length} hotels`);
+      } else {
+        console.error('❌ Hotel search failed:', data.message);
+        alert('Failed to search hotels. Please try again.');
+        setHotelResults([]);
+      }
+    } catch (error) {
+      console.error('❌ Hotel search error:', error);
+      alert('Failed to search hotels. Please try again.');
+      setHotelResults([]);
+    } finally {
+      setLoadingHotels(false);
+    }
+  };
+
+  // Handle booking redirect to Booking.com
+  const handleBookHotel = (hotel: any) => {
     const searchString = encodeURIComponent(hotelDestination.trim());
     const bookingUrl = `https://www.booking.com/searchresults.html?ss=${searchString}&checkin=${hotelCheckIn}&checkout=${hotelCheckOut}&group_adults=${hotelGuests}&no_rooms=1&group_children=0`;
-
-    console.log('🏨 Opening Booking.com with search:', {
-      destination: hotelDestination,
-      checkIn: hotelCheckIn,
-      checkOut: hotelCheckOut,
-      guests: hotelGuests,
-      url: bookingUrl
-    });
-
-    // Open Booking.com in a new tab
+    
+    console.log('🏨 Opening Booking.com for hotel:', hotel.name);
     window.open(bookingUrl, '_blank', 'noopener,noreferrer');
   };
 
@@ -1757,8 +1800,93 @@ export default function FlightSearchPage() {
               {loadingHotels ? '⏳ Searching...' : '🔍 Search Hotels'}
             </button>
 
+            {/* Hotel Loading State */}
+            {loadingHotels && (
+              <div style={{ 
+                marginTop: '30px', 
+                textAlign: 'center',
+                padding: '40px 20px'
+              }}>
+                <div style={{
+                  fontSize: '1.2rem',
+                  color: isDarkMode ? '#e8eaed' : '#1f2937',
+                  marginBottom: '20px'
+                }}>
+                  🔍 Searching for hotels in {hotelDestination}...
+                </div>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  border: `4px solid ${isDarkMode ? '#374151' : '#e1e5e9'}`,
+                  borderTop: '4px solid #3b82f6',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto'
+                }}></div>
+                <style jsx>{`
+                  @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+                `}</style>
+              </div>
+            )}
+
+            {/* No Hotels Found */}
+            {showHotelResults && !loadingHotels && hotelResults.length === 0 && (
+              <div style={{ 
+                marginTop: '30px', 
+                textAlign: 'center',
+                padding: '40px 20px'
+              }}>
+                <div style={{
+                  fontSize: '1.2rem',
+                  color: isDarkMode ? '#e8eaed' : '#1f2937',
+                  marginBottom: '10px'
+                }}>
+                  🏨 No hotels found for {hotelDestination}
+                </div>
+                <div style={{
+                  fontSize: '1rem',
+                  color: isDarkMode ? '#9ca3af' : '#6b7280',
+                  marginBottom: '30px'
+                }}>
+                  We couldn't find hotels for your search. Visit Booking.com to search directly.
+                </div>
+                <button
+                  onClick={() => {
+                    const searchString = encodeURIComponent(hotelDestination.trim());
+                    const bookingUrl = `https://www.booking.com/searchresults.html?ss=${searchString}&checkin=${hotelCheckIn}&checkout=${hotelCheckOut}&group_adults=${hotelGuests}&no_rooms=1&group_children=0`;
+                    window.open(bookingUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  style={{
+                    padding: '15px 30px',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+                  }}
+                >
+                  🔍 Search on Booking.com
+                </button>
+              </div>
+            )}
+
             {/* Hotel Results */}
-            {showHotelResults && hotelResults.length > 0 && (
+            {showHotelResults && !loadingHotels && hotelResults.length > 0 && (
               <div style={{ marginTop: '30px' }}>
                 <h3 style={{
                   fontSize: '1.5rem',
@@ -1774,141 +1902,177 @@ export default function FlightSearchPage() {
                   gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
                   gap: '20px'
                 }}>
-                  {hotelResults.slice(0, showMoreHotels ? hotelResults.length : 10).map((hotel, index) => (
-                    <div key={hotel.id} style={{
-                      background: isDarkMode ? '#1a1f2e' : 'white',
-                      borderRadius: '12px',
-                      overflow: 'hidden',
-                      border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                      transition: 'transform 0.2s, box-shadow 0.2s',
-                      cursor: 'pointer'
-                    }}
+                  {hotelResults.slice(0, 6).map((hotel, index) => {
+                    // Use the processed data from backend directly
+                    const totalPrice = hotel.totalPrice || 0;
+                    const nights = Math.ceil((new Date(hotelCheckOut).getTime() - new Date(hotelCheckIn).getTime()) / (1000 * 60 * 60 * 24));
+                    
+                    return (
+                      <div key={hotel.id || index} style={{
+                        background: isDarkMode ? '#1a1f2e' : 'white',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                        transition: 'transform 0.2s, box-shadow 0.2s',
+                        cursor: 'pointer'
+                      }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-4px)';
+                          e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                        }}
+                      >
+                        {hotel.imageUrl && (
+                          <img
+                            src={hotel.imageUrl}
+                            alt={hotel.name}
+                            style={{
+                              width: '100%',
+                              height: '200px',
+                              objectFit: 'cover'
+                            }}
+                          />
+                        )}
+                        <div style={{ padding: '16px' }}>
+                          <h4 style={{
+                            fontSize: '1.1rem',
+                            fontWeight: '600',
+                            marginBottom: '8px',
+                            color: isDarkMode ? '#e8eaed' : '#1f2937'
+                          }}>
+                            {hotel.name}
+                          </h4>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '8px'
+                          }}>
+                            <span style={{
+                              background: '#3b82f6',
+                              color: 'white',
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              fontSize: '0.9rem',
+                              fontWeight: '600'
+                            }}>
+                              {hotel.reviewScore ? hotel.reviewScore.toFixed(1) : 'N/A'}
+                            </span>
+                            <span style={{
+                              fontSize: '0.9rem',
+                              color: isDarkMode ? '#9ca3af' : '#6b7280'
+                            }}>
+                              ({hotel.reviewCount || 0} reviews)
+                            </span>
+                            <span style={{
+                              fontSize: '0.8rem',
+                              color: isDarkMode ? '#9ca3af' : '#6b7280',
+                              background: isDarkMode ? '#374151' : '#f3f4f6',
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              {hotel.rating ? '★'.repeat(hotel.rating) : ''}
+                            </span>
+                          </div>
+                          <p style={{
+                            fontSize: '0.9rem',
+                            color: isDarkMode ? '#9ca3af' : '#6b7280',
+                            marginBottom: '12px'
+                          }}>
+                            📍 {hotel.reviewScoreWord || 'Hotel'} • {hotel.isPreferred ? 'Preferred' : 'Standard'}
+                          </p>
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            paddingTop: '12px',
+                            borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9'
+                          }}>
+                            <div>
+                              <div style={{
+                                fontSize: '0.8rem',
+                                color: isDarkMode ? '#9ca3af' : '#6b7280'
+                              }}>
+                                Total for {nights} nights
+                              </div>
+                              <div style={{
+                                fontSize: '1.3rem',
+                                fontWeight: '700',
+                                color: isDarkMode ? '#e8eaed' : '#1f2937'
+                              }}>
+                                ${totalPrice ? totalPrice.toFixed(0) : 'N/A'}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleBookHotel(hotel)}
+                              style={{
+                                background: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                padding: '10px 20px',
+                                borderRadius: '8px',
+                                fontSize: '0.9rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'background 0.2s'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#2563eb';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = '#3b82f6';
+                              }}
+                            >
+                              Book on Booking.com
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {hotelResults.length > 6 && (
+                  <div style={{ textAlign: 'center', marginTop: '30px' }}>
+                    <div style={{
+                      fontSize: '1rem',
+                      color: isDarkMode ? '#9ca3af' : '#6b7280',
+                      marginBottom: '15px'
+                    }}>
+                      Showing 6 of {hotelResults.length} hotels
+                    </div>
+                    <button
+                      onClick={() => {
+                        const searchString = encodeURIComponent(hotelDestination.trim());
+                        const bookingUrl = `https://www.booking.com/searchresults.html?ss=${searchString}&checkin=${hotelCheckIn}&checkout=${hotelCheckOut}&group_adults=${hotelGuests}&no_rooms=1&group_children=0`;
+                        window.open(bookingUrl, '_blank', 'noopener,noreferrer');
+                      }}
+                      style={{
+                        padding: '15px 40px',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontSize: '1.1rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                        transition: 'all 0.3s ease'
+                      }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.15)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                        e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
                       }}
                     >
-                      {hotel.imageUrl && (
-                        <img
-                          src={hotel.imageUrl}
-                          alt={hotel.name}
-                          style={{
-                            width: '100%',
-                            height: '200px',
-                            objectFit: 'cover'
-                          }}
-                        />
-                      )}
-                      <div style={{ padding: '16px' }}>
-                        <h4 style={{
-                          fontSize: '1.1rem',
-                          fontWeight: '600',
-                          marginBottom: '8px',
-                          color: isDarkMode ? '#e8eaed' : '#1f2937'
-                        }}>
-                          {hotel.name}
-                        </h4>
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          marginBottom: '8px'
-                        }}>
-                          <span style={{
-                            background: '#3b82f6',
-                            color: 'white',
-                            padding: '4px 8px',
-                            borderRadius: '6px',
-                            fontSize: '0.9rem',
-                            fontWeight: '600'
-                          }}>
-                            {hotel.rating.toFixed(1)}
-                          </span>
-                          <span style={{
-                            fontSize: '0.9rem',
-                            color: isDarkMode ? '#9ca3af' : '#6b7280'
-                          }}>
-                            ({hotel.reviewCount} reviews)
-                          </span>
-                        </div>
-                        <p style={{
-                          fontSize: '0.9rem',
-                          color: isDarkMode ? '#9ca3af' : '#6b7280',
-                          marginBottom: '12px'
-                        }}>
-                          📍 {hotel.distanceFromCenter} from center
-                        </p>
-                        <div style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          paddingTop: '12px',
-                          borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9'
-                        }}>
-                          <div>
-                            <div style={{
-                              fontSize: '0.8rem',
-                              color: isDarkMode ? '#9ca3af' : '#6b7280'
-                            }}>
-                              Total for {Math.ceil((new Date(hotelCheckOut).getTime() - new Date(hotelCheckIn).getTime()) / (1000 * 60 * 60 * 24))} nights
-                            </div>
-                            <div style={{
-                              fontSize: '1.3rem',
-                              fontWeight: '700',
-                              color: isDarkMode ? '#e8eaed' : '#1f2937'
-                            }}>
-                              ${hotel.totalPrice}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => {
-                              // Generate Booking.com URL with hotel name for more specific search
-                              const searchQuery = encodeURIComponent(`${hotel.name} ${hotelDestination}`);
-                              const bookingUrl = `https://www.booking.com/searchresults.html?ss=${searchQuery}&checkin=${hotelCheckIn}&checkout=${hotelCheckOut}&group_adults=${hotelGuests}&no_rooms=1&group_children=0`;
-                              console.log('🏨 Opening Booking.com for hotel:', hotel.name, bookingUrl);
-                              window.open(bookingUrl, '_blank', 'noopener,noreferrer');
-                            }}
-                            style={{
-                              background: '#3b82f6',
-                              color: 'white',
-                              border: 'none',
-                              padding: '10px 20px',
-                              borderRadius: '8px',
-                              fontSize: '0.9rem',
-                              fontWeight: '600',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            View Deal
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {hotelResults.length > 10 && (
-                  <div style={{ textAlign: 'center', marginTop: '20px' }}>
-                    <button
-                      onClick={() => setShowMoreHotels(!showMoreHotels)}
-                      style={{
-                        padding: '12px 32px',
-                        background: isDarkMode ? '#1a1f2e' : 'white',
-                        color: isDarkMode ? '#e8eaed' : '#1f2937',
-                        border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
-                        borderRadius: '10px',
-                        fontSize: '1rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s ease'
-                      }}
-                    >
-                      {showMoreHotels ? 'Show Less' : `Show More (${hotelResults.length - 10} more)`}
+                      🔍 View All {hotelResults.length} Hotels on Booking.com
                     </button>
                   </div>
                 )}
