@@ -3405,21 +3405,28 @@ class IntegratedAITravelAgent {
         })
         .join("\n\n");
 
-      const summaryPrompt = `Summarize this travel conversation in 2-3 sentences. Focus on:
+      const summaryPrompt = `Summarize this travel conversation in 2-3 sentences. Focus ONLY on what was EXPLICITLY mentioned:
 1. What destination(s) the user is interested in - LIST ALL CITIES mentioned (Barcelona, Madrid, Athens, etc.)
-2. What dates/duration they mentioned
+2. What dates/duration they mentioned (if any)
 3. What they're looking for (flights, hotels, itinerary, etc.)
-4. Any preferences (budget, interests, origin city)
+4. Any preferences (budget, interests, origin city) they explicitly stated
+
+CRITICAL RULES:
+- ONLY include information that was EXPLICITLY mentioned by the user
+- DO NOT add passenger counts, dates, or other details that weren't specifically stated
+- If no dates were mentioned, don't mention dates
+- If no passenger count was mentioned, don't mention passengers
+- If no budget was mentioned, don't mention budget
+- Be factual and precise - do not infer or assume anything
 
 IMPORTANT: If the user asked about flights to multiple destinations, mention ALL destinations in the summary.
-Be concise and factual. Include specific details like city names and dates.
 
 Conversation:
 ${conversationText}
 
 Current query: "${currentQuery}"
 
-Summary (2-3 sentences):`;
+Summary (2-3 sentences, only explicit information):`;
 
       const params = {
         modelId: "us.amazon.nova-lite-v1:0",
@@ -4075,17 +4082,34 @@ JSON:`;
       );
     }
     if (novaAnalysis.extractedPassengers) {
-      // Convert simple number to proper passenger object format
-      const passengerCount = novaAnalysis.extractedPassengers;
-      infoFromNova.passengers = {
-        adults: passengerCount,
-        children: 0,
-        infants: 0,
-      };
-      console.log(
-        "   👥 Nova Lite extracted passengers:",
-        `${passengerCount} total → { adults: ${passengerCount}, children: 0, infants: 0 }`
-      );
+      // Double-check that passengers are actually mentioned in the original query
+      const passengerPatterns = [
+        /\d+\s*(?:adult|passenger|people|person|traveler|pax)/i,
+        /(?:number\s+of\s+)?(?:travelers?|passengers?):\s*\d+/i,
+        /couple/i,
+        /family/i,
+        /for\s+\d+/i
+      ];
+      
+      const hasPassengerMention = passengerPatterns.some(pattern => pattern.test(query));
+      
+      if (hasPassengerMention) {
+        // Convert simple number to proper passenger object format
+        const passengerCount = novaAnalysis.extractedPassengers;
+        infoFromNova.passengers = {
+          adults: passengerCount,
+          children: 0,
+          infants: 0,
+        };
+        console.log(
+          "   👥 Nova Lite extracted passengers (validated):",
+          `${passengerCount} total → { adults: ${passengerCount}, children: 0, infants: 0 }`
+        );
+      } else {
+        console.log("   ⚠️ Nova Lite extracted passengers but none found in original query - ignoring hallucination");
+      }
+    } else {
+      console.log("   ⚠️ Nova Lite did NOT extract passengers from query:", query.substring(0, 200));
     }
     if (novaAnalysis.extractedOrigin) {
       infoFromNova.origin = novaAnalysis.extractedOrigin;
@@ -4775,23 +4799,34 @@ JSON:`;
     // Extract number of travelers and convert to passenger object format
     const travelersMatch = query.match(
       /(\d+)\s*(?:people|person|traveler|pax|adult)/i
-    );
-    let travelerCount = 1; // default
+    ) || query.match(/(?:number\s+of\s+)?travelers?:\s*(\d+)/i) ||
+         query.match(/(?:number\s+of\s+)?passengers?:\s*(\d+)/i);
+    
+    // Only set passenger info if travelers are explicitly mentioned
     if (travelersMatch) {
-      travelerCount = parseInt(travelersMatch[1]);
+      const travelerCount = parseInt(travelersMatch[1]);
+      info.travelers = travelerCount;
+      info.passengers = {
+        adults: travelerCount,
+        children: 0,
+        infants: 0,
+      };
     } else if (lowerQuery.includes("couple")) {
-      travelerCount = 2;
+      info.travelers = 2;
+      info.passengers = {
+        adults: 2,
+        children: 0,
+        infants: 0,
+      };
     } else if (lowerQuery.includes("family")) {
-      travelerCount = 4;
+      info.travelers = 4;
+      info.passengers = {
+        adults: 4,
+        children: 0,
+        infants: 0,
+      };
     }
-
-    // Convert to passenger object format for consistency
-    info.travelers = travelerCount;
-    info.passengers = {
-      adults: travelerCount,
-      children: 0,
-      infants: 0,
-    };
+    // Don't set default values - let validation logic handle missing passengers
 
     // Extract travel style
     if (lowerQuery.includes("backpack") || lowerQuery.includes("budget")) {
@@ -5154,33 +5189,37 @@ Return ONLY the JSON array:`;
       passengers = { adults: 1, children: 0, infants: 0 },
     } = searchRequest;
 
-    // Build Google Flights URL with route format
+    // Build Google Flights URL with query format that actually works
     let url = `https://www.google.com/travel/flights`;
-
+    
+    // Build search query string
+    let query = `${origin} to ${destination}`;
+    if (departureDate) {
+      query += ` ${departureDate}`;
+    }
     if (returnDate) {
-      // Round-trip: /flights/ORIGIN.DESTINATION.DEPDATE.RETDATE
-      url += `/flights/${origin}.${destination}.${departureDate}.${returnDate}`;
-    } else {
-      // One-way: /flights/ORIGIN.DESTINATION.DEPDATE
-      url += `/flights/${origin}.${destination}.${departureDate}`;
+      query += ` ${returnDate}`;
+    }
+    
+    // Add passenger info to query
+    const adults = passengers.adults || 1;
+    if (adults > 1) {
+      query += ` ${adults} adults`;
+    }
+    if (passengers.children > 0) {
+      query += ` ${passengers.children} children`;
+    }
+    if (passengers.infants > 0) {
+      query += ` ${passengers.infants} infants`;
     }
 
-    // Add query parameters
+    // Use query parameter format
     const params = new URLSearchParams();
+    params.append("q", query);
     params.append("hl", "en");
     params.append("curr", "USD");
 
-    // Add passengers
-    const adults = passengers.adults || 1;
-    const children = passengers.children || 0;
-    const infants = passengers.infants || 0;
-
-    if (adults > 1) params.append("adults", adults.toString());
-    if (children > 0) params.append("children", children.toString());
-    if (infants > 0) params.append("infants", infants.toString());
-
-    const queryString = params.toString();
-    return queryString ? `${url}?${queryString}` : url;
+    return `${url}?${params.toString()}`;
   }
 
   /**
@@ -6075,18 +6114,28 @@ Return ONLY the JSON array:`;
           const retDate = queryIntent.extractedInfo.returnDate || "";
           const passengers = queryIntent.extractedInfo.passengers;
 
+          // Use the EXACT same passenger validation logic as single flights
+          const hasValidPassengers =
+            passengers &&
+            ((typeof passengers === "object" &&
+              passengers.adults &&
+              passengers.adults >= 1) ||
+              (typeof passengers === "number" &&
+                passengers >= 1));
+
           // Check for missing information
           const missingInfo = [];
           if (!origin) missingInfo.push("departure city");
           if (!depDate) missingInfo.push("departure date");
-          if (
-            !passengers ||
-            (typeof passengers === "object" &&
-              (!passengers.adults || passengers.adults < 1)) ||
-            (typeof passengers === "number" && passengers < 1)
-          ) {
+          if (!hasValidPassengers) {
             missingInfo.push("number of passengers");
+            console.log("   🔍 Multi-destination validation: Missing passengers detected");
+            console.log("     - passengers value:", passengers);
+            console.log("     - passengers type:", typeof passengers);
+            console.log("     - hasValidPassengers:", hasValidPassengers);
           }
+          
+          console.log("   🔍 Missing info array:", missingInfo);
 
           contextPrompt += `MULTI-DESTINATION FLIGHT COMPARISON DETECTED\n`;
           contextPrompt += `User wants to compare flights to: ${destinations.join(
@@ -6094,6 +6143,8 @@ Return ONLY the JSON array:`;
           )}\n\n`;
 
           if (missingInfo.length > 0) {
+            console.log("   🚨 MISSING INFO DETECTED - Should ask for missing details, NOT generate URLs");
+            console.log("   🚨 Missing items:", missingInfo);
             // Ask for missing information first
             contextPrompt += `RESPOND EXACTLY LIKE THIS:\n\n`;
             contextPrompt += `"I'd love to help you compare flights to ${destinations.join(
@@ -6113,6 +6164,8 @@ Return ONLY the JSON array:`;
 
             contextPrompt += `\nOnce I have these details, I'll show you flight options for all ${destinations.length} destinations so you can compare prices and choose the best one!"\n\n`;
           } else {
+            console.log("   ✅ ALL INFO AVAILABLE - Generating Google Flights URLs");
+            console.log("   ✅ Will generate URLs for destinations:", destinations);
             // All information available, show Google Flights buttons
             contextPrompt += `RESPOND EXACTLY LIKE THIS:\n\n`;
             contextPrompt += `"Here are flight options for your ${destinations.length} destinations:\n\n`;
@@ -6129,16 +6182,30 @@ Return ONLY the JSON array:`;
               if (retDate) {
                 query += ` returning ${retDate}`;
               }
-              if (passengers && passengers > 1) {
-                query += ` for ${passengers} passengers`;
+              // Add passenger info to query
+              let passengerCount = 1;
+              if (passengers) {
+                if (typeof passengers === 'object' && passengers.adults) {
+                  passengerCount = passengers.adults;
+                } else if (typeof passengers === 'number') {
+                  passengerCount = passengers;
+                }
+                
+                if (passengerCount > 1) {
+                  query += ` for ${passengerCount} passengers`;
+                }
               }
 
-              googleFlightsUrl += `?q=${encodeURIComponent(query)}`;
-
-              // Add passenger parameters for Google Flights
-              if (passengers && passengers > 1) {
-                googleFlightsUrl += `&adults=${passengers}`;
-              }
+              // Use the improved buildGoogleFlightsUrlSync method
+              const searchRequest = {
+                origin: origin,
+                destination: destination,
+                departureDate: depDate,
+                returnDate: retDate,
+                passengers: passengers
+              };
+              
+              googleFlightsUrl = this.buildGoogleFlightsUrlSync(searchRequest);
 
               contextPrompt += `**${origin} to ${destination}:**\n`;
               contextPrompt += `[GOOGLE_FLIGHTS_BUTTON]${googleFlightsUrl}[/GOOGLE_FLIGHTS_BUTTON]\n\n`;
@@ -7946,7 +8013,7 @@ Return ONLY the JSON array:`;
       return "https://www.google.com/travel/flights";
     }
 
-    let { origin, destination, departureDate, returnDate } = searchRequest;
+    let { origin, destination, departureDate, returnDate, passengers } = searchRequest;
 
     // Fix any dates with year 2023 or earlier - replace with 2025
     if (departureDate && departureDate.includes("2023")) {
@@ -7962,22 +8029,39 @@ Return ONLY the JSON array:`;
       );
     }
 
-    // Build simple query without encoding - browser will handle it
-    // Format: "BOM to BCN 2025-11-11" works better than encoded version
+    // Build Google Flights URL with query format that actually works
+    let url = `https://www.google.com/travel/flights`;
+    
+    // Build search query string
     let query = `${origin} to ${destination}`;
     if (departureDate) {
       query += ` ${departureDate}`;
     }
     if (returnDate) {
-      // Don't use "return" keyword, just add the date
       query += ` ${returnDate}`;
     }
+    
+    // Add passenger info to query if provided
+    if (passengers) {
+      const adults = passengers.adults || 1;
+      if (adults > 1) {
+        query += ` ${adults} adults`;
+      }
+      if (passengers.children > 0) {
+        query += ` ${passengers.children} children`;
+      }
+      if (passengers.infants > 0) {
+        query += ` ${passengers.infants} infants`;
+      }
+    }
 
-    // Don't encode - let the browser/frontend handle encoding
-    return `https://www.google.com/travel/flights?q=${query.replace(
-      / /g,
-      "+"
-    )}`;
+    // Use query parameter format
+    const params = new URLSearchParams();
+    params.append("q", query);
+    params.append("hl", "en");
+    params.append("curr", "USD");
+
+    return `${url}?${params.toString()}`;
   }
 
   /**
