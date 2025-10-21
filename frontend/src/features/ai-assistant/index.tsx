@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Navbar from "@/components/layout/Navbar";
+import AnimatedBackground from "@/components/layout/AnimatedBackground";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Swal from "sweetalert2";
 

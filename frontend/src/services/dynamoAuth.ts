@@ -80,7 +80,7 @@ export class DynamoDBAuthService {
     });
   }
 
-  async signup(email: string, password: string, name: string): Promise<AuthResponse> {
+  async signup(email: string, password: string, name: string): Promise<{ success: boolean; message: string }> {
     return this.request('/auth/signup', {
       method: 'POST',
       body: JSON.stringify({ email, password, name }),

@@ -305,28 +305,25 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
     try {
       const response = await dynamoDBAuthService.signup(email, password, name);
       
-      // Store token and user session consistently (same as other auth methods)
-      setToken(response.token);
-      setUserSession(response.user);
+      // Backend returns { success: true, message: '...' } and doesn't log in user
+      // This is correct security practice - user needs to log in separately
       
       dispatch({
-        type: 'LOGIN_SUCCESS',
-        payload: { user: response.user, token: response.token },
+        type: 'LOGIN_FAILURE', // Reset loading state
+        payload: '', // No error, just reset
       });
 
       // Show success alert
       await Swal.fire({
         icon: 'success',
         title: 'Account Created!',
-        text: `Welcome to Travel Companion, ${(response.user.name && response.user.name.trim()) ? response.user.name : response.user.email}!`,
-        timer: 3000,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
+        text: `Welcome! Your account has been created successfully. Please log in to continue.`,
+        confirmButtonText: 'Go to Login',
+        confirmButtonColor: '#667eea'
       });
 
-      // Redirect to dashboard after successful signup
-      router.push('/home');
+      // Redirect to login page instead of home
+      router.push('/'); // Assuming login is on the home page
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Signup failed';
       

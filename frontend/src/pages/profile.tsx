@@ -218,15 +218,32 @@ export default function ProfilePage() {
   useEffect(() => {
     // Simulate fetching user trips
     const fetchTrips = async () => {
+      if (!state.user?.id) return;
+      
       setIsLoadingTrips(true);
-      // Replace with your actual API call, e.g., tripTrackingService.getTrips(state.user.id)
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
-      const mockTrips: Trip[] = [
-        { id: '1', userId: state.user?.id || '', origin: 'Mumbai', destination: 'Tokyo', departureDate: '2025-12-10', returnDate: '2025-12-20', status: 'booked', createdAt: '2025-10-18', updatedAt: '2025-10-18', type: 'flight', details: { totalPrice: 1200 } },
-        { id: '2', userId: state.user?.id || '', origin: 'Mumbai', destination: 'Paris', departureDate: '2026-01-15', returnDate: '2026-01-22', status: 'cancelled', createdAt: '2025-09-05', updatedAt: '2025-09-05', cancellationReason: 'Change of plans', type: 'package', details: { totalPrice: 2500 } },
-      ];
-      setUserTrips(mockTrips);
-      setIsLoadingTrips(false);
+      try {
+        console.log(`🔄 Loading trips for user: ${state.user.id}`);
+        const response = await tripApiService.getUserTrips(state.user.id);
+        setUserTrips(response.trips);
+        console.log(`✅ Loaded ${response.trips.length} trips for user`);
+      } catch (error) {
+        console.error('❌ Error loading trips:', error);
+        // Show empty state on error
+        setUserTrips([]);
+        
+        // Optionally show error message to user
+        Swal.fire({
+          icon: 'error',
+          title: 'Failed to Load Trips',
+          text: 'Unable to load your trips. Please try again later.',
+          toast: true,
+          position: 'top-end',
+          timer: 3000,
+          showConfirmButton: false
+        });
+      } finally {
+        setIsLoadingTrips(false);
+      }
     };
 
     if (state.user?.id) {
