@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useDarkMode } from '@/contexts/DarkModeContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/router';
-import Head from 'next/head';
-import Navbar from '@/components/layout/Navbar';
-import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import Swal from 'sweetalert2';
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useDarkMode } from "@/contexts/DarkModeContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/router";
+import Head from "next/head";
+import Navbar from "@/components/layout/Navbar";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import Swal from "sweetalert2";
 
 import { ChatMessage } from "./types";
 import { renderFormattedText } from "./utils";

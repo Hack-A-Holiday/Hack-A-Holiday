@@ -3156,11 +3156,22 @@ class IntegratedAITravelAgent {
       );
 
       // 8. Call Bedrock with full context
-      let bedrockResponse = await this.callBedrock(
-        contextPrompt,
-        conversationHistory,
-        userQuery
-      );
+      let bedrockResponse;
+      try {
+        bedrockResponse = await this.callBedrock(
+          contextPrompt,
+          conversationHistory,
+          userQuery
+        );
+      } catch (error) {
+        if (error.name === 'ServiceUnavailableException') {
+          console.log("   🚨 AWS Bedrock unavailable - providing fallback response");
+          bedrockResponse = "I'm currently experiencing connectivity issues with my AI service. This might be due to AWS service disruptions. Please try again in a few minutes, or you can search directly on Google Flights for immediate results.";
+        } else {
+          console.log("   🚨 Bedrock error:", error.message);
+          bedrockResponse = "I'm having trouble processing your request right now. Please try again in a moment.";
+        }
+      }
 
       // Remove emojis from response
 
@@ -6940,7 +6951,29 @@ Return ONLY the JSON array:`;
       }
 
       console.log("   🧠 Calling Bedrock Nova Pro...");
-      const response = await this.bedrockClient.send(command);
+      
+      // Add retry logic for rate limiting
+      let retryCount = 0;
+      const maxRetries = 3;
+      let response;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          response = await this.bedrockClient.send(command);
+          break; // Success, exit retry loop
+        } catch (error) {
+          if (error.name === 'ServiceUnavailableException' && error.message.includes('Too many requests')) {
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              const waitTime = Math.pow(2, retryCount) * 1000; // Exponential backoff: 2s, 4s, 8s
+              console.log(`   ⚠️ Rate limited. Retry ${retryCount}/${maxRetries} in ${waitTime/1000}s...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              continue;
+            }
+          }
+          throw error; // Re-throw if not rate limit or max retries exceeded
+        }
+      }
 
       let responseText = response.output.message.content[0].text;
       // === PATCH: Ensure all Google Flights buttons for multi-destination are present ===
