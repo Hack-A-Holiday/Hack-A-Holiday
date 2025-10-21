@@ -29,6 +29,60 @@ class TripAdvisorRapidAPIService {
     if (!this.contentApiKey) {
       console.warn('⚠️ TRIPADVISOR_API_KEY not set. Location details and photos will use mock data.');
     }
+    
+    // Validate API keys on startup
+    this.validateApiKeys();
+  }
+
+  /**
+   * Validate API keys and test connectivity
+   */
+  async validateApiKeys() {
+    console.log('🔍 Validating TripAdvisor API keys...');
+    
+    if (!this.contentApiKey) {
+      console.error('❌ TRIPADVISOR_API_KEY is missing - TripAdvisor features will use mock data');
+      return false;
+    }
+    
+    try {
+      // Test API key with a simple search
+      console.log('🧪 Testing API key with a simple search...');
+      const testResponse = await axios.get(
+        `${this.contentApiBaseUrl}/location/search`,
+        {
+          params: {
+            key: this.contentApiKey,
+            searchQuery: 'test',
+            limit: 1
+          },
+          timeout: 5000
+        }
+      );
+      
+      if (testResponse.status === 200) {
+        console.log('✅ TripAdvisor API key is valid and working');
+        return true;
+      } else {
+        console.error(`❌ TripAdvisor API returned status: ${testResponse.status}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ TripAdvisor API key validation failed:');
+      console.error(`   Error: ${error.message}`);
+      console.error(`   Status: ${error.response?.status}`);
+      console.error(`   Response:`, error.response?.data);
+      
+      if (error.response?.status === 401) {
+        console.error('🔑 API KEY ERROR: Unauthorized (401) - TRIPADVISOR_API_KEY is invalid');
+      } else if (error.response?.status === 403) {
+        console.error('🔑 API KEY ERROR: Forbidden (403) - TRIPADVISOR_API_KEY may be expired or invalid');
+      } else if (error.response?.status === 429) {
+        console.error('🔑 API KEY ERROR: Rate Limited (429) - Too many requests during validation');
+      }
+      
+      return false;
+    }
   }
 
   /**
@@ -75,11 +129,19 @@ class TripAdvisorRapidAPIService {
       }
 
       console.log(`🔍 Fetching location details for: ${locationId}`);
+      console.log(`🔑 Using API Key: ${this.contentApiKey ? this.contentApiKey.substring(0, 8) + '...' : 'MISSING'}`);
       
       if (!this.contentApiKey) {
         console.warn('⚠️ No Content API key, returning mock data');
         return this.getMockLocationDetails(locationId);
       }
+
+      console.log(`📡 API Endpoint: ${this.contentApiBaseUrl}/location/${locationId}/details`);
+      console.log(`📋 Request Params:`, {
+        key: this.contentApiKey ? this.contentApiKey.substring(0, 8) + '...' : 'MISSING',
+        language,
+        currency
+      });
 
       const response = await this.fetchWithRetry(async () => {
         return await axios.get(
@@ -95,24 +157,52 @@ class TripAdvisorRapidAPIService {
         );
       });
 
+      console.log(`📊 API Response Status: ${response.status}`);
+      console.log(`📊 API Response Data Keys:`, Object.keys(response.data || {}));
+
       const formatted = this.formatLocationDetails(response.data);
       this.setCachedData(cacheKey, formatted);
       
       console.log(`✅ Successfully fetched location details for: ${formatted.name}`);
+      console.log(`📍 Location Details:`, {
+        name: formatted.name,
+        rating: formatted.rating,
+        num_reviews: formatted.num_reviews,
+        address: formatted.address?.substring(0, 50) + '...'
+      });
       return formatted;
 
     } catch (error) {
-      console.error('❌ TripAdvisor Content API error (location details):', error.message);
+      console.error('❌ TripAdvisor Content API Error Details (location details):');
+      console.error(`   Error Message: ${error.message}`);
+      console.error(`   Error Code: ${error.code}`);
+      console.error(`   Response Status: ${error.response?.status}`);
+      console.error(`   Response Status Text: ${error.response?.statusText}`);
+      console.error(`   Response Data:`, error.response?.data);
+      console.error(`   Request URL: ${error.config?.url}`);
+      console.error(`   Request Params:`, error.config?.params);
+      
+      // Check for specific API key errors
+      if (error.response?.status === 401) {
+        console.error('🔑 API KEY ERROR: Unauthorized (401) - Check if TRIPADVISOR_API_KEY is correct');
+      } else if (error.response?.status === 403) {
+        console.error('🔑 API KEY ERROR: Forbidden (403) - API key may be invalid or expired');
+      } else if (error.response?.status === 429) {
+        console.error('🔑 API KEY ERROR: Rate Limited (429) - Too many requests');
+        throw new Error('Rate limit exceeded. Please try again later.');
+      } else if (error.response?.data?.message?.includes('Invalid API key')) {
+        console.error('🔑 API KEY ERROR: Invalid API key detected in response');
+      }
       
       if (error.response?.status === 404) {
-        throw new Error(`Location ${locationId} not found`);
-      } else if (error.response?.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
+        console.warn(`⚠️ Location not found: ${locationId}`);
+        return this.getMockLocationDetails(locationId);
       } else if (error.code === 'ECONNABORTED') {
         throw new Error('Request timeout. Please try again.');
       }
       
       // Return mock data as fallback
+      console.warn('⚠️ Using mock location details as fallback');
       return this.getMockLocationDetails(locationId);
     }
   }
@@ -134,11 +224,19 @@ class TripAdvisorRapidAPIService {
       }
 
       console.log(`📸 Fetching photos for location: ${locationId}`);
+      console.log(`🔑 Using API Key: ${this.contentApiKey ? this.contentApiKey.substring(0, 8) + '...' : 'MISSING'}`);
       
       if (!this.contentApiKey) {
         console.warn('⚠️ No Content API key, returning mock photos');
         return this.getMockLocationPhotos(locationId);
       }
+
+      console.log(`📡 API Endpoint: ${this.contentApiBaseUrl}/location/${locationId}/photos`);
+      console.log(`📋 Request Params:`, {
+        key: this.contentApiKey ? this.contentApiKey.substring(0, 8) + '...' : 'MISSING',
+        language,
+        limit
+      });
 
       const response = await this.fetchWithRetry(async () => {
         return await axios.get(
@@ -154,23 +252,45 @@ class TripAdvisorRapidAPIService {
         );
       });
 
+      console.log(`📊 API Response Status: ${response.status}`);
+      console.log(`📊 API Response Data Keys:`, Object.keys(response.data || {}));
+
       const photos = this.formatLocationPhotos(response.data);
       this.setCachedData(cacheKey, photos);
       
       console.log(`✅ Successfully fetched ${photos.length} photos`);
+      console.log(`📸 Sample photos:`, photos.slice(0, 2).map(p => ({ id: p.id, caption: p.caption?.substring(0, 30) + '...' })));
       return photos;
 
     } catch (error) {
-      console.error('❌ TripAdvisor Content API error (photos):', error.message);
+      console.error('❌ TripAdvisor Content API Error Details (photos):');
+      console.error(`   Error Message: ${error.message}`);
+      console.error(`   Error Code: ${error.code}`);
+      console.error(`   Response Status: ${error.response?.status}`);
+      console.error(`   Response Status Text: ${error.response?.statusText}`);
+      console.error(`   Response Data:`, error.response?.data);
+      console.error(`   Request URL: ${error.config?.url}`);
+      console.error(`   Request Params:`, error.config?.params);
+      
+      // Check for specific API key errors
+      if (error.response?.status === 401) {
+        console.error('🔑 API KEY ERROR: Unauthorized (401) - Check if TRIPADVISOR_API_KEY is correct');
+      } else if (error.response?.status === 403) {
+        console.error('🔑 API KEY ERROR: Forbidden (403) - API key may be invalid or expired');
+      } else if (error.response?.status === 429) {
+        console.error('🔑 API KEY ERROR: Rate Limited (429) - Too many requests');
+        throw new Error('Rate limit exceeded. Please try again later.');
+      } else if (error.response?.data?.message?.includes('Invalid API key')) {
+        console.error('🔑 API KEY ERROR: Invalid API key detected in response');
+      }
       
       if (error.response?.status === 404) {
         console.warn(`⚠️ No photos found for location ${locationId}`);
         return [];
-      } else if (error.response?.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
       }
       
       // Return empty array or mock photos as fallback
+      console.warn('⚠️ Using mock photos as fallback');
       return this.getMockLocationPhotos(locationId);
     }
   }
@@ -1517,6 +1637,7 @@ class TripAdvisorRapidAPIService {
       }
 
       console.log(`🔍 Searching locations for: ${searchQuery}`);
+      console.log(`🔑 Using API Key: ${this.contentApiKey ? this.contentApiKey.substring(0, 8) + '...' : 'MISSING'}`);
 
       if (!this.contentApiKey) {
         console.warn('⚠️ No Content API key, returning mock search results');
@@ -1526,6 +1647,14 @@ class TripAdvisorRapidAPIService {
       // Try real API first, fallback to mock if it fails
       try {
         console.log('🔍 Attempting real TripAdvisor Content API call...');
+        console.log(`📡 API Endpoint: ${this.contentApiBaseUrl}/location/search`);
+        console.log(`📋 Request Params:`, {
+          key: this.contentApiKey ? this.contentApiKey.substring(0, 8) + '...' : 'MISSING',
+          searchQuery,
+          language,
+          limit,
+          category: category || 'none'
+        });
 
       const response = await this.fetchWithRetry(async () => {
         const params = {
@@ -1549,13 +1678,38 @@ class TripAdvisorRapidAPIService {
         );
       });
 
+      console.log(`📊 API Response Status: ${response.status}`);
+      console.log(`📊 API Response Headers:`, response.headers);
+      console.log(`📊 API Response Data Keys:`, Object.keys(response.data || {}));
+
       const locations = this.formatLocationSearch(response.data);
       this.setCachedData(cacheKey, locations);
 
       console.log(`✅ Successfully found ${locations.length} locations`);
+      console.log(`📍 Sample locations:`, locations.slice(0, 3).map(l => ({ name: l.name, id: l.location_id })));
       return locations;
       } catch (apiError) {
-        console.warn('⚠️ TripAdvisor Content API failed, using mock data:', apiError.message);
+        console.error('❌ TripAdvisor Content API Error Details:');
+        console.error(`   Error Message: ${apiError.message}`);
+        console.error(`   Error Code: ${apiError.code}`);
+        console.error(`   Response Status: ${apiError.response?.status}`);
+        console.error(`   Response Status Text: ${apiError.response?.statusText}`);
+        console.error(`   Response Data:`, apiError.response?.data);
+        console.error(`   Request URL: ${apiError.config?.url}`);
+        console.error(`   Request Params:`, apiError.config?.params);
+        
+        // Check for specific API key errors
+        if (apiError.response?.status === 401) {
+          console.error('🔑 API KEY ERROR: Unauthorized (401) - Check if TRIPADVISOR_API_KEY is correct');
+        } else if (apiError.response?.status === 403) {
+          console.error('🔑 API KEY ERROR: Forbidden (403) - API key may be invalid or expired');
+        } else if (apiError.response?.status === 429) {
+          console.error('🔑 API KEY ERROR: Rate Limited (429) - Too many requests');
+        } else if (apiError.response?.data?.message?.includes('Invalid API key')) {
+          console.error('🔑 API KEY ERROR: Invalid API key detected in response');
+        }
+        
+        console.warn('⚠️ TripAdvisor Content API failed, using mock data');
         return this.getMockLocationSearch(searchQuery);
       }
 
