@@ -12,6 +12,7 @@ import { useTripPlanner } from './hooks/useTripPlanner';
 import { useGlobeRoute } from './hooks/useGlobeRoute';
 import { TripPreferences } from './types';
 import { format } from 'date-fns';
+import { userProfileApiService } from '@/services/user-profile-api';
 
 export default function PlanTrip() {
 	const { state } = useAuth();
@@ -30,40 +31,88 @@ export default function PlanTrip() {
 	}, []);
 
 	// Initialize travel preferences from user data or defaults
-	const [userTravelPreferences, setUserTravelPreferences] = useState<TravelPreferences>(() => {
-		const userPrefs = state.user?.preferences as any;
-		if (userPrefs) {
-			return PreferencesUtils.mergePreferences(defaultTravelPreferences, {
-				budget: userPrefs.budget || defaultTravelPreferences.budget,
-				travelers: userPrefs.travelers || defaultTravelPreferences.travelers,
-				travelStyle: userPrefs.travelStyle || defaultTravelPreferences.travelStyle,
-				interests: userPrefs.interests || defaultTravelPreferences.interests,
-				favoriteDestinations: userPrefs.favouriteDestinations || userPrefs.favoriteDestinations || defaultTravelPreferences.favoriteDestinations,
-				numberOfKids: userPrefs.numberOfKids || defaultTravelPreferences.numberOfKids,
-				accommodationType: userPrefs.accommodationType || defaultTravelPreferences.accommodationType,
-				activityLevel: userPrefs.activityLevel || defaultTravelPreferences.activityLevel,
-				flightPreferences: {
-					...defaultTravelPreferences.flightPreferences,
-					...(userPrefs.flightPreferences || {})
+	const [userTravelPreferences, setUserTravelPreferences] = useState<TravelPreferences>(defaultTravelPreferences);
+
+	// Load latest preferences from API
+	useEffect(() => {
+		const loadUserPreferences = async () => {
+			if (!state.user?.email) return;
+
+			try {
+				console.log('🔄 Loading latest user preferences from API...');
+				const profile = await userProfileApiService.getUserProfile(state.user.email);
+				
+				if (profile?.travelPreferences) {
+					const apiPrefs = profile.travelPreferences;
+					const mergedPrefs = PreferencesUtils.mergePreferences(defaultTravelPreferences, {
+						budget: apiPrefs.budget || defaultTravelPreferences.budget,
+						travelers: apiPrefs.travelers || defaultTravelPreferences.travelers,
+						travelStyle: apiPrefs.travelStyle || defaultTravelPreferences.travelStyle,
+						interests: apiPrefs.interests || defaultTravelPreferences.interests,
+						favoriteDestinations: apiPrefs.favoriteDestinations || defaultTravelPreferences.favoriteDestinations,
+						numberOfKids: apiPrefs.numberOfKids || defaultTravelPreferences.numberOfKids,
+						accommodationType: apiPrefs.accommodationType || defaultTravelPreferences.accommodationType,
+						activityLevel: apiPrefs.activityLevel || defaultTravelPreferences.activityLevel,
+						flightPreferences: {
+							...defaultTravelPreferences.flightPreferences,
+							...(apiPrefs.flightPreferences || {})
+						}
+					});
+					
+					console.log('✅ Loaded preferences from API:', mergedPrefs);
+					setUserTravelPreferences(mergedPrefs);
+					setEditablePreferences(mergedPrefs);
+					
+					// Update trip preferences to reflect the latest data
+					setPreferences(prev => ({
+						...prev,
+						budget: mergedPrefs.budget,
+						travelers: mergedPrefs.travelers,
+						travelStyle: mergedPrefs.travelStyle,
+						interests: mergedPrefs.interests
+					}));
 				}
-			});
-		}
-		return defaultTravelPreferences;
-	});
+			} catch (error) {
+				console.error('❌ Error loading user preferences:', error);
+				// Fallback to cached data from auth context
+				const userPrefs = state.user?.preferences as any;
+				if (userPrefs) {
+					const fallbackPrefs = PreferencesUtils.mergePreferences(defaultTravelPreferences, {
+						budget: userPrefs.budget || defaultTravelPreferences.budget,
+						travelers: userPrefs.travelers || defaultTravelPreferences.travelers,
+						travelStyle: userPrefs.travelStyle || defaultTravelPreferences.travelStyle,
+						interests: userPrefs.interests || defaultTravelPreferences.interests,
+						favoriteDestinations: userPrefs.favouriteDestinations || userPrefs.favoriteDestinations || defaultTravelPreferences.favoriteDestinations,
+						numberOfKids: userPrefs.numberOfKids || defaultTravelPreferences.numberOfKids,
+						accommodationType: userPrefs.accommodationType || defaultTravelPreferences.accommodationType,
+						activityLevel: userPrefs.activityLevel || defaultTravelPreferences.activityLevel,
+						flightPreferences: {
+							...defaultTravelPreferences.flightPreferences,
+							...(userPrefs.flightPreferences || {})
+						}
+					});
+					setUserTravelPreferences(fallbackPrefs);
+					setEditablePreferences(fallbackPrefs);
+				}
+			}
+		};
+
+		loadUserPreferences();
+	}, [state.user?.email]);
 
 	const [preferences, setPreferences] = useState<TripPreferences>({
 		destination: '',
 		destinationData: undefined,
-		budget: userTravelPreferences.budget,
+		budget: defaultTravelPreferences.budget,
 		duration: 5,
-		interests: userTravelPreferences.interests,
-		startDate: '2024-06-01',
-		travelers: userTravelPreferences.travelers,
-		travelStyle: userTravelPreferences.travelStyle,
+		interests: defaultTravelPreferences.interests,
+		startDate: '2025-10-22',
+		travelers: defaultTravelPreferences.travelers,
+		travelStyle: defaultTravelPreferences.travelStyle,
 	});
 
 	const [showPreferencesForm, setShowPreferencesForm] = useState(false);
-	const [editablePreferences, setEditablePreferences] = useState<TravelPreferences>(userTravelPreferences);
+	const [editablePreferences, setEditablePreferences] = useState<TravelPreferences>(defaultTravelPreferences);
 	const [globeSearchQuery, setGlobeSearchQuery] = useState('');
 
 	// Use custom hooks
@@ -321,21 +370,46 @@ export default function PlanTrip() {
 			return;
 		}
 
-		// Update user preferences (sync with profile)
-		setUserTravelPreferences(editablePreferences);
-		
-		// Update trip preferences from travel preferences
-		const updatedTripPrefs = {
-			...preferences,
-			budget: editablePreferences.budget,
-			travelers: editablePreferences.travelers,
-			travelStyle: editablePreferences.travelStyle,
-			interests: editablePreferences.interests
-		};
-		setPreferences(updatedTripPrefs);
+		try {
+			// Save preferences to API
+			if (state.user?.email) {
+				console.log('💾 Saving preferences to API from Plan Trip page...');
+				await userProfileApiService.updateTravelPreferences(state.user.email, editablePreferences);
+				console.log('✅ Preferences saved to API successfully');
+			}
 
-		setShowPreferencesForm(false);
-		triggerApiCall(updatedTripPrefs, editablePreferences);
+			// Update user preferences (sync with profile)
+			setUserTravelPreferences(editablePreferences);
+			
+			// Update trip preferences from travel preferences
+			const updatedTripPrefs = {
+				...preferences,
+				budget: editablePreferences.budget,
+				travelers: editablePreferences.travelers,
+				travelStyle: editablePreferences.travelStyle,
+				interests: editablePreferences.interests
+			};
+			setPreferences(updatedTripPrefs);
+
+			setShowPreferencesForm(false);
+			triggerApiCall(updatedTripPrefs, editablePreferences);
+
+			// Show success message
+			await Swal.fire({
+				icon: 'success',
+				title: 'Preferences Updated',
+				text: 'Your travel preferences have been saved successfully.',
+				timer: 2000,
+				showConfirmButton: false
+			});
+		} catch (error) {
+			console.error('❌ Error saving preferences:', error);
+			await Swal.fire({
+				icon: 'error',
+				title: 'Save Failed',
+				text: 'Unable to save your preferences. Please try again.',
+			});
+		}
 	};
 
 	useEffect(() => {

@@ -17,6 +17,8 @@ const bedrockAgentRoutes = require('./routes/bedrock-agent');
 const globeRoutes = require('./routes/globe');
 const tripAdvisorRoutes = require('./routes/tripadvisor');
 const hotelRoutes = require('./routes/hotels');
+const citiesRoutes = require('./routes/cities');
+const userProfileRoutes = require('./routes/user-profile');
 
 const app = express();
 
@@ -66,6 +68,8 @@ app.use('/bedrock-agent', bedrockAgentRoutes);
 app.use('/globe', globeRoutes);
 app.use('/tripadvisor', tripAdvisorRoutes);
 app.use('/api/hotels', hotelRoutes);
+app.use('/api/cities', citiesRoutes);
+app.use('/api/user-profile', userProfileRoutes);
 app.use('/', planTripRoutes);
 
 app.get('/', (req, res) => {

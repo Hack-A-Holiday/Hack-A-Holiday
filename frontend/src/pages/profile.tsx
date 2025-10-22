@@ -9,6 +9,7 @@ import { popularDestinations } from '../data/destinations';
 import { TravelPreferences, defaultTravelPreferences, preferenceOptions, PreferencesUtils } from '../types/preferences';
 // import { tripTrackingService, Trip } from '../services/trip-tracking'; // Original import removed
 import { tripApiService, Trip as ApiTrip } from '../services/trip-api';
+import { userProfileApiService } from '../services/user-profile-api';
 
 // ================= FIX STARTS HERE =================
 // Define a complete Trip type that matches the mock data being used.
@@ -93,7 +94,7 @@ function ProfileForm({ editForm, handleInputChange, disabled, fields }: Readonly
   );
 }
 
-// This is a standalone, stateless component. It was correct as is.
+// Travel Preferences Form Component
 function TravelPreferencesForm({
   preferences,
   onPreferenceChange,
@@ -126,13 +127,244 @@ function TravelPreferencesForm({
     onPreferenceChange({ interests: updatedInterests });
   };
 
+  const inputStyle = {
+    width: '100%',
+    padding: '12px 16px',
+    border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid #ddd',
+    borderRadius: '8px',
+    background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'white',
+    color: isDarkMode ? '#e8eaed' : '#333',
+    fontSize: '14px'
+  };
+
+  const labelStyle = {
+    display: 'block',
+    marginBottom: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+    color: isDarkMode ? '#e8eaed' : '#333'
+  };
+
+  if (!isEditing) {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+        <div>
+          <h4 style={{ color: isDarkMode ? '#e8eaed' : '#333', marginBottom: '15px' }}>Basic Preferences</h4>
+          <div style={{ marginBottom: '12px' }}>
+            <span style={{ color: isDarkMode ? '#9ca3af' : '#666', fontSize: '0.9rem' }}>Travel Style:</span>
+            <div style={{ color: isDarkMode ? '#e8eaed' : '#333', fontWeight: '500' }}>
+              {preferenceOptions.travelStyles.find(s => s.value === preferences.travelStyle)?.label || 'Not set'}
+            </div>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <span style={{ color: isDarkMode ? '#9ca3af' : '#666', fontSize: '0.9rem' }}>Budget:</span>
+            <div style={{ color: isDarkMode ? '#e8eaed' : '#333', fontWeight: '500' }}>
+              ${preferences.budget || 'Not set'}
+            </div>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <span style={{ color: isDarkMode ? '#9ca3af' : '#666', fontSize: '0.9rem' }}>Travelers:</span>
+            <div style={{ color: isDarkMode ? '#e8eaed' : '#333', fontWeight: '500' }}>
+              {preferences.travelers || 'Not set'}
+            </div>
+          </div>
+        </div>
+        
+        <div>
+          <h4 style={{ color: isDarkMode ? '#e8eaed' : '#333', marginBottom: '15px' }}>Interests</h4>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {preferences.interests?.length > 0 ? preferences.interests.map(interest => (
+              <span key={interest} style={{
+                background: isDarkMode ? 'rgba(102, 126, 234, 0.2)' : '#e3f2fd',
+                color: isDarkMode ? '#8b9cff' : '#1976d2',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: '500'
+              }}>
+                {interest}
+              </span>
+            )) : (
+              <span style={{ color: isDarkMode ? '#9ca3af' : '#666', fontSize: '0.9rem' }}>No interests selected</span>
+            )}
+          </div>
+        </div>
+        
+        <div>
+          <h4 style={{ color: isDarkMode ? '#e8eaed' : '#333', marginBottom: '15px' }}>Accommodation</h4>
+          <div style={{ marginBottom: '12px' }}>
+            <span style={{ color: isDarkMode ? '#9ca3af' : '#666', fontSize: '0.9rem' }}>Type:</span>
+            <div style={{ color: isDarkMode ? '#e8eaed' : '#333', fontWeight: '500' }}>
+              {preferenceOptions.accommodationTypes.find(a => a.value === preferences.accommodationType)?.label || 'Not set'}
+            </div>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <span style={{ color: isDarkMode ? '#9ca3af' : '#666', fontSize: '0.9rem' }}>Activity Level:</span>
+            <div style={{ color: isDarkMode ? '#e8eaed' : '#333', fontWeight: '500' }}>
+              {preferenceOptions.activityLevels.find(a => a.value === preferences.activityLevel)?.label || 'Not set'}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      {/* ...Travel Preferences Form JSX goes here... */}
-      {/* For brevity, only the structure is shown. The actual JSX should be restored as needed. */}
-      <p style={{ color: isDarkMode ? 'white' : 'black' }}>
-        {isEditing ? "Editing Travel Preferences..." : "Viewing Travel Preferences..."}
-      </p>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
+      {/* Basic Preferences */}
+      <div>
+        <h4 style={{ color: isDarkMode ? '#e8eaed' : '#333', marginBottom: '20px' }}>Basic Preferences</h4>
+        
+        <div style={{ marginBottom: '20px' }}>
+          <label style={labelStyle}>Travel Style</label>
+          <select
+            value={preferences.travelStyle}
+            onChange={(e) => handleInputChange('travelStyle', e.target.value)}
+            style={inputStyle}
+          >
+            {preferenceOptions.travelStyles.map(style => (
+              <option key={style.value} value={style.value}>{style.label}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div style={{ marginBottom: '20px' }}>
+          <label style={labelStyle}>Budget (USD)</label>
+          <input
+            type="number"
+            value={preferences.budget}
+            onChange={(e) => handleInputChange('budget', parseInt(e.target.value))}
+            style={inputStyle}
+            min="100"
+            step="100"
+          />
+        </div>
+        
+        <div style={{ marginBottom: '20px' }}>
+          <label style={labelStyle}>Number of Travelers</label>
+          <input
+            type="number"
+            value={preferences.travelers}
+            onChange={(e) => handleInputChange('travelers', parseInt(e.target.value))}
+            style={inputStyle}
+            min="1"
+            max="20"
+          />
+        </div>
+        
+        <div style={{ marginBottom: '20px' }}>
+          <label style={labelStyle}>Activity Level</label>
+          <select
+            value={preferences.activityLevel}
+            onChange={(e) => handleInputChange('activityLevel', e.target.value)}
+            style={inputStyle}
+          >
+            {preferenceOptions.activityLevels.map(level => (
+              <option key={level.value} value={level.value}>{level.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      
+      {/* Interests */}
+      <div>
+        <h4 style={{ color: isDarkMode ? '#e8eaed' : '#333', marginBottom: '20px' }}>Travel Interests</h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+          {preferenceOptions.interests.map(interest => (
+            <label key={interest} style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 12px',
+              background: preferences.interests?.includes(interest) 
+                ? (isDarkMode ? 'rgba(102, 126, 234, 0.2)' : '#e3f2fd')
+                : (isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa'),
+              borderRadius: '8px',
+              cursor: 'pointer',
+              border: preferences.interests?.includes(interest)
+                ? (isDarkMode ? '1px solid rgba(102, 126, 234, 0.5)' : '1px solid #2196f3')
+                : (isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e0e0e0'),
+              transition: 'all 0.2s ease'
+            }}>
+              <input
+                type="checkbox"
+                checked={preferences.interests?.includes(interest) || false}
+                onChange={() => handleInterestToggle(interest)}
+                style={{ margin: 0 }}
+              />
+              <span style={{ 
+                fontSize: '0.9rem',
+                color: isDarkMode ? '#e8eaed' : '#333',
+                textTransform: 'capitalize'
+              }}>
+                {interest}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+      
+      {/* Accommodation & Flight Preferences */}
+      <div>
+        <h4 style={{ color: isDarkMode ? '#e8eaed' : '#333', marginBottom: '20px' }}>Accommodation & Travel</h4>
+        
+        <div style={{ marginBottom: '20px' }}>
+          <label style={labelStyle}>Accommodation Type</label>
+          <select
+            value={preferences.accommodationType}
+            onChange={(e) => handleInputChange('accommodationType', e.target.value)}
+            style={inputStyle}
+          >
+            {preferenceOptions.accommodationTypes.map(type => (
+              <option key={type.value} value={type.value}>{type.label}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div style={{ marginBottom: '20px' }}>
+          <label style={labelStyle}>Flight Time Preference</label>
+          <select
+            value={preferences.flightPreferences?.timePreference || 'any'}
+            onChange={(e) => handleFlightPreferenceChange('timePreference', e.target.value)}
+            style={inputStyle}
+          >
+            {preferenceOptions.timePreferences.map(time => (
+              <option key={time.value} value={time.value}>{time.label}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div style={{ marginBottom: '20px' }}>
+          <label style={labelStyle}>Cabin Class</label>
+          <select
+            value={preferences.flightPreferences?.cabinClass || 'economy'}
+            onChange={(e) => handleFlightPreferenceChange('cabinClass', e.target.value)}
+            style={inputStyle}
+          >
+            {preferenceOptions.cabinClasses.map(cabin => (
+              <option key={cabin.value} value={cabin.value}>{cabin.label}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: isDarkMode ? '#e8eaed' : '#333',
+            fontSize: '14px',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={preferences.flightPreferences?.preferDirect || false}
+              onChange={(e) => handleFlightPreferenceChange('preferDirect', e.target.checked)}
+            />
+            Prefer direct flights
+          </label>
+        </div>
+      </div>
     </div>
   );
 }
@@ -149,7 +381,10 @@ export default function ProfilePage() {
   const [isGoogleUser, setIsGoogleUser] = useState(false); // Example state
   const [editForm, setEditForm] = useState({ name: state.user?.name || '', email: state.user?.email || '' });
   const [isEditingHomeCity, setIsEditingHomeCity] = useState(false);
-  const [homeCity, setHomeCity] = useState('Mumbai'); // Example state
+  const [homeCity, setHomeCity] = useState(''); // Home city state
+  const [citySuggestions, setCitySuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
   const [isEditingPreferences, setIsEditingPreferences] = useState(false);
   const [userTrips, setUserTrips] = useState<Trip[]>([]); // Initialize with empty array
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
@@ -175,16 +410,83 @@ export default function ProfilePage() {
     setEditForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSaveHomeCity = () => {
-    console.log("Saving home city:", homeCity);
-    setIsEditingHomeCity(false);
-    // Add API call logic here
+  const handleSaveHomeCity = async () => {
+    if (!state.user?.email || !homeCity.trim()) return;
+    
+    try {
+      await userProfileApiService.updateHomeCity(state.user.email, homeCity.trim());
+      setIsEditingHomeCity(false);
+      
+      await Swal.fire({
+        icon: 'success',
+        title: 'Home City Saved',
+        text: 'Your home city has been saved successfully.',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      console.error('❌ Error saving home city:', error);
+      // The error is now handled by localStorage fallback, so this shouldn't happen
+      await Swal.fire({
+        icon: 'error',
+        title: 'Save Failed',
+        text: 'Unable to save your home city. Please try again.',
+      });
+    }
   };
 
-  const handleSavePreferences = () => {
-    console.log("Saving preferences:", travelPreferences);
-    setIsEditingPreferences(false);
-    // Add API call logic here
+  const handleSavePreferences = async () => {
+    if (!state.user?.email) return;
+    
+    try {
+      await userProfileApiService.updateTravelPreferences(state.user.email, travelPreferences);
+      setIsEditingPreferences(false);
+      
+      await Swal.fire({
+        icon: 'success',
+        title: 'Preferences Saved',
+        text: 'Your travel preferences have been saved successfully.',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      console.error('❌ Error saving preferences:', error);
+      // The error is now handled by localStorage fallback, so this shouldn't happen
+      await Swal.fire({
+        icon: 'error',
+        title: 'Save Failed',
+        text: 'Unable to save your preferences. Please try again.',
+      });
+    }
+  };
+
+  // City search functionality
+  const handleCitySearch = async (query: string) => {
+    setHomeCity(query);
+    
+    if (query.length < 2) {
+      setCitySuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    
+    setIsLoadingCities(true);
+    try {
+      const suggestions = await userProfileApiService.getCitySuggestions(query);
+      setCitySuggestions(suggestions);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error('❌ Error searching cities:', error);
+      setCitySuggestions([]);
+    } finally {
+      setIsLoadingCities(false);
+    }
+  };
+
+  const handleCitySelect = (city: any) => {
+    setHomeCity(city.displayName);
+    setShowSuggestions(false);
+    setCitySuggestions([]);
   };
 
   const handleDeleteAccount = () => {
@@ -205,25 +507,56 @@ export default function ProfilePage() {
     });
   };
 
-  const handleCancelTrip = () => {
-    if (!tripToCancel || !cancellationReason) return;
-    console.log(`Cancelling trip ${tripToCancel.id} for reason: ${cancellationReason}`);
-    // Add API call logic here
-    setShowCancelModal(false);
-    setTripToCancel(null);
-    setCancellationReason('');
+  const handleCancelTrip = async () => {
+    if (!tripToCancel || !cancellationReason || !state.user?.email) return;
+    
+    try {
+      console.log(`Cancelling trip ${tripToCancel.id} for reason: ${cancellationReason}`);
+      
+      // Call the cancel trip API
+      await tripApiService.cancelTrip({
+        userId: state.user.email,
+        tripId: tripToCancel.id,
+        reason: cancellationReason
+      });
+      
+      // Refresh the trip list
+      const response = await tripApiService.getUserTrips(state.user.email);
+      setUserTrips(response.trips);
+      
+      // Show success message
+      await Swal.fire({
+        icon: 'success',
+        title: 'Trip Cancelled',
+        text: 'Your trip has been cancelled successfully.',
+        timer: 2000,
+        showConfirmButton: false
+      });
+      
+    } catch (error) {
+      console.error('❌ Error cancelling trip:', error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Cancellation Failed',
+        text: 'Unable to cancel your trip. Please try again.',
+      });
+    } finally {
+      setShowCancelModal(false);
+      setTripToCancel(null);
+      setCancellationReason('');
+    }
   };
 
   // --- useEffect for fetching data ---
   useEffect(() => {
-    // Simulate fetching user trips
+    // Fetch user trips using email as the user identifier
     const fetchTrips = async () => {
-      if (!state.user?.id) return;
+      if (!state.user?.email) return;
       
       setIsLoadingTrips(true);
       try {
-        console.log(`🔄 Loading trips for user: ${state.user.id}`);
-        const response = await tripApiService.getUserTrips(state.user.id);
+        console.log(`🔄 Loading trips for user: ${state.user.email}`);
+        const response = await tripApiService.getUserTrips(state.user.email);
         setUserTrips(response.trips);
         console.log(`✅ Loaded ${response.trips.length} trips for user`);
       } catch (error) {
@@ -246,10 +579,93 @@ export default function ProfilePage() {
       }
     };
 
-    if (state.user?.id) {
+    if (state.user?.email) {
       fetchTrips();
     }
-  }, [state.user?.id]);
+  }, [state.user?.email]);
+
+  // Add trip refresh mechanism - listen for trip updates
+  useEffect(() => {
+    const handleTripUpdate = () => {
+      // Refresh trips when a new trip is created
+      if (state.user?.email) {
+        console.log('🔄 Trip update detected, refreshing trip list...');
+        const fetchTrips = async () => {
+          try {
+            const response = await tripApiService.getUserTrips(state.user.email);
+            setUserTrips(response.trips);
+            console.log(`✅ Refreshed trip list: ${response.trips.length} trips`);
+          } catch (error) {
+            console.error('❌ Error refreshing trips:', error);
+          }
+        };
+        fetchTrips();
+      }
+    };
+
+    // Listen for custom trip update events
+    window.addEventListener('tripUpdated', handleTripUpdate);
+    window.addEventListener('tripCreated', handleTripUpdate);
+
+    return () => {
+      window.removeEventListener('tripUpdated', handleTripUpdate);
+      window.removeEventListener('tripCreated', handleTripUpdate);
+    };
+  }, [state.user?.email]);
+
+  // Load user profile data
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!state.user?.email) return;
+      
+      try {
+        console.log(`📋 Loading profile for user: ${state.user.email}`);
+        const profile = await userProfileApiService.getUserProfile(state.user.email);
+        
+        // Update state with loaded profile data
+        setHomeCity(profile.homeCity || '');
+        setTravelPreferences(profile.travelPreferences || defaultTravelPreferences);
+        
+        console.log('✅ Profile loaded successfully');
+      } catch (error) {
+        console.error('❌ Error loading profile:', error);
+        // Use defaults on error
+        setHomeCity('');
+        setTravelPreferences(defaultTravelPreferences);
+        
+        // Show a subtle notification that we're using local storage
+        if (error.message && error.message.includes('SyntaxError')) {
+          console.log('ℹ️ Using local storage for profile data until backend is available');
+        }
+      }
+    };
+
+    if (state.user?.email) {
+      loadUserProfile();
+    }
+  }, [state.user?.email]);
+
+  // User context switching detection and data refresh
+  useEffect(() => {
+    // Clear cached data when user changes
+    const currentUserEmail = state.user?.email;
+    
+    if (currentUserEmail) {
+      console.log(`👤 User context detected: ${currentUserEmail}`);
+      
+      // Clear any cached trip data from previous user
+      setUserTrips([]);
+      setIsLoadingTrips(true);
+      
+      // Reset form data for new user
+      setEditForm({ 
+        name: state.user?.name || '', 
+        email: state.user?.email || '' 
+      });
+      
+      console.log('🔄 Cleared cached data for user context switch');
+    }
+  }, [state.user?.email, state.user?.name]);
 
 
   // --- The `return` statement with all your JSX ---
@@ -465,26 +881,91 @@ export default function ProfilePage() {
                     <p style={{ margin: 0, color: '#1976d2', fontSize: '0.9rem' }}>
                       <strong>Tip:</strong> Once you set your home city, the AI will remember it and use it as your default origin for flight searches. Just say &quot;find flights to Paris&quot; and the AI will know you&apos;re flying from {homeCity || 'your home city'}!
                     </p>
-                  </div> <label style={{ display: 'block', marginBottom: '10px', fontWeight: '600', color: '#333' }}>
+                  </div> <label style={{ display: 'block', marginBottom: '10px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
                     Enter your home city
                   </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Mumbai, New York, London"
-                    value={homeCity}
-                    onChange={(e) => setHomeCity(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      border: '2px solid #667eea',
-                      borderRadius: '10px',
-                      fontSize: '1rem',
-                      outline: 'none',
-                      transition: 'border-color 0.3s',
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#764ba2'}
-                    onBlur={(e) => e.target.style.borderColor = '#667eea'}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      placeholder="e.g., Mumbai, New York, London"
+                      value={homeCity}
+                      onChange={(e) => handleCitySearch(e.target.value)}
+                      onFocus={() => {
+                        if (citySuggestions.length > 0) {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Delay hiding suggestions to allow for clicks
+                        setTimeout(() => setShowSuggestions(false), 200);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        border: isDarkMode ? '2px solid rgba(102, 126, 234, 0.5)' : '2px solid #667eea',
+                        borderRadius: '10px',
+                        fontSize: '1rem',
+                        outline: 'none',
+                        transition: 'border-color 0.3s',
+                        background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'white',
+                        color: isDarkMode ? '#e8eaed' : '#333'
+                      }}
+                    />
+                    
+                    {isLoadingCities && (
+                      <div style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: isDarkMode ? '#9ca3af' : '#666'
+                      }}>
+                        🔍
+                      </div>
+                    )}
+                    
+                    {showSuggestions && citySuggestions.length > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        background: isDarkMode ? '#1e2532' : 'white',
+                        border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid #ddd',
+                        borderRadius: '8px',
+                        boxShadow: isDarkMode ? '0 4px 12px rgba(0, 0, 0, 0.6)' : '0 4px 12px rgba(0, 0, 0, 0.15)',
+                        zIndex: 1000,
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        marginTop: '4px'
+                      }}>
+                        {citySuggestions.map((city, index) => (
+                          <div
+                            key={index}
+                            onClick={() => handleCitySelect(city)}
+                            style={{
+                              padding: '12px 16px',
+                              cursor: 'pointer',
+                              borderBottom: index < citySuggestions.length - 1 ? (isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #f0f0f0') : 'none',
+                              color: isDarkMode ? '#e8eaed' : '#333',
+                              transition: 'background-color 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              (e.target as HTMLElement).style.backgroundColor = isDarkMode ? 'rgba(102, 126, 234, 0.2)' : '#f8f9fa';
+                            }}
+                            onMouseLeave={(e) => {
+                              (e.target as HTMLElement).style.backgroundColor = 'transparent';
+                            }}
+                          >
+                            <div style={{ fontWeight: '500' }}>{city.name}</div>
+                            <div style={{ fontSize: '0.85rem', color: isDarkMode ? '#9ca3af' : '#666', marginTop: '2px' }}>
+                              {city.country} {city.iataCode && `(${city.iataCode})`}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <button
                     onClick={handleSaveHomeCity}
@@ -667,14 +1148,74 @@ export default function ProfilePage() {
                         <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
                           Created: {new Date(trip.createdAt).toLocaleDateString()}
                         </div>
-                        {trip.status !== 'cancelled' && (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {trip.status !== 'cancelled' && (
+                            <button
+                              onClick={() => {
+                                setTripToCancel(trip);
+                                setShowCancelModal(true);
+                              }}
+                              style={{
+                                background: 'rgba(255, 255, 255, 0.2)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                fontWeight: '500',
+                                transition: 'all 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.target as HTMLElement).style.background = 'rgba(255, 255, 255, 0.3)';
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.target as HTMLElement).style.background = 'rgba(255, 255, 255, 0.2)';
+                              }}
+                            >
+                              Cancel Trip
+                            </button>
+                          )}
                           <button
-                            onClick={() => {
-                              setTripToCancel(trip);
-                              setShowCancelModal(true);
+                            onClick={async () => {
+                              const confirmed = await Swal.fire({
+                                title: 'Delete Trip?',
+                                text: 'This will permanently delete this trip from your list. This cannot be undone.',
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#dc3545',
+                                cancelButtonColor: '#6c757d',
+                                confirmButtonText: 'Yes, delete it',
+                                cancelButtonText: 'Keep trip'
+                              });
+                              
+                              if (confirmed.isConfirmed && state.user?.email) {
+                                try {
+                                  await tripApiService.deleteTrip(state.user.email, trip.id);
+                                  
+                                  // Refresh the trip list
+                                  const response = await tripApiService.getUserTrips(state.user.email);
+                                  setUserTrips(response.trips);
+                                  
+                                  await Swal.fire({
+                                    icon: 'success',
+                                    title: 'Deleted!',
+                                    text: 'Your trip has been deleted.',
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                  });
+                                } catch (error) {
+                                  console.error('❌ Error deleting trip:', error);
+                                  await Swal.fire({
+                                    icon: 'error',
+                                    title: 'Delete Failed',
+                                    text: 'Unable to delete your trip. Please try again.',
+                                  });
+                                }
+                              }
                             }}
                             style={{
-                              background: 'rgba(255, 255, 255, 0.2)',
+                              background: 'rgba(220, 53, 69, 0.8)',
                               color: 'white',
                               border: 'none',
                               padding: '8px 16px',
@@ -685,15 +1226,15 @@ export default function ProfilePage() {
                               transition: 'all 0.2s ease'
                             }}
                             onMouseEnter={(e) => {
-                              (e.target as HTMLElement).style.background = 'rgba(255, 255, 255, 0.3)';
+                              (e.target as HTMLElement).style.background = 'rgba(220, 53, 69, 1)';
                             }}
                             onMouseLeave={(e) => {
-                              (e.target as HTMLElement).style.background = 'rgba(255, 255, 255, 0.2)';
+                              (e.target as HTMLElement).style.background = 'rgba(220, 53, 69, 0.8)';
                             }}
                           >
-                            Cancel Trip
+                            🗑️ Delete
                           </button>
-                        )}
+                        </div>
                       </div>
                     </div>
                   ))}
