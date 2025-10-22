@@ -347,6 +347,13 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
       setShowConfirmationModal(false);
       setPendingBookingData(null);
 
+      // Dispatch trip creation event to notify other components
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tripCreated', { 
+          detail: { userId, origin: pendingBookingData.origin, destination: pendingBookingData.destination }
+        }));
+      }
+
       // Show success notification
       await Swal.fire({
         icon: 'success',
