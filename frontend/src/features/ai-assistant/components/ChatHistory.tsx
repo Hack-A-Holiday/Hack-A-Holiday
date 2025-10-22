@@ -118,6 +118,17 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
     }
   }, [isVisible, refreshSessions]);
 
+  // Auto-refresh sessions periodically when visible
+  useEffect(() => {
+    if (!isVisible) return;
+    
+    const interval = setInterval(() => {
+      refreshSessions();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [isVisible, refreshSessions]);
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchQuery.trim()) {

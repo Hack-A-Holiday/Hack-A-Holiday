@@ -2615,6 +2615,8 @@ class IntegratedAITravelAgent {
         userContext = {},
         sessionId,
         userId,
+        isFlightSearchQuery = false,
+        forceFlightSearch = false
       } = messageData;
 
       const effectiveSessionId =
@@ -2708,6 +2710,28 @@ class IntegratedAITravelAgent {
         effectiveSessionId
       );
 
+      // Override intent if flight search is forced (for Plan My Adventure conversations)
+      if (forceFlightSearch || isFlightSearchQuery) {
+        console.log(`   🎯 Flight search forced/detected - overriding intent`);
+        queryIntent.type = "flight_search";
+        queryIntent.needsFlightData = true;
+        
+        // Extract travel context from userContext if available
+        if (userContext.origin) queryIntent.extractedInfo.origin = userContext.origin;
+        if (userContext.destination) queryIntent.extractedInfo.destination = userContext.destination;
+        if (userContext.departureDate) queryIntent.extractedInfo.departureDate = userContext.departureDate;
+        if (userContext.travelers) queryIntent.extractedInfo.passengers = userContext.travelers;
+        if (userContext.duration) {
+          // Calculate return date from departure date and duration
+          if (userContext.departureDate && userContext.duration) {
+            const depDate = new Date(userContext.departureDate);
+            const retDate = new Date(depDate);
+            retDate.setDate(depDate.getDate() + userContext.duration);
+            queryIntent.extractedInfo.returnDate = retDate.toISOString().split('T')[0];
+          }
+        }
+      }
+
       console.log(`   Intent detected: ${queryIntent.type}`);
       console.log(`   Needs flight data: ${queryIntent.needsFlightData}`);
       console.log(`   Needs hotel data: ${queryIntent.needsHotelData}`);
@@ -2789,11 +2813,58 @@ class IntegratedAITravelAgent {
       // For trip planning, fetch both flights and hotels
       else if (queryIntent.needsFlightData && queryIntent.needsHotelData) {
         if (queryIntent.needsHotelData) {
-          console.log("   📞 Fetching both flight and hotel data from APIs...");
-          const flightData = await this.fetchFlightData(
-            queryIntent.extractedInfo,
-            userPreferences
-          );
+          // For AI Assistant chats (both normal and Plan My Adventure), use Google Flights buttons only
+          // For dedicated search pages, use Kiwi API
+          const isAIAssistantChat = userContext.source === 'ai-assistant' || userContext.isPlanMyAdventureConversation;
+          
+          let flightData;
+          if (isAIAssistantChat) {
+            console.log("   🎯 AI Assistant trip planning - generating Google Flights button only (no API calls)");
+          
+          const origin = queryIntent.extractedInfo.origin || userContext.origin;
+          const destination = queryIntent.extractedInfo.destination || userContext.destination;
+          const departureDate = queryIntent.extractedInfo.departureDate || userContext.departureDate;
+          const returnDate = queryIntent.extractedInfo.returnDate || userContext.returnDate;
+          const passengers = queryIntent.extractedInfo.passengers || userContext.travelers || 1;
+          
+          console.log("   📋 Flight search parameters:", {
+            origin: origin,
+            destination: destination,
+            departureDate: departureDate,
+            returnDate: returnDate,
+            passengers: passengers
+          });
+          
+          // Generate Google Flights URL
+          const googleFlightsUrl = this.buildGoogleFlightsUrlSync({
+            origin: origin,
+            destination: destination,
+            departureDate: departureDate,
+            returnDate: returnDate,
+            passengers: passengers
+          });
+          
+          // Create flight data structure for Google Flights button
+          flightData = {
+            type: "google_flights_only",
+            request: {
+              origin: origin,
+              destination: destination,
+              departureDate: departureDate,
+              returnDate: returnDate,
+              passengers: passengers
+            },
+            googleFlightsUrl: googleFlightsUrl,
+            message: `I'll help you find flights from ${origin} to ${destination}!`
+          };
+          } else {
+            // For dedicated search pages, use Kiwi API for real flight data
+            console.log("   📞 Search page trip planning - fetching real flight data from Kiwi API...");
+            flightData = await this.fetchFlightData(
+              queryIntent.extractedInfo,
+              userPreferences
+            );
+          }
           // Calculate hotel check-in/check-out dates from trip duration
           const hotelInfo = { ...queryIntent.extractedInfo };
           console.log(
@@ -2860,14 +2931,51 @@ class IntegratedAITravelAgent {
             console.log("🔍 DEBUG: Using flight data only");
           }
         } else {
-          // Only fetch flight data if user did not request hotels
-          console.log(
-            "   📞 Fetching flight data from API (no hotel/tripadvisor)..."
-          );
-          realData = await this.fetchFlightData(
-            queryIntent.extractedInfo,
-            userPreferences
-          );
+          // For AI Assistant chats, use Google Flights buttons only
+          // For dedicated search pages, use Kiwi API
+          const isAIAssistantChat = userContext.source === 'ai-assistant' || userContext.isPlanMyAdventureConversation;
+          
+          if (isAIAssistantChat) {
+            console.log("   🎯 AI Assistant flight-only search - generating Google Flights button only (no API calls)");
+            
+            const origin = queryIntent.extractedInfo.origin || userContext.origin;
+            const destination = queryIntent.extractedInfo.destination || userContext.destination;
+            const departureDate = queryIntent.extractedInfo.departureDate || userContext.departureDate;
+            const returnDate = queryIntent.extractedInfo.returnDate || userContext.returnDate;
+            const passengers = queryIntent.extractedInfo.passengers || userContext.travelers || 1;
+            
+            // Generate Google Flights URL
+            const googleFlightsUrl = this.buildGoogleFlightsUrlSync({
+              origin: origin,
+              destination: destination,
+              departureDate: departureDate,
+              returnDate: returnDate,
+              passengers: passengers
+            });
+            
+            // Create flight data structure for Google Flights button
+            realData = {
+              type: "google_flights_only",
+              request: {
+                origin: origin,
+                destination: destination,
+                departureDate: departureDate,
+                returnDate: returnDate,
+                passengers: passengers
+              },
+              googleFlightsUrl: googleFlightsUrl,
+              message: `I'll help you find flights from ${origin} to ${destination}!`
+            };
+          } else {
+            // Only fetch flight data if user did not request hotels (for search pages)
+            console.log(
+              "   📞 Search page flight-only request - fetching real flight data from Kiwi API..."
+            );
+            realData = await this.fetchFlightData(
+              queryIntent.extractedInfo,
+              userPreferences
+            );
+          }
         }
       } else if (queryIntent.needsFlightData) {
         // Check if user searched for a country instead of a city for flights
@@ -3000,11 +3108,59 @@ class IntegratedAITravelAgent {
             `   💡 Will ask user to specify city in ${countryDestinations[0]}`
           );
         } else {
-          console.log("   📞 Fetching flight data from API...");
-          realData = await this.fetchFlightData(
-            queryIntent.extractedInfo,
-            userPreferences
-          );
+          // For AI Assistant chats (both normal and Plan My Adventure), use Google Flights buttons only
+          // For dedicated search pages, use Kiwi API
+          const isAIAssistantChat = userContext.source === 'ai-assistant' || userContext.isPlanMyAdventureConversation;
+          
+          if (isAIAssistantChat) {
+            console.log("   🎯 AI Assistant flight search - generating Google Flights button only (no API calls)");
+          
+          const origin = queryIntent.extractedInfo.origin || userContext.origin;
+          const destination = queryIntent.extractedInfo.destination || userContext.destination;
+          const departureDate = queryIntent.extractedInfo.departureDate || userContext.departureDate;
+          const returnDate = queryIntent.extractedInfo.returnDate || userContext.returnDate;
+          const passengers = queryIntent.extractedInfo.passengers || userContext.travelers || 1;
+          
+          console.log("   📋 Flight search parameters:", {
+            origin: origin,
+            destination: destination,
+            departureDate: departureDate,
+            returnDate: returnDate,
+            passengers: passengers
+          });
+          
+          // Generate Google Flights URL
+          const googleFlightsUrl = this.buildGoogleFlightsUrlSync({
+            origin: origin,
+            destination: destination,
+            departureDate: departureDate,
+            returnDate: returnDate,
+            passengers: passengers
+          });
+          
+          console.log("   🔗 Generated Google Flights URL:", googleFlightsUrl);
+          
+          // Create flight data structure for Google Flights button
+          realData = {
+            type: "google_flights_only",
+            request: {
+              origin: origin,
+              destination: destination,
+              departureDate: departureDate,
+              returnDate: returnDate,
+              passengers: passengers
+            },
+            googleFlightsUrl: googleFlightsUrl,
+            message: `I'll help you find flights from ${origin} to ${destination}!`
+          };
+          } else {
+            // For dedicated search pages, use Kiwi API for real flight data
+            console.log("   📞 Search page request - fetching real flight data from Kiwi API...");
+            realData = await this.fetchFlightData(
+              queryIntent.extractedInfo,
+              userPreferences
+            );
+          }
         }
       } else if (queryIntent.needsHotelData) {
         // Handle multi-destination hotel comparison

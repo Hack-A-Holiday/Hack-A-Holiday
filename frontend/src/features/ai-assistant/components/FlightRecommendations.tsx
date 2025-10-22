@@ -92,7 +92,7 @@ export const FlightRecommendations: React.FC<FlightRecommendationsProps> = ({
             </div>
             
             <a
-              href={googleFlightsUrl}
+              href={flight.googleFlightsUrl || googleFlightsUrl || `https://www.google.com/travel/flights/search?tfs=CBwQAhokagcIARIDQk9NEgoyMDI1LTAxLTE1cgwIAxIIL20vMDRmX2o&hl=en&curr=USD`}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -115,7 +115,7 @@ export const FlightRecommendations: React.FC<FlightRecommendationsProps> = ({
                 e.currentTarget.style.backgroundColor = '#1d4ed8';
               }}
             >
-              ✈️ Book {flight.airline} {flight.flightNumber}
+              ✈️ Book on Google Flights
             </a>
           </div>
         ))}

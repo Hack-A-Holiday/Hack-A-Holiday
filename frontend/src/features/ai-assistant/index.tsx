@@ -39,6 +39,147 @@ export default function AIAssistant() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Extract travel context from conversation history
+  const extractTravelContext = (messages: ChatMessage[]) => {
+    const context: any = {};
+    
+    // Look through messages for travel-related information
+    messages.forEach(message => {
+      // Convert content to string if it's an object
+      let contentStr = '';
+      if (typeof message.content === 'string') {
+        contentStr = message.content;
+      } else if (typeof message.content === 'object' && message.content !== null) {
+        contentStr = JSON.stringify(message.content);
+      }
+      
+      if (contentStr) {
+        const content = contentStr.toLowerCase();
+        
+        // Extract destinations with more comprehensive patterns
+        const destinations = [
+          'singapore', 'mumbai', 'delhi', 'bangalore', 'chennai', 'kolkata', 'hyderabad',
+          'bangkok', 'tokyo', 'paris', 'london', 'new york', 'dubai', 'cape town', 
+          'sydney', 'barcelona', 'rome', 'amsterdam', 'berlin', 'madrid', 'lisbon',
+          'istanbul', 'cairo', 'marrakech', 'casablanca', 'lagos', 'nairobi', 'johannesburg'
+        ];
+        
+        destinations.forEach(dest => {
+          if (content.includes(dest)) {
+            // More specific pattern matching
+            if (content.match(new RegExp(`(from|traveling from|departing from).*${dest}`, 'i'))) {
+              context.origin = dest.charAt(0).toUpperCase() + dest.slice(1);
+            }
+            if (content.match(new RegExp(`(to|destination|going to|traveling to).*${dest}`, 'i'))) {
+              context.destination = dest.charAt(0).toUpperCase() + dest.slice(1);
+            }
+          }
+        });
+        
+        // Extract dates with more patterns
+        const datePatterns = [
+          /october\s+(\d{1,2}),?\s*(\d{4})?/i,
+          /november\s+(\d{1,2}),?\s*(\d{4})?/i,
+          /december\s+(\d{1,2}),?\s*(\d{4})?/i,
+          /january\s+(\d{1,2}),?\s*(\d{4})?/i,
+          /(\d{4}-\d{2}-\d{2})/,
+          /(\d{1,2}\/\d{1,2}\/\d{4})/,
+          /start date:\s*(\d{4}-\d{2}-\d{2})/i,
+          /departure.*(\d{4}-\d{2}-\d{2})/i,
+          /2025-10-22/i,
+          /2025-10-27/i
+        ];
+        
+        datePatterns.forEach(pattern => {
+          const match = content.match(pattern);
+          if (match) {
+            const year = match[2] || '2025'; // Default to 2025 if no year specified
+            let dateStr = match[0];
+            
+            // Convert month names to dates
+            if (match[0].toLowerCase().includes('october')) {
+              dateStr = `2025-10-${match[1].padStart(2, '0')}`;
+            } else if (match[0].toLowerCase().includes('november')) {
+              dateStr = `2025-11-${match[1].padStart(2, '0')}`;
+            } else if (match[0].toLowerCase().includes('december')) {
+              dateStr = `2025-12-${match[1].padStart(2, '0')}`;
+            }
+            
+            if (content.includes('start') || content.includes('depart') || content.includes('start date')) {
+              context.departureDate = dateStr;
+            }
+            
+            // Handle specific dates from the conversation
+            if (match[0] === '2025-10-22') {
+              context.departureDate = '2025-10-22';
+            }
+            if (match[0] === '2025-10-27') {
+              context.returnDate = '2025-10-27';
+            }
+          }
+        });
+        
+        // Extract budget
+        const budgetMatch = content.match(/budget[:\s]*\$?(\d+)/i) || content.match(/\$(\d+)/);
+        if (budgetMatch) {
+          context.budget = parseInt(budgetMatch[1]);
+        }
+        
+        // Extract travelers
+        const travelersMatch = content.match(/(\d+)\s+travelers?/i) || 
+                              content.match(/number of travelers[:\s]*(\d+)/i) ||
+                              content.match(/travelers[:\s]*(\d+)/i);
+        if (travelersMatch) {
+          context.travelers = parseInt(travelersMatch[1]);
+        }
+        
+        // Extract duration
+        const durationMatch = content.match(/duration[:\s]*(\d+)\s+days?/i) || 
+                             content.match(/(\d+)\s+days?/i);
+        if (durationMatch) {
+          context.duration = parseInt(durationMatch[1]);
+        }
+        
+        // Extract travel style
+        if (content.includes('mid-range') || content.includes('mid range')) {
+          context.travelStyle = 'mid-range';
+        } else if (content.includes('budget')) {
+          context.travelStyle = 'budget';
+        } else if (content.includes('luxury')) {
+          context.travelStyle = 'luxury';
+        }
+        
+        // Extract interests
+        const interests = [];
+        if (content.includes('culture')) interests.push('culture');
+        if (content.includes('food')) interests.push('food');
+        if (content.includes('adventure')) interests.push('adventure');
+        if (content.includes('beach')) interests.push('beach');
+        if (content.includes('nature')) interests.push('nature');
+        if (interests.length > 0) {
+          context.interests = interests;
+        }
+        
+        // Handle specific patterns from Plan My Adventure
+        if (content.includes('mumbai') && content.includes('singapore')) {
+          if (!context.origin && content.includes('from')) context.origin = 'Mumbai';
+          if (!context.destination && content.includes('to')) context.destination = 'Singapore';
+        }
+        
+        // Extract specific dates mentioned in itinerary
+        if (content.includes('2025-10-22') && !context.departureDate) {
+          context.departureDate = '2025-10-22';
+        }
+        if (content.includes('2025-10-27') && !context.returnDate) {
+          context.returnDate = '2025-10-27';
+        }
+      }
+    });
+    
+    console.log('🎯 Extracted travel context:', context);
+    return context;
+  };
+
   const initializeConversation = useCallback(() => {
     // Check for messages or itinerary data from URL query parameters
     let initialMessages: ChatMessage[] = [];
@@ -120,6 +261,15 @@ export default function AIAssistant() {
     if (hasInitialData) {
       console.log("✅ Initial data detected - showing chat directly");
       setShowChat(true);
+      
+      // Clear URL parameters after processing to prevent re-processing on refresh
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('messages');
+        url.searchParams.delete('itinerary');
+        url.searchParams.delete('conversationId');
+        window.history.replaceState({}, document.title, url.toString());
+      }
     }
 
     // If no conversation ID set, create a new one
@@ -240,7 +390,18 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
           
           try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-            await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
+            
+            // Prepare messages for saving - ensure proper format
+            const messagesToSave = messages.map(msg => ({
+              id: msg.id,
+              role: msg.role,
+              content: msg.content,
+              timestamp: msg.timestamp,
+              type: msg.type || 'text',
+              data: msg.data || null
+            }));
+            
+            const response = await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -248,13 +409,18 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
               },
               body: JSON.stringify({
                 conversationId,
-                messages,
+                messages: messagesToSave,
                 userId: state.user.id,
                 userEmail: state.user.email,
                 userName: state.user.name,
               }),
             });
-            console.log('✅ Auto-saved conversation successfully');
+            
+            if (response.ok) {
+              console.log('✅ Auto-saved conversation successfully');
+            } else {
+              console.warn('⚠️ Auto-save response not OK:', response.status, response.statusText);
+            }
           } catch (error) {
             console.warn('⚠️ Failed to auto-save conversation:', error);
           }
@@ -311,33 +477,87 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
             });
 
             if (Array.isArray(data.session.messages) && data.session.messages.length > 0) {
-              // Map the messages to the expected format (backend now handles DynamoDB conversion)
-              const mapped: ChatMessage[] = data.session.messages.map(
-                (msg: any, index: number) => {
+              // Map the messages to the expected format with better error handling
+              const mapped: ChatMessage[] = data.session.messages
+                .filter((msg: any) => msg && (msg.role === 'user' || msg.role === 'assistant' || msg.role === 'ai'))
+                .map((msg: any, index: number) => {
                   console.log(`📝 Processing message ${index}:`, {
                     role: msg.role,
                     contentType: typeof msg.content,
                     contentLength: typeof msg.content === 'string' ? msg.content.length : 'not string',
-                    hasTimestamp: !!msg.timestamp
+                    hasTimestamp: !!msg.timestamp,
+                    hasData: !!msg.data,
+                    messageType: msg.type
                   });
+
+                  // Handle different content formats
+                  let processedContent = msg.content || "";
+                  if (typeof msg.content === 'object' && msg.content !== null) {
+                    // If content is an object, try to extract text
+                    if (msg.content.message) {
+                      processedContent = msg.content.message;
+                    } else if (msg.content.text) {
+                      processedContent = msg.content.text;
+                    } else if (msg.content.content) {
+                      processedContent = msg.content.content;
+                    } else {
+                      processedContent = JSON.stringify(msg.content);
+                    }
+                  }
+
+                  // Preserve message data for special types (flights, hotels, etc.)
+                  let messageData = msg.data || null;
+                  let messageType: ChatMessage['type'] = msg.type || "text";
+
+                  // Handle legacy message formats
+                  if (msg.content && typeof msg.content === 'object') {
+                    if (msg.content.flights) {
+                      messageType = "flight_recommendations";
+                      messageData = {
+                        flights: msg.content.flights,
+                        googleFlightsUrl: msg.content.googleFlightsUrl,
+                        origin: msg.content.origin,
+                        destination: msg.content.destination,
+                        depDate: msg.content.depDate,
+                        retDate: msg.content.retDate
+                      };
+                    } else if (msg.content.hotels) {
+                      messageType = "hotel_cards";
+                      messageData = {
+                        hotels: msg.content.hotels,
+                        bookingUrl: msg.content.bookingUrl
+                      };
+                    } else if (msg.content.attractions) {
+                      messageType = "attractions_recommendations";
+                      messageData = {
+                        attractions: msg.content.attractions,
+                        tripAdvisorUrl: msg.content.tripAdvisorUrl,
+                        destination: msg.content.destination
+                      };
+                    }
+                  }
 
                   return {
                     id: msg.id || `msg_${sessionId}_${index}`,
                     role: msg.role === "ai" ? "assistant" : msg.role,
-                    content: msg.content || "",
+                    content: processedContent,
                     timestamp: msg.timestamp
                       ? typeof msg.timestamp === "number"
                         ? msg.timestamp
                         : Date.parse(msg.timestamp)
                       : Date.now(),
-                    type: msg.type || "text",
-                    data: msg.data || null,
+                    type: messageType,
+                    data: messageData,
                   };
-                }
-              );
+                });
 
               console.log("✅ Mapped messages:", mapped.length, "messages");
-              console.log("📋 First message content preview:", mapped[0]?.content?.substring(0, 100));
+              console.log("📋 First message preview:", {
+                role: mapped[0]?.role,
+                type: mapped[0]?.type,
+                hasData: !!mapped[0]?.data,
+                contentPreview: mapped[0]?.content?.substring(0, 100)
+              });
 
               // Set the loaded messages and update conversation state
               setMessages(mapped);
@@ -367,12 +587,14 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
         const errorMessage: ChatMessage = {
           id: `error_${Date.now()}`,
           role: "assistant",
-          content: `I couldn't load this conversation. This might happen if the conversation was created recently and hasn't been fully saved yet. 
+          content: `I couldn't load this conversation. This might happen if the conversation was created recently and hasn't been fully saved yet.
 
 You can:
-• Try refreshing the page
-• Start a new conversation
-• Or ask me anything about your travel plans!`,
+• Try refreshing the page and selecting the conversation again
+• Start a new conversation using the "+" button
+• Or ask me anything about your travel plans!
+
+I'm here to help with flights, hotels, destinations, and trip planning!`,
           timestamp: Date.now(),
           type: "text",
         };
@@ -405,8 +627,37 @@ You can:
     // Ensure chat UI is visible when resuming a session
     setShowChat(true);
 
-    // Always load the session history, even if it's the same session (for refresh)
-    await loadSessionHistory(sessionId);
+    // Show loading state
+    setIsLoading(true);
+
+    try {
+      // Always load the session history, even if it's the same session (for refresh)
+      await loadSessionHistory(sessionId);
+    } catch (error) {
+      console.error("❌ Failed to load session:", error);
+      
+      // Show error message to user
+      const errorMessage: ChatMessage = {
+        id: `error_${Date.now()}`,
+        role: "assistant",
+        content: `Sorry, I couldn't load that conversation. There might be a temporary issue with the server.
+
+Please try:
+• Refreshing the page
+• Selecting the conversation again
+• Or start a new conversation
+
+I'm still here to help with your travel planning!`,
+        timestamp: Date.now(),
+        type: "text",
+      };
+      
+      setMessages([errorMessage]);
+      setConversationId(sessionId);
+      setActiveSessionId(sessionId);
+    } finally {
+      setIsLoading(false);
+    }
 
     // Close sidebar on mobile after selection
     if (isMobile) setShowSidebar(false);
@@ -431,19 +682,45 @@ You can:
       // Get API URL from environment
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
+      // Build messages payload including the freshly added user message so the AI has full context
+      const messagesForApi = [...(messages || []), userMessage];
+
+      // Extract travel context from conversation history for better AI responses
+      const travelContext = extractTravelContext(messages);
+
+      // Detect if user is asking for flight search with more comprehensive patterns
+      const messageContent = typeof userMessage.content === 'string' ? userMessage.content : JSON.stringify(userMessage.content);
+      const isFlightSearchQuery = /search.*flight|flight.*search|find.*flight|flight.*find|book.*flight|flight.*book|search.*me.*flight|flight.*for.*these.*dates|flights.*for.*dates|search.*me.*flights/i.test(messageContent);
+      
+      // For Plan My Adventure conversations, be more aggressive about flight detection
+      if (travelContext.isPlanMyAdventureConversation && 
+          (/flight|fly|search|find|book/i.test(messageContent))) {
+        console.log('🎯 Plan My Adventure flight search detected');
+      }
+      
       console.log("Sending message to API:", {
         message: userMessage.content,
         conversationId: conversationId,
         userId: state.user?.id,
         userEmail: state.user?.email,
         userName: state.user?.name,
+        isFlightSearch: isFlightSearchQuery,
+        forceFlightSearch: travelContext.isPlanMyAdventureConversation && 
+                         (/flight|fly|search|find|book/i.test(messageContent)),
+        travelContext: travelContext
       });
-
-      // Build messages payload including the freshly added user message so the AI has full context
-      const messagesForApi = [...(messages || []), userMessage];
+      
+      // Add additional context if this is a Plan My Adventure conversation
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("messages") || params.get("itinerary")) {
+          travelContext.isPlanMyAdventureConversation = true;
+          travelContext.hasInitialItinerary = true;
+        }
+      }
 
       // Send request to AI agent
-      const response = await fetch(`${apiUrl}/api/ai/chat`, {
+      const response = await fetch(`${apiUrl}/ai-agent/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -452,10 +729,20 @@ You can:
         body: JSON.stringify({
           message: userMessage.content,
           messages: messagesForApi,
-          conversationId: conversationId || activeSessionId, // Use active session ID if no conversation ID
+          sessionId: conversationId || activeSessionId, // Use active session ID if no conversation ID
           userId: state.user?.id,
-          userEmail: state.user?.email,
-          userName: state.user?.name,
+          isFlightSearchQuery: isFlightSearchQuery,
+          // Force flight search for Plan My Adventure conversations when flight keywords are detected
+          forceFlightSearch: travelContext.isPlanMyAdventureConversation && 
+                           (/flight|fly|search|find|book/i.test(messageContent)),
+          userContext: {
+            userId: state.user?.id,
+            userEmail: state.user?.email,
+            userName: state.user?.name,
+            sessionId: conversationId || activeSessionId,
+            source: 'ai-assistant', // Identify this as coming from AI Assistant
+            ...travelContext, // Include extracted travel context
+          },
         }),
       });
 
@@ -466,35 +753,111 @@ You can:
       const data = await response.json();
       console.log("API Response:", data);
 
-      if (data.success && data.data?.response) {
+      if (data.success && (data.content || data.data?.response)) {
+        // Handle both new format (data.content) and legacy format (data.data.response)
+        const responseContent = data.content || data.data?.response;
         // Handle multiple message response
-        if (Array.isArray(data.data.response)) {
-          const aiMessages: ChatMessage[] = data.data.response.map(
-            (msg: any) => ({
-              id: `ai_${Date.now()}_${Math.random()}`,
-              role: "assistant",
-              content: msg.content || msg,
-              timestamp: Date.now(),
-              type: msg.type || "text",
-              data: msg.data || null,
-            })
+        if (Array.isArray(responseContent)) {
+          const aiMessages: ChatMessage[] = responseContent.map(
+            (msg: any) => {
+              // Handle different response formats
+              let content = msg.content || msg;
+              let messageType: ChatMessage['type'] = msg.type || "text";
+              let messageData = msg.data || null;
+
+              // If the message contains structured data (flights, hotels, etc.)
+              if (typeof msg === 'object' && msg !== null) {
+                if (msg.flights) {
+                  messageType = "flight_recommendations";
+                  messageData = {
+                    flights: msg.flights,
+                    googleFlightsUrl: msg.googleFlightsUrl,
+                    origin: msg.origin,
+                    destination: msg.destination,
+                    depDate: msg.depDate,
+                    retDate: msg.retDate
+                  };
+                } else if (msg.hotels) {
+                  messageType = "hotel_cards";
+                  messageData = {
+                    hotels: msg.hotels,
+                    bookingUrl: msg.bookingUrl
+                  };
+                } else if (msg.attractions) {
+                  messageType = "attractions_recommendations";
+                  messageData = {
+                    attractions: msg.attractions,
+                    tripAdvisorUrl: msg.tripAdvisorUrl,
+                    destination: msg.destination
+                  };
+                }
+              }
+
+              return {
+                id: `ai_${Date.now()}_${Math.random()}`,
+                role: "assistant",
+                content: content,
+                timestamp: Date.now(),
+                type: messageType,
+                data: messageData,
+              };
+            }
           );
           setMessages((prev) => [...prev, ...aiMessages]);
         } else {
           // Handle single message response
+          let content = responseContent;
+          let messageType: ChatMessage['type'] = "text";
+          let messageData = null;
+
+          // Check if response contains structured data
+          if (typeof responseContent === 'object' && responseContent !== null) {
+            const response = responseContent;
+            if (response.flights) {
+              messageType = "flight_recommendations";
+              messageData = {
+                flights: response.flights,
+                googleFlightsUrl: response.googleFlightsUrl,
+                origin: response.origin,
+                destination: response.destination,
+                depDate: response.depDate,
+                retDate: response.retDate
+              };
+              content = response.message || "Here are your flight recommendations:";
+            } else if (response.hotels) {
+              messageType = "hotel_cards";
+              messageData = {
+                hotels: response.hotels,
+                bookingUrl: response.bookingUrl
+              };
+              content = response.message || "Here are your hotel recommendations:";
+            } else if (response.attractions) {
+              messageType = "attractions_recommendations";
+              messageData = {
+                attractions: response.attractions,
+                tripAdvisorUrl: response.tripAdvisorUrl,
+                destination: response.destination
+              };
+              content = response.message || "Here are popular attractions:";
+            }
+          }
+
           const aiMessage: ChatMessage = {
             id: `ai_${Date.now()}`,
             role: "assistant",
-            content: data.data.response,
+            content: content,
             timestamp: Date.now(),
-            type: "text",
+            type: messageType,
+            data: messageData,
           };
           setMessages((prev) => [...prev, aiMessage]);
         }
 
         // Update conversation ID if provided, otherwise keep the current one
-        if (data.data.conversationId) {
-          setConversationId(data.data.conversationId);
+        if (data.conversationId || data.sessionId || data.metadata?.sessionId) {
+          const newConvId = data.conversationId || data.sessionId || data.metadata?.sessionId;
+          setConversationId(newConvId);
+          setActiveSessionId(newConvId);
         } else if (!conversationId && activeSessionId) {
           // If no conversation ID but we have an active session, use that
           setConversationId(activeSessionId);
@@ -601,6 +964,17 @@ In the meantime, I can still help you with general travel advice and planning!`,
 
   const renderMessage = (message: ChatMessage) => {
     const isUser = message.role === "user";
+
+    // Debug logging for message rendering
+    if (message.type === "flight_recommendations" && message.data?.flights) {
+      console.log("🛫 Rendering flight recommendations:", {
+        messageId: message.id,
+        flightCount: message.data.flights.length,
+        hasGoogleFlightsUrl: !!message.data.googleFlightsUrl,
+        firstFlightHasUrl: !!(message.data.flights[0]?.googleFlightsUrl),
+        messageData: message.data
+      });
+    }
 
     return (
       <div

@@ -80,7 +80,9 @@ router.post('/chat', async (req, res) => {
       userContext = {},
       aiModel = 'bedrock',
       userId,
-      sessionId
+      sessionId,
+      isFlightSearchQuery = false,
+      forceFlightSearch = false
     } = req.body;
 
 
@@ -114,7 +116,9 @@ router.post('/chat', async (req, res) => {
       messages: sessionMessages,
       userContext,
       userId: user_id,
-      sessionId: newSessionId
+      sessionId: newSessionId,
+      isFlightSearchQuery,
+      forceFlightSearch
     });
 
     // Always inject Google Flights button(s) for flight_search intent, or prompt for missing info
