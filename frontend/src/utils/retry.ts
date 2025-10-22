@@ -139,12 +139,12 @@ export async function executeWithRetry<T>(
   
   for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
     try {
-      console.log(`🔄 Attempt ${attempt}/${config.maxAttempts} for ${endpoint}`);
+
       return await operation();
     } catch (error) {
       lastError = createApiError(error, endpoint);
       
-      console.error(`❌ Attempt ${attempt} failed for ${endpoint}:`, lastError.message);
+
       
       // Don't retry if error is not retryable or this is the last attempt
       if (!lastError.retryable || attempt === config.maxAttempts) {
@@ -153,7 +153,7 @@ export async function executeWithRetry<T>(
       
       // Calculate delay and wait before next attempt
       const delay = calculateBackoffDelay(attempt, config);
-      console.log(`⏳ Waiting ${delay}ms before retry...`);
+
       await sleep(delay);
     }
   }

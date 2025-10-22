@@ -22,20 +22,14 @@ const userProfileRoutes = require('./routes/user-profile');
 
 const app = express();
 
-// CORS configuration - allow multiple origins (localhost + Render)
+// CORS configuration - use environment variables
 const allowedOrigins = [
-  'http://localhost:3000',
-  'https://hack-a-holiday.onrender.com',
-  'https://hacktravel.vercel.app'
-];
+  'http://localhost:3000', // Local development
+  process.env.FRONTEND_ORIGIN, // Production frontend from env
+  'https://hacktravel.vercel.app' // Fallback for production
+].filter(Boolean); // Remove any undefined values
 
-// Add FRONTEND_ORIGIN env variable if set (for backwards compatibility)
-if (process.env.FRONTEND_ORIGIN) {
-  const customOrigin = process.env.FRONTEND_ORIGIN.replace(/\/$/, '');
-  if (!allowedOrigins.includes(customOrigin)) {
-    allowedOrigins.push(customOrigin);
-  }
-}
+console.log('🌐 CORS allowed origins:', allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {

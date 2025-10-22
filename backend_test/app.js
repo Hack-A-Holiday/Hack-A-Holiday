@@ -5,12 +5,14 @@ require('dotenv').config();
 
 const app = express();
 
-// CORS configuration
+// CORS configuration - use environment variables
 const allowedOrigins = [
-  'http://localhost:3000',
-  'https://hacktravel.vercel.app',
-  process.env.FRONTEND_URL
-].filter(Boolean);
+  'http://localhost:3000', // Local development
+  process.env.FRONTEND_ORIGIN, // Production frontend from env
+  'https://hacktravel.vercel.app' // Fallback for production
+].filter(Boolean); // Remove any undefined values
+
+console.log('🌐 CORS allowed origins:', allowedOrigins);
 
 app.use(cors({
   origin: function(origin, callback) {

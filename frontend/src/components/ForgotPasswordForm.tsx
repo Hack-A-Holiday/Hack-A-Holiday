@@ -42,7 +42,7 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
       
       onSuccess?.(response.resetToken);
     } catch (error) {
-      console.error('Forgot password error:', error);
+
       
       await Swal.fire({
         icon: 'error',

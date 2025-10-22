@@ -27,6 +27,25 @@ exports.updateProfile = async (req, res) => {
     const userId = decoded.userId;
     const updates = req.body;
     
+    // Get user to check if they are a Google user
+    const user = await userService.getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Restrict Google users from updating core profile information
+    if (user.role === 'google') {
+      const restrictedFields = ['name', 'email', 'displayName'];
+      const hasRestrictedFields = restrictedFields.some(field => updates.hasOwnProperty(field));
+      
+      if (hasRestrictedFields) {
+        return res.status(403).json({ 
+          error: 'Profile update restricted',
+          message: 'Google users cannot edit their name or email. These are managed by Google.'
+        });
+      }
+    }
+    
     // Update user profile
     const updatedUser = await userService.updateUserProfile(userId, updates);
     

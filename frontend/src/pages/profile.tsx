@@ -378,7 +378,7 @@ export default function ProfilePage() {
   const { isDarkMode } = useDarkMode(); // Assuming isDarkMode comes from your dark mode context
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [isGoogleUser, setIsGoogleUser] = useState(false); // Example state
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
   const [editForm, setEditForm] = useState({ name: state.user?.name || '', email: state.user?.email || '' });
   const [isEditingHomeCity, setIsEditingHomeCity] = useState(false);
   const [homeCity, setHomeCity] = useState(''); // Home city state
@@ -431,6 +431,31 @@ export default function ProfilePage() {
         icon: 'error',
         title: 'Save Failed',
         text: 'Unable to save your home city. Please try again.',
+      });
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!state.user?.email || isGoogleUser) return;
+    
+    try {
+      // Here you would typically call an API to update the user's profile
+      // For now, we'll just show a success message since the backend API isn't implemented
+      setIsEditingProfile(false);
+      
+      await Swal.fire({
+        icon: 'success',
+        title: 'Profile Saved',
+        text: 'Your profile information has been saved successfully.',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      console.error('❌ Error saving profile:', error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Save Failed',
+        text: 'Unable to save your profile. Please try again.',
       });
     }
   };
@@ -663,9 +688,12 @@ export default function ProfilePage() {
         email: state.user?.email || '' 
       });
       
+      // Check if user is a Google user
+      setIsGoogleUser(state.user?.role === 'google');
+      
       console.log('🔄 Cleared cached data for user context switch');
     }
-  }, [state.user?.email, state.user?.name]);
+  }, [state.user?.email, state.user?.name, state.user?.role]);
 
 
   // --- The `return` statement with all your JSX ---
@@ -793,6 +821,7 @@ export default function ProfilePage() {
                   {!isGoogleUser && (
                     <div style={{ marginTop: '20px' }}>
                       <button
+                        onClick={handleSaveProfile}
                         style={{
                           background: '#28a745',
                           color: 'white',

@@ -212,7 +212,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
   const getAirlineBookingUrl = (flight: FlightOption): string => {
     // PRIORITY 1: If flight has a direct booking URL from the API, use that FIRST
     if (flight.bookingUrl) {
-      console.log(`✅ Using direct booking link from API: ${flight.bookingUrl}`);
+
       return flight.bookingUrl;
     }
 
@@ -224,9 +224,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
     // Simple format works better: "Flights from YYZ to BOM on 2025-10-20"
     const googleFlightsUrl = `https://www.google.com/travel/flights?q=Flights%20from%20${origin}%20to%20${destination}%20on%20${date}`;
 
-    console.log('🔗 Google Flights URL:', googleFlightsUrl);
-    console.log('📍 Look for:', flight.airline, flight.flightNumber, 'departing at', flight.departure.time);
-    console.log('💰 Price should be around $' + flight.price);
+
 
     return googleFlightsUrl;
   };
@@ -237,7 +235,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
 
   // Helper function to open booking URLs sequentially
   const openBookingLinks = async (urls: string[]) => {
-    console.log('Opening booking links:', urls);
+
 
     if (urls.length === 0) return;
 
@@ -371,7 +369,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
         });
       }
     } catch (error) {
-      console.error('❌ Error confirming trip:', error);
+
       await Swal.fire({
         icon: 'error',
         title: 'Failed to Confirm Trip',
@@ -572,11 +570,11 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
 
       // Skip direct frontend API calls to avoid rate limiting
       // Go straight to Express backend which handles API calls more efficiently
-      console.log('🛫 Using Express backend for real flight data (avoiding rate limits)...');
+
 
       // Use Express backend for flight search (if real data not found or not requested)
       if (!searchResults) {
-        console.log('✈️ Searching flights with Express backend...');
+
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
         try {
@@ -615,7 +613,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           }
 
           const expressResponse = await response.json();
-          console.log('Express Backend Response:', expressResponse);
+
 
           if (expressResponse.success && expressResponse.flights && expressResponse.flights.length > 0) {
             // Convert Express response to expected format and remove duplicates
