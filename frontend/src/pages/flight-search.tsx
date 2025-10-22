@@ -744,7 +744,8 @@ export default function FlightSearchPage() {
       });
 
       // Call the backend hotel search API
-      const response = await fetch('http://localhost:4000/api/hotels/search', {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+      const response = await fetch(`${backendUrl}/api/hotels/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -909,8 +910,9 @@ export default function FlightSearchPage() {
       const allResults = [];
       for (const searchQuery of searchQueries) {
         try {
+          const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
           const searchResponse = await fetch(
-            `http://localhost:4000/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery.query)}&category=${searchQuery.category}&limit=6`
+            `${backendUrl}/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery.query)}&category=${searchQuery.category}&limit=6`
           );
           const searchData = await searchResponse.json();
           console.log(`🔍 TripAdvisor API response for "${searchQuery.query}":`, searchData);
@@ -1055,8 +1057,9 @@ export default function FlightSearchPage() {
               const timeout = isTourOrTicket ? 3000 : 5000; // 3s for tours, 5s for attractions
               const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+              const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
               const detailResponse = await fetch(
-                `http://localhost:4000/tripadvisor/location/${location.location_id}/details?includePhotos=true&includeReviews=true&photoLimit=3&reviewLimit=2`,
+                `${backendUrl}/tripadvisor/location/${location.location_id}/details?includePhotos=true&includeReviews=true&photoLimit=3&reviewLimit=2`,
                 { signal: controller.signal }
               );
 
@@ -1073,8 +1076,9 @@ export default function FlightSearchPage() {
                 // Fetch photos separately with strict filtering
                 let photos = [];
                 try {
+                  const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
                   const photosResponse = await fetch(
-                    `http://localhost:4000/tripadvisor/location/${location.location_id}/photos?limit=5`
+                    `${backendUrl}/tripadvisor/location/${location.location_id}/photos?limit=5`
                   );
                   const photosData = await photosResponse.json();
                   if (photosData.success && photosData.data) {
@@ -1143,8 +1147,9 @@ export default function FlightSearchPage() {
                 // Try to get photos even if details failed
                 let photos = [];
                 try {
+                  const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
                   const photosResponse = await fetch(
-                    `http://localhost:4000/tripadvisor/location/${location.location_id}/photos?limit=3`
+                    `${backendUrl}/tripadvisor/location/${location.location_id}/photos?limit=3`
                   );
                   const photosData = await photosResponse.json();
                   if (photosData.success && photosData.data) {
@@ -1178,8 +1183,9 @@ export default function FlightSearchPage() {
               // Try to get photos even when detailed API fails
               let photos = [];
               try {
+                const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
                 const photosResponse = await fetch(
-                  `http://localhost:4000/tripadvisor/location/${location.location_id}/photos?limit=3`
+                  `${backendUrl}/tripadvisor/location/${location.location_id}/photos?limit=3`
                 );
                 const photosData = await photosResponse.json();
                 if (photosData.success && photosData.data) {

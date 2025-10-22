@@ -367,7 +367,7 @@ export default function Navbar() {
                           });
                           const data = await response.json().catch(() => ({}));
                           if (!response.ok || !data.success) {
-                            console.error('Clear history failed:', data);
+
                             await Swal.fire('Error', data.error || 'Failed to clear server chat history', 'error');
                             return;
                           }
@@ -375,7 +375,7 @@ export default function Navbar() {
                           await Swal.fire('Cleared', 'All chat history has been removed from the server.', 'success');
                           window.location.reload();
                         } catch (err) {
-                          console.error('Error clearing server history:', err);
+                
                           await Swal.fire('Error', 'Failed to clear chat history. Please try again.', 'error');
                         } finally {
                           setIsClearingHistory(false);

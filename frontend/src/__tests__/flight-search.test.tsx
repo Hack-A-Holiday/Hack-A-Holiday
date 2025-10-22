@@ -16,7 +16,7 @@ describe('fetchRecommendations Fixed Logic', () => {
   const simulateFetchRecommendations = async (dest: string) => {
     // Input validation (fixed logic)
     if (!dest || typeof dest !== 'string' || !dest.trim()) {
-      console.warn('⚠️ Invalid destination provided to fetchRecommendations:', dest)
+
       return { success: false, error: 'Invalid destination' }
     }
 
@@ -29,7 +29,7 @@ describe('fetchRecommendations Fixed Logic', () => {
 
     const cityName = getDestinationCityName(dest)
     if (!cityName || !cityName.trim()) {
-      console.warn('⚠️ Could not determine city name for destination:', dest)
+
       return { success: false, error: 'Invalid city name' }
     }
 
@@ -48,31 +48,32 @@ describe('fetchRecommendations Fixed Logic', () => {
     for (const searchQuery of searchQueries) {
       // Validate searchQuery before processing (fixed logic)
       if (!searchQuery || typeof searchQuery !== 'string' || !searchQuery.trim()) {
-        console.warn(`⚠️ Skipping invalid search query:`, searchQuery)
+
         continue
       }
 
       try {
         // Fixed: Use searchQuery directly as string, not as object property
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
         const searchResponse = await fetch(
-          `http://localhost:4000/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery)}&limit=6`
+          `${backendUrl}/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery)}&limit=6`
         )
         
         if (!searchResponse.ok) {
-          console.warn(`❌ API request failed for "${searchQuery}": ${searchResponse.status} ${searchResponse.statusText}`)
+
           continue
         }
 
         const searchData = await searchResponse.json()
         
         if (searchData.success && searchData.data && Array.isArray(searchData.data)) {
-          console.log(`✅ Found ${searchData.data.length} results for "${searchQuery}"`)
+
           allResults.push(...searchData.data)
         } else {
-          console.warn(`❌ No results for "${searchQuery}":`, searchData)
+
         }
       } catch (error) {
-        console.warn(`🚨 Search failed for query: "${searchQuery}"`, error)
+
         // Continue with other queries even if one fails
       }
     }

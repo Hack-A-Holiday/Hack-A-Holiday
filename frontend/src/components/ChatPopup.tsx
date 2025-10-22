@@ -113,7 +113,7 @@ export default function ChatPopup() {
       }
 
     } catch (error) {
-      console.error('Error sending message:', error);
+
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'system',

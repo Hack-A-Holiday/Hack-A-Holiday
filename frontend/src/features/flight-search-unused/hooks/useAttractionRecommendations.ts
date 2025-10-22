@@ -48,8 +48,9 @@ export const useAttractionRecommendations = ({ userPreferences }: UseAttractionR
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
       const detailResponse = await fetch(
-        `http://localhost:4000/tripadvisor/location/${location.location_id}/details?includePhotos=true&includeReviews=true&photoLimit=3&reviewLimit=2`,
+        `${backendUrl}/tripadvisor/location/${location.location_id}/details?includePhotos=true&includeReviews=true&photoLimit=3&reviewLimit=2`,
         { signal: controller.signal }
       );
 
@@ -60,8 +61,9 @@ export const useAttractionRecommendations = ({ userPreferences }: UseAttractionR
         // Fetch photos separately
         let photos = [];
         try {
+          const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
           const photosResponse = await fetch(
-            `http://localhost:4000/tripadvisor/location/${location.location_id}/photos?limit=5`
+            `${backendUrl}/tripadvisor/location/${location.location_id}/photos?limit=5`
           );
           const photosData = await photosResponse.json();
           
@@ -146,8 +148,9 @@ export const useAttractionRecommendations = ({ userPreferences }: UseAttractionR
       
       for (const searchQuery of searchQueries) {
         try {
+          const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
           const searchResponse = await fetch(
-            `http://localhost:4000/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery.query)}&category=${searchQuery.category}&limit=6`
+            `${backendUrl}/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery.query)}&category=${searchQuery.category}&limit=6`
           );
           const searchData = await searchResponse.json();
           

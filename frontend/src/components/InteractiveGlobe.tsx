@@ -65,7 +65,7 @@ export default function InteractiveGlobe({
       if (containerRef.current) {
         const width = containerRef.current.clientWidth;
         const height = containerRef.current.clientHeight;
-        console.log(`📐 Globe container dimensions: ${width}x${height}`);
+
         setDimensions({ width, height });
       }
     };

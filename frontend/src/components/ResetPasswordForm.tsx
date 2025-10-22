@@ -34,7 +34,7 @@ const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ token }) => {
           router.push('/');
         }
       } catch (error) {
-        console.error('Token verification error:', error);
+
         await Swal.fire({
           icon: 'error',
           title: 'Error',
@@ -96,7 +96,7 @@ const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ token }) => {
       
       router.push('/');
     } catch (error) {
-      console.error('Reset password error:', error);
+
       
       await Swal.fire({
         icon: 'error',
