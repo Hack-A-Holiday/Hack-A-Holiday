@@ -1293,7 +1293,7 @@ export default function FlightSearchPage() {
   return (
     <ProtectedRoute>
       <Head>
-        <title>Flight & Hotel Search - Hack-A-Holiday</title>
+        <title>Flight & Hotel Search - Hack Travel</title>
         <meta name="description" content="Search and compare flights and hotels with advanced filtering and intelligent recommendations" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -1623,13 +1623,7 @@ export default function FlightSearchPage() {
               marginBottom: '20px'
             }}>
               <div style={{ position: 'relative' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontWeight: '600',
-                  color: isDarkMode ? '#e8eaed' : '#495057',
-                  fontSize: '14px'
-                }}>
+                <label className="form-label">
                   📍 Destination
                 </label>
                 <input
@@ -1639,16 +1633,9 @@ export default function FlightSearchPage() {
                   onChange={(e) => handleDestinationChange(e.target.value)}
                   onFocus={() => hotelDestination.length >= 2 && setShowSuggestions(true)}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  className="form-input"
                   style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
-                    borderRadius: '10px',
-                    background: isDarkMode ? '#1a1f2e' : '#fafbfc',
-                    color: isDarkMode ? '#e8eaed' : '#000',
-                    fontSize: '16px',
-                    outline: 'none',
-                    transition: 'all 0.3s ease'
+                    borderRadius: '10px'
                   }}
                 />
                 {showSuggestions && destinationSuggestions.length > 0 && (
@@ -1657,14 +1644,14 @@ export default function FlightSearchPage() {
                     top: '100%',
                     left: 0,
                     right: 0,
-                    background: isDarkMode ? '#1a1f2e' : 'white',
-                    border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
+                    background: 'var(--form-bg-primary)',
+                    border: '2px solid var(--form-border-color)',
                     borderRadius: '10px',
                     marginTop: '4px',
                     maxHeight: '200px',
                     overflowY: 'auto',
                     zIndex: 1000,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                    boxShadow: 'var(--card-shadow)'
                   }}>
                     {destinationSuggestions.map((suggestion, index) => (
                       <div
@@ -1676,11 +1663,11 @@ export default function FlightSearchPage() {
                         style={{
                           padding: '12px 16px',
                           cursor: 'pointer',
-                          borderBottom: index < destinationSuggestions.length - 1 ? `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9'}` : 'none',
-                          color: isDarkMode ? '#e8eaed' : '#000',
+                          borderBottom: index < destinationSuggestions.length - 1 ? '1px solid var(--form-border-color)' : 'none',
+                          color: 'var(--form-text-color)',
                           transition: 'background 0.2s'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f0f0f0'}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--calendar-hover-bg)'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       >
                         📍 {suggestion}
@@ -1691,13 +1678,7 @@ export default function FlightSearchPage() {
               </div>
 
               <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontWeight: '600',
-                  color: isDarkMode ? '#e8eaed' : '#495057',
-                  fontSize: '14px'
-                }}>
+                <label className="form-label">
                   📅 Check-in Date
                 </label>
                 <input
@@ -1705,28 +1686,15 @@ export default function FlightSearchPage() {
                   value={hotelCheckIn}
                   onChange={(e) => setHotelCheckIn(e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
+                  className="form-input"
                   style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
-                    borderRadius: '10px',
-                    background: isDarkMode ? '#1a1f2e' : '#fafbfc',
-                    color: isDarkMode ? '#e8eaed' : '#000',
-                    fontSize: '16px',
-                    outline: 'none',
-                    transition: 'all 0.3s ease'
+                    borderRadius: '10px'
                   }}
                 />
               </div>
 
               <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontWeight: '600',
-                  color: isDarkMode ? '#e8eaed' : '#495057',
-                  fontSize: '14px'
-                }}>
+                <label className="form-label">
                   📅 Check-out Date
                 </label>
                 <input
@@ -1734,28 +1702,15 @@ export default function FlightSearchPage() {
                   value={hotelCheckOut}
                   onChange={(e) => setHotelCheckOut(e.target.value)}
                   min={hotelCheckIn || new Date().toISOString().split('T')[0]}
+                  className="form-input"
                   style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
-                    borderRadius: '10px',
-                    background: isDarkMode ? '#1a1f2e' : '#fafbfc',
-                    color: isDarkMode ? '#e8eaed' : '#000',
-                    fontSize: '16px',
-                    outline: 'none',
-                    transition: 'all 0.3s ease'
+                    borderRadius: '10px'
                   }}
                 />
               </div>
 
               <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontWeight: '600',
-                  color: isDarkMode ? '#e8eaed' : '#495057',
-                  fontSize: '14px'
-                }}>
+                <label className="form-label">
                   👥 Guests
                 </label>
                 <input
@@ -1764,16 +1719,9 @@ export default function FlightSearchPage() {
                   max="10"
                   value={hotelGuests}
                   onChange={(e) => setHotelGuests(parseInt(e.target.value) || 1)}
+                  className="form-input"
                   style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
-                    borderRadius: '10px',
-                    background: isDarkMode ? '#1a1f2e' : '#fafbfc',
-                    color: isDarkMode ? '#e8eaed' : '#000',
-                    fontSize: '16px',
-                    outline: 'none',
-                    transition: 'all 0.3s ease'
+                    borderRadius: '10px'
                   }}
                 />
               </div>
@@ -1782,19 +1730,10 @@ export default function FlightSearchPage() {
             <button
               onClick={handleHotelSearch}
               disabled={loadingHotels}
+              className="btn-primary"
               style={{
                 width: '100%',
-                padding: '14px 24px',
-                background: loadingHotels ? '#9ca3af' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: loadingHotels ? 'not-allowed' : 'pointer',
-                transition: 'all 0.3s ease',
-                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-                opacity: loadingHotels ? 0.7 : 1
+                borderRadius: '10px'
               }}
             >
               {loadingHotels ? '⏳ Searching...' : '🔍 Search Hotels'}

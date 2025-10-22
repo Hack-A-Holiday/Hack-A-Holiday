@@ -51,45 +51,39 @@ export default function Navbar() {
   };
 
   return (
-    <nav style={{
-      background: isDarkMode ? 'rgba(30, 30, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-      backdropFilter: 'blur(10px)',
-      borderBottom: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
-      padding: '12px 0',
+    <nav className="navbar" style={{
+      backdropFilter: 'blur(15px)',
+      padding: '0',
+      height: isMobile ? '60px' : '80px',
       position: 'sticky',
       top: 0,
       zIndex: 1000,
-      boxShadow: isDarkMode ? '0 2px 20px rgba(0, 0, 0, 0.5)' : '0 2px 20px rgba(0, 0, 0, 0.1)',
-      transition: 'background 0.3s ease, border-color 0.3s ease'
+      boxShadow: isDarkMode ? '0 2px 15px rgba(0, 0, 0, 0.3)' : '0 2px 15px rgba(0, 0, 0, 0.08)'
     }}>
       <div style={{
         maxWidth: '1200px',
         margin: '0 auto',
-        padding: '0 20px',
+        padding: '0 15px',
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        height: '100%'
       }}>
         {/* Logo - Home button only */}
-        <Link href="/home" style={{
-          textDecoration: 'none',
+        <Link href="/home" className="nav-brand" style={{
           display: 'flex',
           alignItems: 'center',
-          color: '#667eea',
-          fontWeight: 'bold',
-          fontSize: isMobile ? '1.2rem' : '1.5rem',
-          gap: '10px'
+          fontSize: isMobile ? '1.2rem' : '1.5rem'
         }}>
           <Image
-            src="/globe-logo.jpg"
-            alt="Hack-A-Holiday Globe"
-            width={isMobile ? 32 : 40}
-            height={isMobile ? 32 : 40}
+            src="/Hack Travel.png"
+            alt="Hack Travel Logo"
+            width={isMobile ? 200 : 280}
+            height={isMobile ? 60 : 80}
             style={{
               objectFit: 'contain'
             }}
           />
-          {isMobile ? 'HAH' : 'Hack-A-Holiday'}
         </Link>
 
         {/* Mobile Menu Button */}
@@ -145,13 +139,13 @@ export default function Navbar() {
             alignItems: 'center',
             gap: '20px'
           }}>
-            <Link href="/plantrip" style={getLinkStyle('/plantrip')}>
+            <Link href="/plantrip" className={`nav-link ${router.pathname === '/plantrip' ? 'active' : ''}`}>
               Plan Trip
             </Link>
-            <Link href="/ai-assistant" style={getLinkStyle('/ai-assistant')}>
+            <Link href="/ai-assistant" className={`nav-link ${router.pathname === '/ai-assistant' ? 'active' : ''}`}>
               AI Assistant
             </Link>
-            <Link href="/flight-search" style={getLinkStyle('/flight-search')}>
+            <Link href="/flight-search" className={`nav-link ${router.pathname === '/flight-search' ? 'active' : ''}`}>
               Flight & Hotel Search
             </Link>
 

@@ -2684,7 +2684,7 @@ const AiAgentPage: React.FC = () => {
   return (
     <ProtectedRoute requireAuth={true}>
       <Head>
-        <title>AI Travel Agent - Hack-A-Holiday</title>
+        <title>AI Travel Agent - Hack Travel</title>
         <meta name="description" content="AI-powered travel assistant for personalized trip planning" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />

@@ -37,7 +37,7 @@ export const TripForm: React.FC<TripFormProps> = ({
 		<form onSubmit={e => e.preventDefault()} style={{ marginTop: '30px' }}>
 			<div style={{ display: 'grid', gridTemplateColumns: getGridColumns(), gap: isMobile ? '15px' : '20px', marginBottom: '25px' }}>
 				<div>
-					<label htmlFor="duration" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+					<label htmlFor="duration" className="form-label">
 						Duration (days)
 					</label>
 					<input
@@ -45,23 +45,15 @@ export const TripForm: React.FC<TripFormProps> = ({
 						type="number"
 						value={duration}
 						onChange={(e) => onDurationChange(parseInt(e.target.value))}
-						style={{ 
-							width: '100%', 
-							padding: '12px 15px', 
-							border: '2px solid #e1e5e9', 
-							borderRadius: '8px', 
-							fontSize: '16px', 
-							margin: '10px 0',
-							backgroundColor: isDarkMode ? '#1a1f2e' : '#ffffff',
-							color: isDarkMode ? '#e8eaed' : '#000'
-						}}
+						className="form-input"
+						style={{ margin: '10px 0' }}
 						min="1"
 						max="30"
 						required
 					/>
 				</div>
 				<div>
-					<label htmlFor="start-date-input" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+					<label htmlFor="start-date-input" className="form-label">
 						Start Date
 					</label>
 					<input
@@ -69,16 +61,8 @@ export const TripForm: React.FC<TripFormProps> = ({
 						type="date"
 						value={startDate}
 						onChange={(e) => onStartDateChange(e.target.value)}
-						style={{ 
-							width: '100%', 
-							padding: '12px 15px', 
-							border: '2px solid #e1e5e9', 
-							borderRadius: '8px', 
-							fontSize: '16px', 
-							margin: '10px 0',
-							backgroundColor: isDarkMode ? '#1a1f2e' : '#ffffff',
-							color: isDarkMode ? '#e8eaed' : '#000'
-						}}
+						className="form-input"
+						style={{ margin: '10px 0' }}
 						required
 					/>
 				</div>
@@ -118,16 +102,10 @@ export const TripForm: React.FC<TripFormProps> = ({
 			<button
 				type="button"
 				onClick={onPlanClick}
+				className="btn-primary btn-large"
 				style={{ 
-					width: '100%', 
-					background: loading ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-					color: 'white', 
-					border: 'none', 
-					padding: '15px 30px', 
-					fontSize: '18px', 
-					fontWeight: '600', 
-					borderRadius: '8px', 
-					cursor: loading ? 'not-allowed' : 'pointer' 
+					width: '100%',
+					fontSize: '18px'
 				}}
 				disabled={loading}
 			>

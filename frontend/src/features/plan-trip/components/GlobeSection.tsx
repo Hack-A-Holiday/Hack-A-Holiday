@@ -49,8 +49,17 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 	return (
 		<div style={{ marginBottom: '30px' }}>
 			<div style={{ marginBottom: '15px' }}>
-				<h3 style={{ margin: '0 0 10px 0', fontSize: isMobile ? '1.3rem' : '1.6rem', fontWeight: 'bold', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-					🌍 Select Destination
+				<h3 style={{ margin: '0 0 10px 0', fontSize: isMobile ? '1.3rem' : '1.6rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+					<span style={{ 
+						fontSize: '1.5em',
+						color: '#4285f4'
+					}}>🌍</span>
+					<span style={{ 
+						background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+						WebkitBackgroundClip: 'text', 
+						WebkitTextFillColor: 'transparent', 
+						backgroundClip: 'text' 
+					}}>Select Destination</span>
 				</h3>
 				<p style={{ margin: '0 0 15px 0', color: isDarkMode ? '#9ca3af' : '#666', fontSize: '14px', fontStyle: 'italic' }}>
 					Type locations or click on the globe below

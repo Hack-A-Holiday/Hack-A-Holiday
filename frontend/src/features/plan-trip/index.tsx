@@ -360,7 +360,7 @@ export default function PlanTrip() {
 	return (
 		<>
 			<Head>
-				<title>Plan Trip - Hack-A-Holiday</title>
+				<title>Plan Trip - Hack Travel</title>
 				<meta name="description" content="AI-powered travel planning assistant" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<link rel="icon" href="/favicon.ico" />
@@ -368,8 +368,8 @@ export default function PlanTrip() {
 			<div style={{ 
 				minHeight: '100vh', 
 				background: isDarkMode 
-					? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #1e293b 100%)' 
-					: 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 50%, #94a3b8 100%)',
+					? 'linear-gradient(135deg, #1a1f2e 0%, #16213e 100%)'
+					: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
 				position: 'relative'
 			}}>
 				<AnimatedBackground isDarkMode={isDarkMode} variant="plan-trip" />
@@ -385,15 +385,12 @@ export default function PlanTrip() {
 								marginBottom: '10px'
 							}}>
 								<Image 
-									src="/globe-logo.jpg" 
-									alt="Hack-A-Holiday Globe Logo" 
-									width={isMobile ? 50 : 60}
-									height={isMobile ? 50 : 60}
+									src="/Hack Travel.png" 
+									alt="Hack Travel Logo" 
+									width={isMobile ? 200 : 300}
+									height={isMobile ? 80 : 120}
 									style={{ objectFit: 'contain' }}
 								/>
-								<h1 style={{ fontSize: getTitleFontSize(), margin: 0, lineHeight: '1.2' }}>
-									Hack-A-Holiday
-								</h1>
 							</div>
 							<p style={{ fontSize: getTitleFontSize(), opacity: 0.9, lineHeight: '1.4' }}>
 								Your intelligent travel planning assistant

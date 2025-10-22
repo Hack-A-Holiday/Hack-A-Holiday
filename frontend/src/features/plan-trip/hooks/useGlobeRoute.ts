@@ -75,14 +75,13 @@ export const useGlobeRoute = () => {
     }
   };
 
-  const handleResetSelection = (onReset?: () => void) => {
+  const handleResetSelection = () => {
     setSourceDestination(null);
     setDestinationLocation(null);
     setRouteData(null);
     setClickStep('source');
     setTypedSource('');
     setTypedDestination('');
-    if (onReset) onReset();
   };
 
   const swapSourceDestination = () => {

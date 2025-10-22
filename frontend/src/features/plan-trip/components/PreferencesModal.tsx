@@ -21,13 +21,10 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 	onCancel
 }) => {
 	return (
-		<div style={{ 
-			background: isDarkMode ? '#252d3d' : 'white', 
+		<div className="card card-elevated" style={{ 
 			borderRadius: '15px', 
 			padding: '30px', 
-			boxShadow: isDarkMode ? '0 20px 40px rgba(0,0,0,0.6)' : '0 20px 40px rgba(0,0,0,0.1)', 
-			marginTop: '20px',
-			border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
+			marginTop: '20px'
 		}}>
 			<h3 style={{ 
 				marginBottom: '20px', 
@@ -46,7 +43,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 				<h4 style={{ marginBottom: '15px', color: isDarkMode ? '#9ca3af' : '#495057' }}>Basic Information</h4>
 				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
 					<div>
-						<label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+						<label className="form-label">
 							Budget ($)
 						</label>
 						<input
@@ -55,19 +52,12 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 							onChange={(e) => onPreferenceChange('budget', parseInt(e.target.value))}
 							min="100"
 							max="100000"
-							style={{ 
-								width: '100%', 
-								padding: '10px', 
-								border: '2px solid #e1e5e9', 
-								borderRadius: '8px',
-								backgroundColor: isDarkMode ? '#1a1f2e' : '#ffffff',
-								color: isDarkMode ? '#e8eaed' : '#000'
-							}}
+							className="form-input"
 						/>
 					</div>
 
 					<div>
-						<label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+						<label className="form-label">
 							Travelers
 						</label>
 						<input
@@ -76,32 +66,18 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 							onChange={(e) => onPreferenceChange('travelers', parseInt(e.target.value))}
 							min="1"
 							max="20"
-							style={{ 
-								width: '100%', 
-								padding: '10px', 
-								border: '2px solid #e1e5e9', 
-								borderRadius: '8px',
-								backgroundColor: isDarkMode ? '#1a1f2e' : '#ffffff',
-								color: isDarkMode ? '#e8eaed' : '#000'
-							}}
+							className="form-input"
 						/>
 					</div>
 
 					<div>
-						<label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+						<label className="form-label">
 							Travel Style
 						</label>
 						<select
 							value={editablePreferences.travelStyle}
 							onChange={(e) => onPreferenceChange('travelStyle', e.target.value)}
-							style={{ 
-								width: '100%', 
-								padding: '10px', 
-								border: '2px solid #e1e5e9', 
-								borderRadius: '8px',
-								backgroundColor: isDarkMode ? '#1a1f2e' : '#ffffff',
-								color: isDarkMode ? '#e8eaed' : '#000'
-							}}
+							className="form-input"
 						>
 							{preferenceOptions.travelStyles.map((style) => (
 								<option key={style.value} value={style.value}>
@@ -118,20 +94,13 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 				<h4 style={{ marginBottom: '15px', color: isDarkMode ? '#9ca3af' : '#495057' }}>Flight Preferences</h4>
 				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
 					<div>
-						<label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+						<label className="form-label">
 							Cabin Class
 						</label>
 						<select
 							value={editablePreferences.flightPreferences.cabinClass}
 							onChange={(e) => onFlightPreferenceChange('cabinClass', e.target.value)}
-							style={{ 
-								width: '100%', 
-								padding: '10px', 
-								border: '2px solid #e1e5e9', 
-								borderRadius: '8px',
-								backgroundColor: isDarkMode ? '#1a1f2e' : '#ffffff',
-								color: isDarkMode ? '#e8eaed' : '#000'
-							}}
+							className="form-input"
 						>
 							{preferenceOptions.cabinClasses.map((cabin) => (
 								<option key={cabin.value} value={cabin.value}>
@@ -142,20 +111,13 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 					</div>
 
 					<div>
-						<label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+						<label className="form-label">
 							Preferred Time
 						</label>
 						<select
 							value={editablePreferences.flightPreferences.timePreference}
 							onChange={(e) => onFlightPreferenceChange('timePreference', e.target.value)}
-							style={{ 
-								width: '100%', 
-								padding: '10px', 
-								border: '2px solid #e1e5e9', 
-								borderRadius: '8px',
-								backgroundColor: isDarkMode ? '#1a1f2e' : '#ffffff',
-								color: isDarkMode ? '#e8eaed' : '#000'
-							}}
+							className="form-input"
 						>
 							{preferenceOptions.timePreferences.map((time) => (
 								<option key={time.value} value={time.value}>
@@ -172,7 +134,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 							checked={editablePreferences.flightPreferences.preferDirect}
 							onChange={(e) => onFlightPreferenceChange('preferDirect', e.target.checked)}
 						/>
-						<label htmlFor="preferDirect" style={{ fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+						<label htmlFor="preferDirect" className="form-label" style={{ marginBottom: 0 }}>
 							Prefer Direct Flights
 						</label>
 					</div>
@@ -184,7 +146,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 				<h4 style={{ marginBottom: '15px', color: isDarkMode ? '#9ca3af' : '#495057' }}>Travel Interests</h4>
 				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
 					{preferenceOptions.interests.map((interest) => (
-						<label key={interest} style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isDarkMode ? '#e8eaed' : '#333' }}>
+						<label key={interest} className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 0 }}>
 							<input
 								type="checkbox"
 								checked={(editablePreferences.interests || []).includes(interest)}
@@ -200,32 +162,14 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 				<button
 					type="button"
 					onClick={onCancel}
-					style={{ 
-						background: '#6c757d', 
-						color: 'white', 
-						border: 'none', 
-						padding: '12px 24px', 
-						fontSize: '16px', 
-						fontWeight: '600', 
-						borderRadius: '8px', 
-						cursor: 'pointer' 
-					}}
+					className="btn-secondary"
 				>
 					Cancel
 				</button>
 				<button
 					type="button"
 					onClick={onSubmit}
-					style={{ 
-						background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-						color: 'white', 
-						border: 'none', 
-						padding: '12px 24px', 
-						fontSize: '16px', 
-						fontWeight: '600', 
-						borderRadius: '8px', 
-						cursor: 'pointer' 
-					}}
+					className="btn-primary"
 				>
 					Save & Continue
 				</button>

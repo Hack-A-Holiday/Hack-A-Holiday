@@ -81,8 +81,8 @@ export default function HomePage() {
   return (
     <>
       <Head>
-        <title>{mode === 'login' ? 'Sign In' : 'Sign Up'} - Hack-A-Holiday</title>
-        <meta name="description" content="Sign in to your Hack-A-Holiday account" />
+        <title>{mode === 'login' ? 'Sign In' : 'Sign Up'} - Hack Travel</title>
+        <meta name="description" content="Sign in to your Hack Travel account" />
       </Head>
 
       <div className="auth-container">
@@ -104,15 +104,12 @@ export default function HomePage() {
               marginBottom: '10px'
             }}>
               <Image
-                src="/globe-logo.jpg"
-                alt="Hack-A-Holiday Globe Logo"
-                width={60}
-                height={60}
+                src="/Hack Travel.png"
+                alt="Hack Travel Logo"
+                width={200}
+                height={80}
                 style={{ objectFit: 'contain' }}
               />
-              <h1 className="auth-title" style={{ margin: 0 }}>
-                Hack-A-Holiday
-              </h1>
             </div>
             <p className="auth-subtitle">
               Your intelligent travel planning assistant

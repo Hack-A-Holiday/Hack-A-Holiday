@@ -90,7 +90,7 @@ export default function FlightSearchPage() {
   return (
     <ProtectedRoute>
       <Head>
-        <title>Flight & Hotel Search - Hack-A-Holiday</title>
+        <title>Flight & Hotel Search - Hack Travel</title>
         <meta name="description" content="Search and compare flights and hotels with advanced filtering and intelligent recommendations" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <style jsx>{`

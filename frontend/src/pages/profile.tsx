@@ -20,7 +20,7 @@ export interface Trip {
   destination: string;
   departureDate: string;
   returnDate?: string;
-  status: 'booked' | 'cancelled' | 'completed';
+  status: 'planned' | 'booked' | 'cancelled' | 'completed';
   createdAt: string;
   updatedAt: string;
   cancellationReason?: string;
@@ -257,7 +257,7 @@ export default function ProfilePage() {
   return (
     <>
       <Head>
-        <title>Profile - Hack-A-Holiday</title>
+        <title>Profile - Hack Travel</title>
         <meta name="description" content="Manage your profile and travel preferences" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -854,7 +854,7 @@ export default function ProfilePage() {
                 <div style={{ fontSize: '14px', color: isDarkMode ? '#ffd54f' : '#856404', lineHeight: '1.5' }}>
                   <strong>⚠️ Important Disclaimer:</strong>
                   <br />
-                  This will only update your trip status in Hack-A-Holiday. You must contact your airlines, hotels, and any other booking providers directly to cancel your actual reservations and request refunds.
+                  This will only update your trip status in Hack Travel. You must contact your airlines, hotels, and any other booking providers directly to cancel your actual reservations and request refunds.
                 </div>
               </div>
 
