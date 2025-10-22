@@ -90,50 +90,71 @@ exports.planTrip = async (req, res) => {
     // Get token from cookie or header
     const token = req.cookies.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
     
-    // Plan trip with enhanced AI context
-    const result = await planTripService.planTrip(userId, enhancedPreferences, token, userContext);
+    // Use IntegratedAITravelAgent for comprehensive trip planning with real APIs
+    const tripPlanningMessage = `Plan a complete trip from ${effectiveOrigin || 'my location'} to ${preferences.destination} for ${preferences.duration || 7} days. 
+    Budget: $${preferences.budget || 'moderate'}
+    Travel style: ${preferences.travelStyle || 'balanced'}
+    Interests: ${(preferences.interests || []).join(', ')}
+    
+    Please provide:
+    1. Detailed daily itinerary
+    2. Flight recommendations with real prices
+    3. Hotel recommendations with real prices and availability
+    4. Nearby attractions and activities
+    5. Budget breakdown`;
 
-    // Ensure the result is correctly formatted before sending it to the frontend
-    if (!result.dailyItinerary || !result.destination) {
-      console.error('Invalid trip plan response:', result);
-      return res.status(500).json({ error: 'Invalid trip plan response' });
-    }
+    const result = await aiAgent.processMessage({
+      message: tripPlanningMessage,
+      userId: userId,
+      sessionId: `trip_${Date.now()}`,
+      conversationHistory: [],
+      userContext: {
+        ...userContext,
+        preferences: enhancedPreferences
+      }
+    });
 
-    // Update user preferences based on this trip plan (learning from interaction)
-    if (result.destination) {
-      const tripMessage = `Plan a ${preferences.duration || 7}-day trip to ${result.destination} from ${effectiveOrigin || 'home'} with ${preferences.budget || 'moderate'} budget`;
-      await aiAgent.updatePreferencesFromConversation(
-        userId,
-        tripMessage,
-        `Planned ${preferences.duration || 7}-day trip to ${result.destination}`,
-        savedPreferences
-      );
-      
-      // Store trip in history
-      aiAgent.updateUserContext(userId, {
-        tripHistory: {
-          destination: result.destination,
-          origin: effectiveOrigin,
-          duration: preferences.duration,
-          budget: result.totalBudget,
-          startDate: preferences.startDate
+    // Handle IntegratedAITravelAgent response format
+    if (result.multiMessage && Array.isArray(result.content)) {
+      // Multi-message response - return as is for frontend processing
+      console.log('   ✅ Multi-message response generated with', result.content.length, 'messages');
+      return res.status(201).json({
+        success: true,
+        data: {
+          response: result.content,
+          conversationId: result.metadata?.sessionId,
+          realData: result.realData,
+          aiContext: {
+            usedHomeCity: effectiveOrigin === userContext.preferences?.homeCity,
+            usedSearchHistory: effectiveOrigin !== preferences.origin && effectiveOrigin,
+            personalizedWithPreferences: Object.keys(savedPreferences).length > 0,
+            totalSearches: userContext.searchHistory?.length || 0,
+            apiCallsMade: result.metadata?.apiCallsMade || false
+          }
+        }
+      });
+    } else {
+      // Single response - format for backward compatibility
+      console.log('   ✅ Single response generated');
+      return res.status(201).json({
+        success: true,
+        data: {
+          response: result.content,
+          conversationId: result.metadata?.sessionId,
+          realData: result.realData,
+          aiContext: {
+            usedHomeCity: effectiveOrigin === userContext.preferences?.homeCity,
+            usedSearchHistory: effectiveOrigin !== preferences.origin && effectiveOrigin,
+            personalizedWithPreferences: Object.keys(savedPreferences).length > 0,
+            totalSearches: userContext.searchHistory?.length || 0,
+            apiCallsMade: result.metadata?.apiCallsMade || false
+          }
         }
       });
     }
 
     console.log('   ✅ AI-powered trip plan generated with context');
     console.log('═══════════════════════════════════════\n');
-
-    res.status(201).json({
-      ...result,
-      // Include AI agent metadata
-      aiContext: {
-        usedHomeCity: effectiveOrigin === userContext.preferences?.homeCity,
-        usedSearchHistory: effectiveOrigin !== preferences.origin && effectiveOrigin,
-        personalizedWithPreferences: Object.keys(savedPreferences).length > 0,
-        totalSearches: userContext.searchHistory?.length || 0
-      }
-    });
   } catch (err) {
     console.error('❌ Plan trip error:', err);
     const errorResponse = { error: err.message || 'Failed to plan trip' };

@@ -15,8 +15,7 @@ export default function Custom404() {
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        justifyContent: 'center'
       }}>
         <div style={{
           background: 'rgba(255, 255, 255, 0.95)',

@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -16,14 +16,38 @@ const analyticsRoutes = require('./routes/analytics');
 const bedrockAgentRoutes = require('./routes/bedrock-agent');
 const globeRoutes = require('./routes/globe');
 const tripAdvisorRoutes = require('./routes/tripadvisor');
+const hotelRoutes = require('./routes/hotels');
+const citiesRoutes = require('./routes/cities');
+const userProfileRoutes = require('./routes/user-profile');
 
 const app = express();
 
-// Remove trailing slash from origin to fix CORS issues
-const frontendOrigin = (process.env.FRONTEND_ORIGIN || 'http://localhost:3000').replace(/\/$/, '');
+// CORS configuration - allow multiple origins (localhost + Render)
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://hack-a-holiday.onrender.com',
+  'https://hacktravel.vercel.app'
+];
+
+// Add FRONTEND_ORIGIN env variable if set (for backwards compatibility)
+if (process.env.FRONTEND_ORIGIN) {
+  const customOrigin = process.env.FRONTEND_ORIGIN.replace(/\/$/, '');
+  if (!allowedOrigins.includes(customOrigin)) {
+    allowedOrigins.push(customOrigin);
+  }
+}
 
 app.use(cors({
-  origin: frontendOrigin,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -43,13 +67,16 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/bedrock-agent', bedrockAgentRoutes);
 app.use('/globe', globeRoutes);
 app.use('/tripadvisor', tripAdvisorRoutes);
+app.use('/api/hotels', hotelRoutes);
+app.use('/api/cities', citiesRoutes);
+app.use('/api/user-profile', userProfileRoutes);
 app.use('/', planTripRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Hack-A-Holiday backend running!' });
 });
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

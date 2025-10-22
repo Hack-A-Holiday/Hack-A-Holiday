@@ -4,65 +4,44 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDarkMode } from '../../contexts/DarkModeContext';
+import Swal from 'sweetalert2';
 
 export default function Navbar() {
+  // Toggle user menu dropdown
+  const toggleUserMenu = () => {
+    setIsUserMenuOpen((prev) => !prev);
+  };
+
+  // Handle logout
+  const handleLogout = async () => {
+    await logout();
+    setIsUserMenuOpen(false);
+    // Redirect to login
+    router.push('/');
+  };
+
+  // Close mobile menu
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
   const { state, logout } = useAuth();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  // Close user menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-    };
-
-    if (isUserMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isUserMenuOpen]);
-
-  const handleLogout = () => {
-    logout();
-    router.push('/');
-  };
-
+  // Fix: Define toggleMobileMenu to toggle the mobile menu state
   const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
+    setIsMobileMenuOpen((prev) => !prev);
   };
+  // user menu controls (Dark Mode / Clear History) are rendered in the dropdown below
 
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
-  };
-
-  const toggleUserMenu = () => {
-    setIsUserMenuOpen(!isUserMenuOpen);
-  };
-
+  // Fix: getLinkStyle function for navigation links
   const getLinkStyle = (path: string) => {
-    // Special case: /ai-agent should highlight Plan Trip since users get redirected there after planning
     const isActive = router.pathname === path || (path === '/plantrip' && router.pathname === '/ai-agent');
-    
     return {
       textDecoration: 'none',
       color: isActive ? '#667eea' : (isDarkMode ? '#e0e0e0' : '#666'),
@@ -72,45 +51,39 @@ export default function Navbar() {
   };
 
   return (
-    <nav style={{
-      background: isDarkMode ? 'rgba(30, 30, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-      backdropFilter: 'blur(10px)',
-      borderBottom: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
-      padding: '12px 0',
+    <nav className="navbar" style={{
+      backdropFilter: 'blur(15px)',
+      padding: '0',
+      height: isMobile ? '60px' : '80px',
       position: 'sticky',
       top: 0,
       zIndex: 1000,
-      boxShadow: isDarkMode ? '0 2px 20px rgba(0, 0, 0, 0.5)' : '0 2px 20px rgba(0, 0, 0, 0.1)',
-      transition: 'background 0.3s ease, border-color 0.3s ease'
+      boxShadow: isDarkMode ? '0 2px 15px rgba(0, 0, 0, 0.3)' : '0 2px 15px rgba(0, 0, 0, 0.08)'
     }}>
       <div style={{
         maxWidth: '1200px',
         margin: '0 auto',
-        padding: '0 20px',
+        padding: '0 15px',
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        height: '100%'
       }}>
         {/* Logo - Home button only */}
-        <Link href="/home" style={{
-          textDecoration: 'none',
+        <Link href="/home" className="nav-brand" style={{
           display: 'flex',
           alignItems: 'center',
-          color: '#667eea',
-          fontWeight: 'bold',
-          fontSize: isMobile ? '1.2rem' : '1.5rem',
-          gap: '10px'
+          fontSize: isMobile ? '1.2rem' : '1.5rem'
         }}>
           <Image
-            src="/globe-logo.jpg"
-            alt="Hack-A-Holiday Globe"
-            width={isMobile ? 32 : 40}
-            height={isMobile ? 32 : 40}
+            src="/Hack Travel.png"
+            alt="Hack Travel Logo"
+            width={isMobile ? 200 : 280}
+            height={isMobile ? 60 : 80}
             style={{
               objectFit: 'contain'
             }}
           />
-          {isMobile ? 'HAH' : 'Hack-A-Holiday'}
         </Link>
 
         {/* Mobile Menu Button */}
@@ -166,13 +139,13 @@ export default function Navbar() {
             alignItems: 'center',
             gap: '20px'
           }}>
-            <Link href="/plantrip" style={getLinkStyle('/plantrip')}>
+            <Link href="/plantrip" className={`nav-link ${router.pathname === '/plantrip' ? 'active' : ''}`}>
               Plan Trip
             </Link>
-            <Link href="/ai-assistant" style={getLinkStyle('/ai-assistant')}>
+            <Link href="/ai-assistant" className={`nav-link ${router.pathname === '/ai-assistant' ? 'active' : ''}`}>
               AI Assistant
             </Link>
-            <Link href="/flight-search" style={getLinkStyle('/flight-search')}>
+            <Link href="/flight-search" className={`nav-link ${router.pathname === '/flight-search' ? 'active' : ''}`}>
               Flight & Hotel Search
             </Link>
 
@@ -369,6 +342,70 @@ export default function Navbar() {
                       background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e0e0e0',
                       margin: '8px 0'
                     }} />
+
+                    <button
+                      onClick={async () => {
+                        if (!state.user?.id) return;
+                        const confirmed = await Swal.fire({
+                          title: 'Clear all chat history?',
+                          text: 'This will permanently delete all your saved chat sessions from the server. This cannot be undone.',
+                          icon: 'warning',
+                          showCancelButton: true,
+                          confirmButtonText: 'Yes, clear it',
+                          cancelButtonText: 'Cancel'
+                        });
+                        if (!confirmed.isConfirmed) return;
+                        setIsClearingHistory(true);
+                        try {
+                          const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                          const response = await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
+                            method: 'DELETE',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': state.token ? `Bearer ${state.token}` : ''
+                            }
+                          });
+                          const data = await response.json().catch(() => ({}));
+                          if (!response.ok || !data.success) {
+                            console.error('Clear history failed:', data);
+                            await Swal.fire('Error', data.error || 'Failed to clear server chat history', 'error');
+                            return;
+                          }
+                          setIsUserMenuOpen(false);
+                          await Swal.fire('Cleared', 'All chat history has been removed from the server.', 'success');
+                          window.location.reload();
+                        } catch (err) {
+                          console.error('Error clearing server history:', err);
+                          await Swal.fire('Error', 'Failed to clear chat history. Please try again.', 'error');
+                        } finally {
+                          setIsClearingHistory(false);
+                        }
+                      }}
+                      disabled={isClearingHistory}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '12px 16px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#ef4444',
+                        textAlign: 'left',
+                        cursor: isClearingHistory ? 'not-allowed' : 'pointer',
+                        fontSize: '0.9rem',
+                        transition: 'background 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isClearingHistory) e.currentTarget.style.background = isDarkMode ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.12)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <span style={{ fontSize: '1.1rem' }}>{isClearingHistory ? '...' : '🗑️'}</span>
+                      <span style={{ fontSize: '0.9rem' }}>{isClearingHistory ? 'Clearing...' : 'Clear All Chat History'}</span>
+                    </button>
 
                     <button
                       onClick={() => {

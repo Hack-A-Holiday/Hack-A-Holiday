@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import Globe from 'react-globe.gl';
 import { popularDestinations, Destination } from '../data/destinations';
 import { airportDestinations, AirportDestination } from '../data/airport-destinations';

@@ -185,7 +185,7 @@ export default function RealFlightTest() {
                         color: '#059669',
                         marginBottom: '4px'
                       }}>
-                        {formatPrice(flight.price, flight.currency)}
+                        {formatPrice(flight.price, flight.currency)} per person
                       </div>
                       <div style={{ 
                         fontSize: '0.8rem', 

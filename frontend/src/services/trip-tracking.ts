@@ -31,8 +31,8 @@ export interface TripStats {
 }
 
 class TripTrackingService {
-  private readonly TRIPS_KEY = 'hack-a-holiday-trips';
-  private readonly PENDING_BOOKING_KEY = 'hack-a-holiday-pending-booking';
+  private readonly TRIPS_KEY = 'hack-travel-trips';
+  private readonly PENDING_BOOKING_KEY = 'hack-travel-pending-booking';
 
   /**
    * Save a pending booking (when user clicks book button)

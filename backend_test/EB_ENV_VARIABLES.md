@@ -7,7 +7,7 @@ NODE_ENV=production
 PORT=8080
 
 ### API Keys
-RAPIDAPI_KEY=your_rapidapi_key_here
+RAPIDAPI_KEY=aba2b27f34mshedfa8f474fb6b7fp1a0bd0jsnbc0027f4cdf8
 
 ### AWS Bedrock Settings
 AWS_REGION=us-east-1
@@ -48,7 +48,7 @@ LOG_LEVEL=info
 eb setenv `
   NODE_ENV=production `
   PORT=8080 `
-  RAPIDAPI_KEY=your_rapidapi_key_here `
+  RAPIDAPI_KEY=aba2b27f34mshedfa8f474fb6b7fp1a0bd0jsnbc0027f4cdf8 `
   AWS_REGION=us-east-1 `
   AWS_ACCESS_KEY_ID=your_aws_access_key_here `
   AWS_SECRET_ACCESS_KEY=your_aws_secret_key_here `

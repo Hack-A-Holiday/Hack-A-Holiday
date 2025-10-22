@@ -11,7 +11,7 @@ class ChatAnalyticsService {
     });
     this.dynamodb = DynamoDBDocumentClient.from(client);
     
-    this.chatHistoryTable = process.env.CHAT_HISTORY_TABLE || 'TravelCompanion-ChatHistory-dev';
+    this.chatHistoryTable = process.env.CHATS_TABLE;
     this.analyticsCache = new Map(); // In-memory cache for fast access
     
     // Keyword dictionaries for pattern detection

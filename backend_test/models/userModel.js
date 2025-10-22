@@ -1,7 +1,7 @@
 const ddbDocClient = require('../config/dynamo');
 const { GetCommand, PutCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 
-const USERS_TABLE = process.env.USERS_TABLE || 'HackAHolidayUsers';
+const USERS_TABLE = process.env.USERS_TABLE;
 
 exports.updateUser = async (user) => {
   const params = {

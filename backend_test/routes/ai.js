@@ -111,31 +111,164 @@ router.post('/chat', optionalAuth, async (req, res) => {
       }
     }
 
-    res.json({
-      success: true,
-      data: {
-        response: response.content,
-        role: response.role,
-        type: response.metadata.intent || 'general',
-        recommendations: recommendations,
-        intent: response.metadata.intent || 'general',
-        conversationId: response.metadata.sessionId,
-        timestamp: response.metadata.timestamp,
-        // Additional data for enhanced UI
-        realData: response.realData,
-        userPreferences: response.userPreferences,
-        apiCallsMade: response.metadata.apiCallsMade,
-        dataSource: response.metadata.dataSource,
-        // AI Agent context metadata
-        agentContext: {
-          usedHomeCity: agentContext.preferences?.homeCity,
-          totalSearches: agentContext.searchHistory?.length || 0,
-          totalTrips: agentContext.tripHistory?.length || 0,
-          learnedInterests: agentContext.preferences?.interests || [],
-          personalizedResponse: Object.keys(agentContext.preferences || {}).length > 0
+    // Handle multi-message response (trip planning) or single message
+    if (response.metadata?.multiMessage && Array.isArray(response.content)) {
+      // Persist session to chat history for authenticated users (only complete conversations)
+      try {
+        if (userId && userId !== 'anonymous') {
+          const chatModel = require('../models/chatModel');
+          const nowIso = new Date().toISOString();
+          const convId = response.metadata?.sessionId || conversationId || userId;
+          
+          // Build complete messages array including AI response
+          let allMessages = messagesArray && messagesArray.length ? [...messagesArray] : [];
+          
+          // Add AI response(s) to messages
+          if (Array.isArray(response.content)) {
+            response.content.forEach((content, idx) => {
+              allMessages.push({
+                id: `ai_${convId}_${idx}`,
+                role: 'assistant',
+                content: content,
+                timestamp: new Date().toISOString()
+              });
+            });
+          }
+          
+          // Only save if we have complete conversation pairs
+          if (convId && chatModel.hasCompleteConversation(allMessages)) {
+            const completeMessages = chatModel.filterCompleteConversation(allMessages);
+            
+            if (completeMessages.length > 0) {
+              // Generate AI-powered title from first user message
+              const firstUserMsg = completeMessages.find(m => m && m.role === 'user');
+              const title = firstUserMsg && firstUserMsg.content 
+                ? await chatModel.generateConversationTitleWithAI(firstUserMsg.content)
+                : 'New Chat';
+                
+              await chatModel.saveChatSession({
+                user_id: userId,
+                _id: convId,
+                messages: completeMessages,
+                title,
+                category: 'general',
+                created_at: nowIso,
+                updated_at: nowIso
+              });
+              
+              console.log('✅ Saved complete multi-message conversation');
+            }
+          } else {
+            console.log('⚠️ Not saving multi-message session: Incomplete conversation');
+          }
         }
+      } catch (err) {
+        console.warn('⚠️ Failed to auto-save session to chatModel:', err?.message || err);
       }
-    });
+      // Multi-message response (trip planning)
+      res.json({
+        success: true,
+        data: {
+          response: response.content, // Array of messages
+          role: response.role,
+          type: response.metadata.intent || 'general',
+          recommendations: recommendations,
+          intent: response.metadata.intent || 'general',
+          conversationId: response.metadata.sessionId,
+          timestamp: response.metadata.timestamp,
+          // Additional data for enhanced UI
+          realData: response.realData,
+          userPreferences: response.userPreferences,
+          apiCallsMade: response.metadata.apiCallsMade,
+          dataSource: response.metadata.dataSource,
+          // AI Agent context metadata
+          agentContext: {
+            usedHomeCity: agentContext.preferences?.homeCity,
+            totalSearches: agentContext.searchHistory?.length || 0,
+            totalTrips: agentContext.tripHistory?.length || 0,
+            learnedInterests: agentContext.preferences?.interests || [],
+            personalizedResponse: Object.keys(agentContext.preferences || {}).length > 0
+          }
+        }
+      });
+    } else {
+      // Persist session to chat history for authenticated users (only complete conversations)
+      try {
+        if (userId && userId !== 'anonymous') {
+          const chatModel = require('../models/chatModel');
+          const nowIso = new Date().toISOString();
+          const convId = response.metadata?.sessionId || conversationId || userId;
+          
+          // Build complete messages array including AI response
+          let allMessages = messagesArray && messagesArray.length ? [...messagesArray] : [{ role: 'user', content: message }];
+          
+          // Add AI response to messages
+          if (response.content) {
+            allMessages.push({
+              id: `ai_${convId}_${Date.now()}`,
+              role: 'assistant',
+              content: response.content,
+              timestamp: new Date().toISOString()
+            });
+          }
+          
+          // Only save if we have complete conversation pairs
+          if (convId && chatModel.hasCompleteConversation(allMessages)) {
+            const completeMessages = chatModel.filterCompleteConversation(allMessages);
+            
+            if (completeMessages.length > 0) {
+              // Generate AI-powered title from first user message
+              const firstUserMsg = completeMessages.find(m => m && m.role === 'user');
+              const title = firstUserMsg && firstUserMsg.content 
+                ? await chatModel.generateConversationTitleWithAI(firstUserMsg.content)
+                : 'New Chat';
+                
+              await chatModel.saveChatSession({
+                user_id: userId,
+                _id: convId,
+                messages: completeMessages,
+                title,
+                category: 'general',
+                created_at: nowIso,
+                updated_at: nowIso
+              });
+              
+              console.log('✅ Saved complete single-message conversation');
+            }
+          } else {
+            console.log('⚠️ Not saving single-message session: Incomplete conversation');
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to auto-save session to chatModel:', err?.message || err);
+      }
+      // Single message response (regular chat)
+      res.json({
+        success: true,
+        data: {
+          response: response.content,
+          role: response.role,
+          type: response.metadata.intent || 'general',
+          recommendations: recommendations,
+          intent: response.metadata.intent || 'general',
+          conversationId: response.metadata.sessionId,
+          timestamp: response.metadata.timestamp,
+          // Additional data for enhanced UI
+          realData: response.realData,
+          userPreferences: response.userPreferences,
+          apiCallsMade: response.metadata.apiCallsMade,
+          dataSource: response.metadata.dataSource,
+          // AI Agent context metadata
+          agentContext: {
+            usedHomeCity: agentContext.preferences?.homeCity,
+            totalSearches: agentContext.searchHistory?.length || 0,
+            totalTrips: agentContext.tripHistory?.length || 0,
+            learnedInterests: agentContext.preferences?.interests || [],
+            personalizedResponse: Object.keys(agentContext.preferences || {}).length > 0
+          }
+        }
+      });
+    }
 
   } catch (error) {
     console.error('❌ AI chat error:', error);
@@ -159,7 +292,7 @@ router.get('/conversations', verifyToken, async (req, res) => {
     const userId = req.user.userId;
     
     // Get conversation history from integrated agent
-    const history = await aiAgent.loadConversationHistory(userId);
+    const history = await aiAgent.loadConversationHistory(userId, userId);
 
     res.json({
       success: true,
@@ -186,7 +319,7 @@ router.get('/conversations/:conversationId', verifyToken, async (req, res) => {
     const userId = req.user.userId;
 
     // Fetch conversation messages from integrated agent
-    const messages = await aiAgent.loadConversationHistory(conversationId);
+    const messages = await aiAgent.loadConversationHistory(conversationId, userId);
 
     res.json({
       success: true,

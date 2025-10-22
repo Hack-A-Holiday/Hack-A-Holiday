@@ -17,7 +17,7 @@ exports.login = async (req, res) => {
   
   // Always return a single user object, never an array
   const userObj = Array.isArray(user) ? user[0] : user;
-  const token = jwt.sign({ userId: userObj.id, email: userObj.email }, process.env.JWT_SECRET || 'devsecret', { expiresIn: '7d' });
+  const token = jwt.sign({ userId: userObj.id, email: userObj.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
   res.cookie('token', token, {
     httpOnly: true,
     secure: true,
@@ -71,7 +71,7 @@ exports.me = async (req, res) => {
   const token = req.cookies.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
   if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'devsecret');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await userService.getUserById(decoded.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ user });
