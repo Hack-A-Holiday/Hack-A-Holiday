@@ -51,7 +51,9 @@ export default function AIAssistant() {
       const convId = params.get("conversationId");
 
       if (convId) {
+        console.log('🔗 Setting conversation ID from URL:', convId);
         setConversationId(convId);
+        setActiveSessionId(convId); // Also set as active session
       }
 
       if (messagesStr) {
@@ -125,7 +127,9 @@ export default function AIAssistant() {
       const convId = `conv_${Date.now()}_${Math.random()
         .toString(36)
         .substr(2, 9)}`;
+      console.log('🆕 Creating new conversation ID:', convId);
       setConversationId(convId);
+      setActiveSessionId(convId);
     }
 
     // Set initial messages
@@ -221,6 +225,48 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
     }
   }, [state.user, showChat, initializeConversation]);
 
+  // Auto-save conversation when messages change (for Plan My Adventure flow)
+  useEffect(() => {
+    const autoSaveConversation = async () => {
+      // Only auto-save if we have messages, a conversation ID, and user is authenticated
+      if (messages.length > 0 && conversationId && state.user?.id && state.token) {
+        // Don't save if it's just the welcome message
+        const hasRealConversation = messages.some(msg => 
+          msg.role === 'user' || (msg.role === 'assistant' && !msg.content.includes('Hello') && !msg.content.includes('I\'m your AI Travel Assistant'))
+        );
+        
+        if (hasRealConversation) {
+          console.log('🔄 Auto-saving conversation:', conversationId, 'with', messages.length, 'messages');
+          
+          try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+            await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${state.token}`,
+              },
+              body: JSON.stringify({
+                conversationId,
+                messages,
+                userId: state.user.id,
+                userEmail: state.user.email,
+                userName: state.user.name,
+              }),
+            });
+            console.log('✅ Auto-saved conversation successfully');
+          } catch (error) {
+            console.warn('⚠️ Failed to auto-save conversation:', error);
+          }
+        }
+      }
+    };
+
+    // Debounce the auto-save to avoid too many API calls
+    const timeoutId = setTimeout(autoSaveConversation, 2000);
+    return () => clearTimeout(timeoutId);
+  }, [messages, conversationId, state.user?.id, state.token]);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -238,55 +284,100 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
 
         // Load chat session from database
         if (state.user?.id) {
+          console.log("📡 Making API request to:", `${apiUrl}/ai-agent/chat-history?userId=${encodeURIComponent(state.user.id)}&sessionId=${encodeURIComponent(sessionId)}`);
+          
           const response = await fetch(
             `${apiUrl}/ai-agent/chat-history?userId=${encodeURIComponent(
               state.user.id
-            )}&sessionId=${encodeURIComponent(sessionId)}`
+            )}&sessionId=${encodeURIComponent(sessionId)}`,
+            {
+              headers: {
+                'Authorization': state.token ? `Bearer ${state.token}` : '',
+                'Content-Type': 'application/json'
+              }
+            }
           );
+          
+          console.log("📡 Response status:", response.status);
           const data = await response.json();
-
           console.log("📥 Session data received:", data);
 
-          if (
-            data.success &&
-            data.session &&
-            Array.isArray(data.session.messages)
-          ) {
-            // Map the messages to the expected format (backend now handles DynamoDB conversion)
-            const mapped: ChatMessage[] = data.session.messages.map(
-              (msg: any, index: number) => ({
-                id: msg.id || `msg_${sessionId}_${index}`,
-                role: msg.role === "ai" ? "assistant" : msg.role,
-                content: msg.content || "",
-                timestamp: msg.timestamp
-                  ? typeof msg.timestamp === "number"
-                    ? msg.timestamp
-                    : Date.parse(msg.timestamp)
-                  : Date.now(),
-                type: msg.type || "text",
-                data: msg.data || null,
-              })
-            );
+          if (data.success && data.session) {
+            console.log("📋 Session structure:", {
+              hasMessages: !!data.session.messages,
+              messagesType: typeof data.session.messages,
+              messagesLength: Array.isArray(data.session.messages) ? data.session.messages.length : 'not array',
+              sessionKeys: Object.keys(data.session)
+            });
 
-            console.log("✅ Mapped messages:", mapped.length, "messages");
+            if (Array.isArray(data.session.messages) && data.session.messages.length > 0) {
+              // Map the messages to the expected format (backend now handles DynamoDB conversion)
+              const mapped: ChatMessage[] = data.session.messages.map(
+                (msg: any, index: number) => {
+                  console.log(`📝 Processing message ${index}:`, {
+                    role: msg.role,
+                    contentType: typeof msg.content,
+                    contentLength: typeof msg.content === 'string' ? msg.content.length : 'not string',
+                    hasTimestamp: !!msg.timestamp
+                  });
 
-            // Set the loaded messages and update conversation state
-            setMessages(mapped);
-            setConversationId(sessionId);
-            setActiveSessionId(sessionId);
+                  return {
+                    id: msg.id || `msg_${sessionId}_${index}`,
+                    role: msg.role === "ai" ? "assistant" : msg.role,
+                    content: msg.content || "",
+                    timestamp: msg.timestamp
+                      ? typeof msg.timestamp === "number"
+                        ? msg.timestamp
+                        : Date.parse(msg.timestamp)
+                      : Date.now(),
+                    type: msg.type || "text",
+                    data: msg.data || null,
+                  };
+                }
+              );
 
-            // Scroll to bottom after loading
-            setTimeout(() => scrollToBottom(), 100);
+              console.log("✅ Mapped messages:", mapped.length, "messages");
+              console.log("📋 First message content preview:", mapped[0]?.content?.substring(0, 100));
 
-            return;
+              // Set the loaded messages and update conversation state
+              setMessages(mapped);
+              setConversationId(sessionId);
+              setActiveSessionId(sessionId);
+
+              // Scroll to bottom after loading
+              setTimeout(() => scrollToBottom(), 100);
+
+              return;
+            } else {
+              console.warn("⚠️ Session has no messages or messages is not an array:", {
+                messages: data.session.messages,
+                messagesType: typeof data.session.messages
+              });
+            }
           } else {
-            console.warn("⚠️ No session data found or invalid format");
+            console.warn("⚠️ No session data found or invalid format:", data);
+            if (!data.success) {
+              console.error("❌ API Error:", data.error);
+            }
           }
         }
 
-        // If no session found, clear messages and show empty state
-        console.log("❌ Session not found, clearing messages");
-        setMessages([]);
+        // If no session found, show user-friendly message
+        console.log("❌ Session not found, showing error message");
+        const errorMessage: ChatMessage = {
+          id: `error_${Date.now()}`,
+          role: "assistant",
+          content: `I couldn't load this conversation. This might happen if the conversation was created recently and hasn't been fully saved yet. 
+
+You can:
+• Try refreshing the page
+• Start a new conversation
+• Or ask me anything about your travel plans!`,
+          timestamp: Date.now(),
+          type: "text",
+        };
+        
+        setMessages([errorMessage]);
         setConversationId(sessionId);
         setActiveSessionId(sessionId);
       } catch (error) {
@@ -299,7 +390,7 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
         setIsLoading(false);
       }
     },
-    [state.user?.id]
+    [state.user?.id, state.token]
   );
 
   // When user clicks a session in sidebar

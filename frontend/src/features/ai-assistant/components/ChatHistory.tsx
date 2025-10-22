@@ -169,6 +169,29 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
         
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
+            onClick={refreshSessions}
+            style={{
+              padding: '8px',
+              background: 'transparent',
+              border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              color: isDarkMode ? '#94a3b8' : '#64748b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title="Refresh"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+              <path d="M21 3v5h-5"/>
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+              <path d="M3 21v-5h5"/>
+            </svg>
+          </button>
+          
+          <button
             onClick={onNewChat}
             style={{
               padding: '8px',

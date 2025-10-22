@@ -658,14 +658,28 @@ router.delete('/history/:sessionId', async (req, res) => {
 router.get('/chat-history', async (req, res) => {
   try {
     const { userId, sessionId } = req.query;
+    console.log('📡 Chat history request - userId:', userId, 'sessionId:', sessionId);
+    
     if (!userId || !sessionId) {
       return res.status(400).json({ success: false, error: 'userId and sessionId are required' });
     }
+    
     const chatModel = require('../models/chatModel');
     const session = await chatModel.getChatSession({ user_id: userId, _id: sessionId });
+    
+    console.log('📥 Retrieved session:', session ? 'Found' : 'Not found');
+    if (session) {
+      console.log('📋 Session details:', {
+        id: session._id,
+        messageCount: session.messages ? session.messages.length : 0,
+        title: session.title
+      });
+    }
+    
     if (!session) {
       return res.status(404).json({ success: false, error: 'Chat session not found' });
     }
+    
     res.json({ success: true, session });
   } catch (error) {
     console.error('❌ Chat history fetch error:', error);

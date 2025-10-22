@@ -3730,7 +3730,9 @@ JSON:`;
     // Step 3: Check if user is providing missing info as follow-up (origin for flights, destination for hotels, etc.)
     const lastConversation =
       conversationHistory[conversationHistory.length - 1];
-    const lastAssistant = lastConversation?.assistant?.toLowerCase() || "";
+    const lastAssistant = (typeof lastConversation?.assistant === 'string' 
+      ? lastConversation.assistant.toLowerCase() 
+      : "") || "";
 
     // Special case: If assistant asked "which city for flight prices" and user lists cities with destinations extracted
     if (
@@ -3753,7 +3755,7 @@ JSON:`;
         .reverse()
         .find(
           (msg) =>
-            msg.user &&
+            msg.user && typeof msg.user === 'string' &&
             (msg.user.toLowerCase().includes("flight") ||
               msg.user.toLowerCase().includes("fly"))
         );
@@ -3931,7 +3933,7 @@ JSON:`;
         let foundOrigin = false;
         for (let i = conversationHistory.length - 1; i >= 0; i--) {
           const turn = conversationHistory[i];
-          if (turn && turn.user) {
+          if (turn && turn.user && typeof turn.user === 'string') {
             // Check if this turn mentioned origin (contains "from")
             if (turn.user.toLowerCase().includes(" from ")) {
               const fromMatch = turn.user.match(
@@ -5572,6 +5574,18 @@ Return ONLY the JSON array:`;
     if (conversationSummary) {
       contextPrompt += `\n🗣️ CONVERSATION CONTEXT:\n${conversationSummary}\n\n`;
       contextPrompt += `IMPORTANT: Use this conversation context to understand what the user is planning. If they ask for "flights" and the context shows they're planning a trip to Japan, search for flights to Japan.\n\n`;
+      
+      // Extract destination from conversation for location-specific questions
+      const destinationMatch = conversationSummary.match(/(?:destination|traveling to|visiting|trip to|going to):\s*([^,\n]+)/i);
+      if (destinationMatch) {
+        const destination = destinationMatch[1].trim();
+        contextPrompt += `🌍 CURRENT DESTINATION CONTEXT: ${destination}\n`;
+        contextPrompt += `CRITICAL: When user asks about generic locations like "airport", "hotel", "restaurant", they are referring to ${destination}. For example:\n`;
+        contextPrompt += `- "airport" = ${destination} airport (e.g., if Singapore, then Changi Airport)\n`;
+        contextPrompt += `- "best restaurants" = best restaurants in ${destination}\n`;
+        contextPrompt += `- "things to do" = things to do in ${destination}\n`;
+        contextPrompt += `Always provide location-specific information for ${destination} when user asks generic questions.\n\n`;
+      }
     }
 
     // Add learned user profile summary
@@ -5589,6 +5603,14 @@ Return ONLY the JSON array:`;
       }
       if (userPreferences.currentTripDestination) {
         contextPrompt += `- Destination: ${userPreferences.currentTripDestination}\n`;
+        
+        // Add location-specific context for generic questions
+        contextPrompt += `\n🎯 LOCATION CONTEXT: When user asks generic questions, they refer to ${userPreferences.currentTripDestination}:\n`;
+        contextPrompt += `- "airport" = ${userPreferences.currentTripDestination} airport\n`;
+        contextPrompt += `- "hotels" = hotels in ${userPreferences.currentTripDestination}\n`;
+        contextPrompt += `- "restaurants" = restaurants in ${userPreferences.currentTripDestination}\n`;
+        contextPrompt += `- "attractions" = attractions in ${userPreferences.currentTripDestination}\n`;
+        contextPrompt += `Always provide specific information for ${userPreferences.currentTripDestination}.\n\n`;
       }
       if (userPreferences.currentTripDuration) {
         contextPrompt += `- Duration: ${userPreferences.currentTripDuration} days\n`;
@@ -6878,8 +6900,27 @@ Return ONLY the JSON array:`;
       const cleanedMessages = [];
       let lastRole = null;
       for (const msg of messages) {
+        // Validate message structure
+        if (!msg.role || !msg.content || !Array.isArray(msg.content)) {
+          console.warn(`   ⚠️ Skipping invalid message structure:`, msg);
+          continue;
+        }
+        
+        // Validate content array
+        const validContent = msg.content.filter(item => 
+          item && typeof item === 'object' && typeof item.text === 'string' && item.text.trim()
+        );
+        
+        if (validContent.length === 0) {
+          console.warn(`   ⚠️ Skipping message with no valid content:`, msg);
+          continue;
+        }
+        
         if (msg.role !== lastRole) {
-          cleanedMessages.push(msg);
+          cleanedMessages.push({
+            role: msg.role,
+            content: validContent
+          });
           lastRole = msg.role;
         } else {
           console.warn(`   ⚠️ Skipping duplicate ${msg.role} message`);
