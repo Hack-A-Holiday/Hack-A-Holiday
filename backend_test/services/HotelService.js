@@ -11,12 +11,14 @@ class HotelService {
     this.rapidApiKey = config.rapidApiKey;
     this.mockDataEnabled = !this.bookingApiKey && !this.rapidApiKey;
     
-    console.log('HotelService initialized:', {
+    console.log('🏨 HotelService initialized:', {
       bookingApiAvailable: !!this.bookingApiKey,
       bookingApiHost: this.bookingApiHost,
       rapidApiAvailable: !!this.rapidApiKey,
       mockDataEnabled: this.mockDataEnabled,
-      envBookingApiHost: process.env.BOOKING_API_HOST
+      envBookingApiHost: process.env.BOOKING_API_HOST,
+      apiKeyPrefix: this.bookingApiKey ? `${this.bookingApiKey.substring(0, 10)}...` : 'MISSING',
+      rapidApiKeyPrefix: this.rapidApiKey ? `${this.rapidApiKey.substring(0, 10)}...` : 'MISSING'
     });
   }
 
@@ -26,9 +28,26 @@ class HotelService {
   async searchHotelsEnhanced(searchRequest) {
     const searchStartTime = Date.now();
     
+    console.log('🏨 Hotel search request received:', {
+      destination: searchRequest.destination,
+      checkIn: searchRequest.checkIn,
+      checkOut: searchRequest.checkOut,
+      adults: searchRequest.adults,
+      rooms: searchRequest.rooms
+    });
+    
     try {
       // Try Booking.com API first (via RapidAPI)
       if (this.bookingApiKey || this.rapidApiKey) {
+        console.log('🔍 Searching hotels with params:', {
+          destination: searchRequest.destination,
+          checkIn: searchRequest.checkIn,
+          checkOut: searchRequest.checkOut,
+          adults: searchRequest.adults,
+          children: searchRequest.children || 0,
+          rooms: searchRequest.rooms
+        });
+        
         try {
           const bookingResults = await this.searchBookingHotels(searchRequest);
           
@@ -170,6 +189,9 @@ class HotelService {
         resultIsArray: Array.isArray(response.data?.result),
         resultLength: response.data?.result?.length || 0
       });
+      
+      // Log full response for debugging
+      console.log('   🔍 Full Response Data:', JSON.stringify(response.data, null, 2));
       
       // Debug: Log the actual response structure
       console.log('   🔍 DEBUG: Full response.data keys:', response.data ? Object.keys(response.data) : 'No data');

@@ -274,6 +274,12 @@ Response format: Just the 3-letter code (e.g., "BOM")`
       currency
     }, null, 2));
 
+    console.log('   🔑 API Configuration:', {
+      rapidApiKey: this.rapidApiKey ? `${this.rapidApiKey.substring(0, 10)}...` : 'MISSING',
+      rapidApiHost: this.rapidApiHost,
+      hasCredentials: !!(this.rapidApiKey && this.rapidApiHost)
+    });
+
     // Convert city names to IATA codes using Nova Lite
     console.log('   🤖 Using Nova Lite to get airport codes...');
     const originCode = await this.getCityCode(origin);
