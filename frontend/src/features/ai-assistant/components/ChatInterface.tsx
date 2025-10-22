@@ -53,6 +53,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         .messages-container::-webkit-scrollbar-thumb:hover {
           background: ${isDarkMode ? '#6b7280' : '#9ca3af'};
         }
+        
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.8;
+            transform: scale(1.02);
+          }
+        }
       `}</style>
       
       <div style={{
@@ -88,6 +99,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             {/* Sidebar Toggle */}
             <button
               onClick={onToggleSidebar}
+              title="Double-click to access chat history"
               style={{
                 padding: '8px',
                 background: 'transparent',
@@ -95,7 +107,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 borderRadius: '8px',
                 cursor: 'pointer',
                 color: isDarkMode ? '#94a3b8' : '#64748b',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                position: 'relative'
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(241, 245, 249, 0.8)';
@@ -109,6 +122,25 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 <line x1="3" y1="12" x2="21" y2="12"/>
                 <line x1="3" y1="18" x2="21" y2="18"/>
               </svg>
+              {/* Double-click indicator */}
+              <div style={{
+                position: 'absolute',
+                top: '-8px',
+                right: '-8px',
+                width: '16px',
+                height: '16px',
+                background: '#6366f1',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '10px',
+                color: 'white',
+                fontWeight: 'bold',
+                animation: 'pulse 2s infinite'
+              }}>
+                2×
+              </div>
             </button>
 
             {/* Back Button */}
@@ -251,13 +283,35 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </h3>
               <p style={{
                 color: isDarkMode ? '#94a3b8' : '#64748b',
-                margin: 0,
+                margin: '0 0 20px 0',
                 fontSize: '1.1rem',
                 lineHeight: '1.6',
                 letterSpacing: '0.3px'
               }}>
                 Ask me about travel planning, destinations, flights, or accommodations
               </p>
+              
+              {/* Chat History Hint */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '12px 20px',
+                background: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.05)',
+                border: isDarkMode ? '1px solid rgba(99, 102, 241, 0.2)' : '1px solid rgba(99, 102, 241, 0.1)',
+                borderRadius: '25px',
+                fontSize: '0.9rem',
+                color: isDarkMode ? '#a5b4fc' : '#6366f1',
+                fontWeight: '500',
+                animation: 'pulse 3s infinite'
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-4"/>
+                  <polyline points="9,11 12,14 15,11"/>
+                  <line x1="12" y1="14" x2="12" y2="3"/>
+                </svg>
+                💡 Tip: Double-click the menu button (☰) to access your chat history
+              </div>
             </div>
           )}
 
