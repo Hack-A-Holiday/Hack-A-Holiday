@@ -73,7 +73,8 @@ export const useHotelSearch = () => {
       });
 
       // Call the backend hotel search API
-      const response = await fetch('http://localhost:4000/api/hotels/search', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const response = await fetch(`${apiUrl}/api/hotels/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
