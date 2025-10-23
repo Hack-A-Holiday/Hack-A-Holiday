@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { TripPreferences, ApiResponse, Itinerary } from '../types';
 import { parseItineraryFromAI, buildItineraryObject, buildConversationalMessage } from '../utils';
+import { buildApiUrl } from '../../../config/api';
 
 interface UseTripPlannerProps {
   userToken?: string;
@@ -32,7 +33,6 @@ export const useTripPlanner = ({
     setError(null);
     setResult(null);
     
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(userToken && { Authorization: `Bearer ${userToken}` }),
@@ -74,7 +74,7 @@ Please help me create a detailed itinerary for this trip from ${originCity || 'm
     };
 
     try {
-      const response = await fetch(`${apiUrl}/api/ai/chat`, {
+      const response = await fetch(buildApiUrl('/api/ai/chat'), {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody),

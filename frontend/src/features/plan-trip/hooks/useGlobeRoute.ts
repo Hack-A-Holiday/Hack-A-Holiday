@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Destination } from '@/data/destinations';
+import { buildApiUrl } from '../../../config/api';
 
 interface RouteData {
   source: {
@@ -30,10 +31,9 @@ export const useGlobeRoute = () => {
     }
 
     setLoadingRoute(true);
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
     try {
-      const response = await fetch(`${apiUrl}/globe/route`, {
+      const response = await fetch(buildApiUrl('/globe/route'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: source.trim(), destination: destination.trim() })

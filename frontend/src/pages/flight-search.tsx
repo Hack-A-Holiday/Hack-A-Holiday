@@ -19,6 +19,7 @@ import { FlightOption } from '../types/flight';
 import TripAdvisorSearch from '../components/TripAdvisorSearch';
 import { bookingApiService } from '../services/booking-api';
 import { COMMON_AIRPORTS } from '../types/flight';
+import { buildApiUrl } from '../config/api';
 
 export default function FlightSearchPage() {
   const { state } = useAuth();
@@ -743,9 +744,8 @@ export default function FlightSearchPage() {
         guests: hotelGuests
       });
 
-      // Call the backend hotel search API
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const response = await fetch(`${apiUrl}/api/hotels/search`, {
+      // Call the backend hotel search API using centralized configuration
+      const response = await fetch(buildApiUrl('/api/hotels/search'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -910,9 +910,8 @@ export default function FlightSearchPage() {
       const allResults = [];
       for (const searchQuery of searchQueries) {
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
           const searchResponse = await fetch(
-            `${apiUrl}/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery.query)}&category=${searchQuery.category}&limit=6`
+            buildApiUrl(`/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery.query)}&category=${searchQuery.category}&limit=6`)
           );
           const searchData = await searchResponse.json();
           console.log(`🔍 TripAdvisor API response for "${searchQuery.query}":`, searchData);
@@ -1057,9 +1056,8 @@ export default function FlightSearchPage() {
               const timeout = isTourOrTicket ? 3000 : 5000; // 3s for tours, 5s for attractions
               const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
               const detailResponse = await fetch(
-                `${apiUrl}/tripadvisor/location/${location.location_id}/details?includePhotos=true&includeReviews=true&photoLimit=3&reviewLimit=2`,
+                buildApiUrl(`/tripadvisor/location/${location.location_id}/details?includePhotos=true&includeReviews=true&photoLimit=3&reviewLimit=2`),
                 { signal: controller.signal }
               );
 
@@ -1077,7 +1075,7 @@ export default function FlightSearchPage() {
                 let photos = [];
                 try {
                   const photosResponse = await fetch(
-                    `${apiUrl}/tripadvisor/location/${location.location_id}/photos?limit=5`
+                    buildApiUrl(`/tripadvisor/location/${location.location_id}/photos?limit=5`)
                   );
                   const photosData = await photosResponse.json();
                   if (photosData.success && photosData.data) {
@@ -1147,7 +1145,7 @@ export default function FlightSearchPage() {
                 let photos = [];
                 try {
                   const photosResponse = await fetch(
-                    `${apiUrl}/tripadvisor/location/${location.location_id}/photos?limit=3`
+                    buildApiUrl(`/tripadvisor/location/${location.location_id}/photos?limit=3`)
                   );
                   const photosData = await photosResponse.json();
                   if (photosData.success && photosData.data) {
@@ -1181,9 +1179,8 @@ export default function FlightSearchPage() {
               // Try to get photos even when detailed API fails
               let photos = [];
               try {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
                 const photosResponse = await fetch(
-                  `${apiUrl}/tripadvisor/location/${location.location_id}/photos?limit=3`
+                  buildApiUrl(`/tripadvisor/location/${location.location_id}/photos?limit=3`)
                 );
                 const photosData = await photosResponse.json();
                 if (photosData.success && photosData.data) {
