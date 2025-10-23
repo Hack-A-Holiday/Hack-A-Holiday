@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { HotelResult } from '../types';
 import { popularDestinations } from '../utils';
+import { buildApiUrl } from '../../../config/api';
 
 export const useHotelSearch = () => {
   const [hotelDestination, setHotelDestination] = useState('');
@@ -72,9 +73,9 @@ export const useHotelSearch = () => {
         guests: hotelGuests
       });
 
-      // Call the backend hotel search API
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const response = await fetch(`${apiUrl}/api/hotels/search`, {
+      // Call the backend hotel search API using centralized configuration
+      const apiUrl = buildApiUrl('/api/hotels/search');
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -89,6 +90,11 @@ export const useHotelSearch = () => {
       });
 
       if (!response.ok) {
+        console.error('❌ Hotel API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: apiUrl
+        });
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -99,13 +105,26 @@ export const useHotelSearch = () => {
         setHotelResults(data.hotels);
         console.log(`✅ Found ${data.hotels.length} hotels`);
       } else {
-        console.error('❌ Hotel search failed:', data.message);
+        console.error('❌ Hotel search failed:', data.message || 'Unknown error');
         alert('Failed to search hotels. Please try again.');
         setHotelResults([]);
       }
     } catch (error) {
       console.error('❌ Hotel search error:', error);
-      alert('Failed to search hotels. Please try again.');
+      
+      // Provide more specific error feedback
+      if (error instanceof Error) {
+        if (error.message.includes('404')) {
+          alert('Hotel search service is not available. Please try again later.');
+        } else if (error.message.includes('timeout')) {
+          alert('Hotel search timed out. Please try again.');
+        } else {
+          alert('Failed to search hotels. Please check your connection and try again.');
+        }
+      } else {
+        alert('Failed to search hotels. Please try again.');
+      }
+      
       setHotelResults([]);
     } finally {
       setLoadingHotels(false);

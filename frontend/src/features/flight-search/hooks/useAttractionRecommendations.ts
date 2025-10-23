@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { Attraction, UserPreferences, FilterType, PhotoGallery } from '../types';
 import { getDestinationCityName, getCategoryName } from '../utils/helpers';
 import { personalizeRecommendations, getFilteredRecommendations } from '../utils/filteringUtils';
+import { buildApiUrl } from '../../../config/api';
 
 interface UseAttractionRecommendationsProps {
   userPreferences?: UserPreferences | null;
@@ -48,11 +49,8 @@ export const useAttractionRecommendations = ({ userPreferences }: UseAttractionR
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const detailResponse = await fetch(
-        `${apiUrl}/tripadvisor/location/${location.location_id}/details?includePhotos=true&includeReviews=true&photoLimit=3&reviewLimit=2`,
-        { signal: controller.signal }
-      );
+      const detailUrl = buildApiUrl(`/tripadvisor/location/${location.location_id}/details?includePhotos=true&includeReviews=true&photoLimit=3&reviewLimit=2`);
+      const detailResponse = await fetch(detailUrl, { signal: controller.signal });
 
       clearTimeout(timeoutId);
       const detailData = await detailResponse.json();
@@ -61,9 +59,8 @@ export const useAttractionRecommendations = ({ userPreferences }: UseAttractionR
         // Fetch photos separately
         let photos = [];
         try {
-          const photosResponse = await fetch(
-            `${apiUrl}/tripadvisor/location/${location.location_id}/photos?limit=5`
-          );
+          const photosUrl = buildApiUrl(`/tripadvisor/location/${location.location_id}/photos?limit=5`);
+          const photosResponse = await fetch(photosUrl);
           const photosData = await photosResponse.json();
           
           if (photosData.success && photosData.data) {
@@ -147,10 +144,8 @@ export const useAttractionRecommendations = ({ userPreferences }: UseAttractionR
       
       for (const searchQuery of searchQueries) {
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-          const searchResponse = await fetch(
-            `${apiUrl}/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery.query)}&category=${searchQuery.category}&limit=6`
-          );
+          const searchUrl = buildApiUrl(`/tripadvisor/location/search?searchQuery=${encodeURIComponent(searchQuery.query)}&category=${searchQuery.category}&limit=6`);
+          const searchResponse = await fetch(searchUrl);
           const searchData = await searchResponse.json();
           
           if (searchData.success && searchData.data) {
@@ -159,6 +154,11 @@ export const useAttractionRecommendations = ({ userPreferences }: UseAttractionR
           }
         } catch (error) {
           console.warn(`Search failed for query: ${searchQuery.query}`, error);
+          
+          // Log more details for debugging
+          if (error instanceof Error) {
+            console.warn(`Error details: ${error.message}`);
+          }
         }
       }
 

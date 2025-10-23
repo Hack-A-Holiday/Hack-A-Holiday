@@ -1,9 +1,12 @@
 import axios from 'axios';
+import { getApiConfig } from '../config/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+// Get centralized API configuration
+const apiConfig = getApiConfig();
 
 const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: apiConfig.baseUrl,
+  timeout: apiConfig.timeout,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -21,7 +24,7 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Add response interceptor for API calls
+// Add response interceptor for API calls with consistent error handling
 apiClient.interceptors.response.use(
   (response) => {
     return response;
@@ -32,11 +35,23 @@ apiClient.interceptors.response.use(
     if (error.response) {
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx
-      console.error('API Error Response:', error.response.data);
-      console.error('Status:', error.response.status);
+      console.error('API Error Response:', {
+        url: originalRequest.url,
+        status: error.response.status,
+        data: error.response.data
+      });
+      
+      // Handle specific error cases
+      if (error.response.status === 404) {
+        console.error('❌ API endpoint not found:', originalRequest.url);
+      }
     } else if (error.request) {
       // The request was made but no response was received
-      console.error('No response received:', error.request);
+      console.error('No response received:', {
+        url: originalRequest.url,
+        timeout: originalRequest.timeout,
+        error: error.request
+      });
     } else {
       // Something happened in setting up the request that triggered an Error
       console.error('Error setting up request:', error.message);
@@ -45,3 +60,5 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export default apiClient;

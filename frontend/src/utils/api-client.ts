@@ -1,13 +1,12 @@
 import axios from 'axios';
+import { getApiConfig } from '../config/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-if (!API_URL) {
-  throw new Error('NEXT_PUBLIC_API_URL environment variable is not set');
-}
+// Get centralized API configuration
+const apiConfig = getApiConfig();
 
 const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: apiConfig.baseUrl,
+  timeout: apiConfig.timeout,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -24,31 +23,43 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor
+// Response interceptor with enhanced error handling
 apiClient.interceptors.response.use(
   (response) => {
     console.log('Response received:', {
       status: response.status,
-      headers: response.headers,
+      url: response.config.url,
       data: response.data
     });
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+    
     if (error.response) {
       console.error('API Error:', {
         status: error.response.status,
+        url: originalRequest.url,
         data: error.response.data,
         headers: error.response.headers
       });
+      
+      // Handle specific error cases
+      if (error.response.status === 404) {
+        console.error('❌ Endpoint not found:', originalRequest.url);
+      } else if (error.response.status >= 500) {
+        console.error('❌ Server error:', error.response.status);
+      }
     } else if (error.request) {
       console.error('Network Error:', {
         message: error.message,
-        request: error.request
+        url: originalRequest.url,
+        timeout: originalRequest.timeout
       });
     } else {
       console.error('Request Error:', error.message);
     }
+    
     return Promise.reject(error);
   }
 );
@@ -73,8 +84,8 @@ export const planTrip = async (data: PlanTripRequest): Promise<any> => {
     const response = await apiClient.post('/plan-trip', data, {
       headers: {
         'Content-Type': 'application/json'
-      },
-      timeout: 10000 // 10 second timeout
+      }
+      // timeout is now handled by the centralized config
     });
     return response.data;
   } catch (error) {
