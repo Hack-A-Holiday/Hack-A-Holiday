@@ -38,30 +38,33 @@ function removeTrailingSlash(url: string): string {
  * Gets the base API URL with environment variable resolution and fallbacks
  */
 function getBaseApiUrl(): string {
-  const env = process.env as EnvironmentConfig;
+  // Safely access environment variables (works in both server and client)
+  const apiUrl = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_URL : undefined;
+  const backendUrl = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_BACKEND_URL : undefined;
+  const nodeEnv = typeof process !== 'undefined' ? process.env.NODE_ENV : 'production';
   
   // Primary: NEXT_PUBLIC_API_URL
-  if (env.NEXT_PUBLIC_API_URL) {
-    const cleanUrl = removeTrailingSlash(env.NEXT_PUBLIC_API_URL);
+  if (apiUrl) {
+    const cleanUrl = removeTrailingSlash(apiUrl);
     if (validateUrl(cleanUrl)) {
       return cleanUrl;
     }
-    console.warn('Invalid NEXT_PUBLIC_API_URL format:', env.NEXT_PUBLIC_API_URL);
+    console.warn('Invalid NEXT_PUBLIC_API_URL format:', apiUrl);
   }
   
   // Fallback: NEXT_PUBLIC_BACKEND_URL
-  if (env.NEXT_PUBLIC_BACKEND_URL) {
-    const cleanUrl = removeTrailingSlash(env.NEXT_PUBLIC_BACKEND_URL);
+  if (backendUrl) {
+    const cleanUrl = removeTrailingSlash(backendUrl);
     if (validateUrl(cleanUrl)) {
       console.warn('Using fallback NEXT_PUBLIC_BACKEND_URL');
       return cleanUrl;
     }
-    console.warn('Invalid NEXT_PUBLIC_BACKEND_URL format:', env.NEXT_PUBLIC_BACKEND_URL);
+    console.warn('Invalid NEXT_PUBLIC_BACKEND_URL format:', backendUrl);
   }
   
   // Development fallback
   const fallbackUrl = 'http://localhost:4000';
-  if (env.NODE_ENV === 'development') {
+  if (nodeEnv === 'development') {
     console.warn('Using development fallback URL:', fallbackUrl);
     return fallbackUrl;
   }
@@ -103,7 +106,7 @@ export function getApiBaseUrl(): string {
 }
 
 // Log API configuration on module load (development only)
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+if (typeof window !== 'undefined' && typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
   try {
     const config = getApiConfig();
     console.log('🔗 API Configuration:', {
