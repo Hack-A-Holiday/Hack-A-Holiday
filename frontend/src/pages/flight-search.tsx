@@ -1181,6 +1181,7 @@ export default function FlightSearchPage() {
               // Try to get photos even when detailed API fails
               let photos = [];
               try {
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
                 const photosResponse = await fetch(
                   `${apiUrl}/tripadvisor/location/${location.location_id}/photos?limit=3`
                 );
