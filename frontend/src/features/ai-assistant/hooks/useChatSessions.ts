@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getApiBaseUrl } from '@/config/api';
 
 interface ChatSession {
   _id: string;
@@ -15,7 +16,7 @@ export const useChatSessions = (userId: string) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const apiUrl = getApiBaseUrl();
 
   const fetchSessions = useCallback(async () => {
     if (!userId) return;

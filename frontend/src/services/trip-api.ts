@@ -3,7 +3,7 @@
  * Handles API calls to backend for trip operations
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { buildApiUrl } from '../config/api';
 
 export interface Trip {
   id: string;
@@ -59,8 +59,8 @@ class TripApiService {
   async createTrip(request: CreateTripRequest): Promise<Trip> {
     try {
       console.log('📝 Creating trip:', request);
-      
-      const response = await fetch(`${API_URL}/api/trip`, {
+
+      const response = await fetch(buildApiUrl('/api/trip'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -88,8 +88,8 @@ class TripApiService {
   async getUserTrips(userId: string, includeExpired = false): Promise<{ trips: Trip[], stats: TripStats }> {
     try {
       console.log(`📋 Fetching trips for user: ${userId}`);
-      
-      const url = `${API_URL}/api/trip/user/${userId}${includeExpired ? '?includeExpired=true' : ''}`;
+
+      const url = buildApiUrl(`/api/trip/user/${userId}${includeExpired ? '?includeExpired=true' : ''}`);
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -115,8 +115,8 @@ class TripApiService {
   async getTripById(userId: string, tripId: string): Promise<Trip> {
     try {
       console.log(`📋 Fetching trip: ${tripId}`);
-      
-      const response = await fetch(`${API_URL}/api/trip/${userId}/${tripId}`);
+
+      const response = await fetch(buildApiUrl(`/api/trip/${userId}/${tripId}`));
 
       if (!response.ok) {
         const error = await response.json();
@@ -138,8 +138,8 @@ class TripApiService {
   async cancelTrip(request: CancelTripRequest): Promise<Trip> {
     try {
       console.log(`❌ Cancelling trip: ${request.tripId}`);
-      
-      const response = await fetch(`${API_URL}/api/trip/${request.userId}/${request.tripId}/cancel`, {
+
+      const response = await fetch(buildApiUrl(`/api/trip/${request.userId}/${request.tripId}/cancel`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,8 +167,8 @@ class TripApiService {
   async deleteTrip(userId: string, tripId: string): Promise<void> {
     try {
       console.log(`🗑️ Deleting trip: ${tripId}`);
-      
-      const response = await fetch(`${API_URL}/api/trip/${userId}/${tripId}`, {
+
+      const response = await fetch(buildApiUrl(`/api/trip/${userId}/${tripId}`), {
         method: 'DELETE',
       });
 
@@ -190,8 +190,8 @@ class TripApiService {
   async updateTripStatus(userId: string, tripId: string, status: Trip['status']): Promise<Trip> {
     try {
       console.log(`🔄 Updating trip status: ${tripId} -> ${status}`);
-      
-      const response = await fetch(`${API_URL}/api/trip/${userId}/${tripId}/status`, {
+
+      const response = await fetch(buildApiUrl(`/api/trip/${userId}/${tripId}/status`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -219,8 +219,8 @@ class TripApiService {
   async cleanupExpiredTrips(): Promise<number> {
     try {
       console.log('🧹 Running cleanup of expired trips...');
-      
-      const response = await fetch(`${API_URL}/api/trip/cleanup`, {
+
+      const response = await fetch(buildApiUrl('/api/trip/cleanup'), {
         method: 'POST',
       });
 

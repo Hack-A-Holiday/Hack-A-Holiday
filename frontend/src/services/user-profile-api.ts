@@ -4,8 +4,7 @@
  */
 
 import { TravelPreferences } from '../types/preferences';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { buildApiUrl } from '../config/api';
 
 export interface UserProfile {
   email: string;
@@ -30,7 +29,7 @@ class UserProfileApiService {
     try {
       console.log(`📋 Fetching profile for user: ${userEmail}`);
       
-      const response = await fetch(`${API_URL}/api/user-profile/${encodeURIComponent(userEmail)}`);
+      const response = await fetch(buildApiUrl(`/api/user-profile/${encodeURIComponent(userEmail)}`));
 
       if (!response.ok) {
         // Fallback to localStorage if API is not available
@@ -54,7 +53,7 @@ class UserProfileApiService {
     try {
       console.log(`💾 Updating travel preferences for user: ${userEmail}`);
       
-      const response = await fetch(`${API_URL}/api/user-profile/${encodeURIComponent(userEmail)}/preferences`, {
+      const response = await fetch(buildApiUrl(`/api/user-profile/${encodeURIComponent(userEmail)}/preferences`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -83,7 +82,7 @@ class UserProfileApiService {
     try {
       console.log(`🏠 Updating home city for user: ${userEmail}`);
       
-      const response = await fetch(`${API_URL}/api/user-profile/${encodeURIComponent(userEmail)}/home-city`, {
+      const response = await fetch(buildApiUrl(`/api/user-profile/${encodeURIComponent(userEmail)}/home-city`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +113,7 @@ class UserProfileApiService {
       
       console.log(`🔍 Searching cities for: ${query}`);
       
-      const response = await fetch(`${API_URL}/api/cities/search?q=${encodeURIComponent(query)}&limit=10`);
+      const response = await fetch(buildApiUrl(`/api/cities/search?q=${encodeURIComponent(query)}&limit=10`));
 
       if (!response.ok) {
         const error = await response.json();

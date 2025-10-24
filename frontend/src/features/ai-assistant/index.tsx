@@ -10,6 +10,7 @@ import Swal from "sweetalert2";
 
 import { ChatMessage } from "./types";
 import { renderFormattedText } from "./utils";
+import { getApiBaseUrl } from "@/config/api";
 import {
   WelcomeScreen,
   ChatInterface,
@@ -389,7 +390,7 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
           console.log('🔄 Auto-saving conversation:', conversationId, 'with', messages.length, 'messages');
           
           try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+            const apiUrl = getApiBaseUrl();
             
             // Prepare messages for saving - ensure proper format
             const messagesToSave = messages.map(msg => ({
@@ -446,7 +447,7 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
       setIsLoading(true);
 
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        const apiUrl = getApiBaseUrl();
 
         // Load chat session from database
         if (state.user?.id) {
@@ -680,7 +681,7 @@ I'm still here to help with your travel planning!`,
 
     try {
       // Get API URL from environment
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const apiUrl = getApiBaseUrl();
 
       // Build messages payload including the freshly added user message so the AI has full context
       const messagesForApi = [...(messages || []), userMessage];
@@ -1286,7 +1287,7 @@ In the meantime, I can still help you with general travel advice and planning!`,
                 onNewChat={async () => {
                   // Save current chat before starting new one
                   try {
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                    const apiUrl = getApiBaseUrl();
                     await fetch(
                       `${apiUrl}/ai-agent/user-sessions/${state.user?.id}`,
                       {
@@ -1374,7 +1375,7 @@ In the meantime, I can still help you with general travel advice and planning!`,
                 onNewChat={async () => {
                   // Save current chat to backend before starting new chat
                   try {
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                    const apiUrl = getApiBaseUrl();
                     await fetch(
                       `${apiUrl}/ai-agent/user-sessions/${state.user?.id}`,
                       {
