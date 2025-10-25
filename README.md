@@ -1,4 +1,4 @@
-# 🧳 Hack-A-Holiday - AI-Powered Travel Companion
+# 🧳 Hack Travel - AI-Powered Travel Companion
 
 [![AWS](https://img.shields.io/badge/AWS-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)](https://aws.amazon.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
@@ -41,7 +41,7 @@ An intelligent travel planning platform that creates personalized itineraries us
 ## 📁 Project Structure
 
 ```
-Hack-A-Holiday/
+Hack Travel/
 ├── 📂 frontend/                    # Next.js React Application
 │   ├── src/
 │   │   ├── components/             # Reusable UI components
@@ -126,8 +126,8 @@ Hack-A-Holiday/
 
 ### 1. 📥 Clone & Install
 ```bash
-git clone https://github.com/VarunGagwani/Hack-A-Holiday.git
-cd Hack-A-Holiday
+git clone https://github.com/VarunGagwani/Hack Travel.git
+cd Hack Travel
 npm run install:all
 ```
 
@@ -206,10 +206,10 @@ TRIPADVISOR_API_KEY=your-rapidapi-key
 KIWI_API_KEY=your-rapidapi-key
 
 # Database Configuration
-DYNAMODB_TABLE_PREFIX=hack-a-holiday
-USERS_TABLE=hack-a-holiday-users
-TRIPS_TABLE=hack-a-holiday-trips
-CHATS_TABLE=hack-a-holiday-chats
+DYNAMODB_TABLE_PREFIX=Hack Travel
+USERS_TABLE=Hack Travel-users
+TRIPS_TABLE=Hack Travel-trips
+CHATS_TABLE=Hack Travel-chats
 
 # Server Configuration
 PORT=5000
@@ -224,7 +224,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5000
 NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
 
 # Application Configuration
-NEXT_PUBLIC_APP_NAME=Hack-A-Holiday
+NEXT_PUBLIC_APP_NAME=Hack Travel
 NEXT_PUBLIC_ENVIRONMENT=development
 
 # Firebase Configuration (for Google OAuth)
@@ -626,4 +626,4 @@ cd infrastructure && npm run deploy
 
 **Made with ❤️ for travelers by travelers**
 
-[![GitHub stars](https://img.shields.io/github/stars/VarunGagwani/Hack-A-Holiday?style=social)](https://github.com/VarunGagwani/Hack-A-Holiday)
+[![GitHub stars](https://img.shields.io/github/stars/VarunGagwani/Hack Travel?style=social)](https://github.com/VarunGagwani/Hack Travel)
