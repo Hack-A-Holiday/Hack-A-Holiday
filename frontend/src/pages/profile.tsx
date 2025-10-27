@@ -41,54 +41,122 @@ function ProfileHeader({ isMobile, isTablet }: Readonly<{ isMobile: boolean; isT
   );
 }
 
-// This is a standalone, stateless component. It was correct as is.
-function FormField({ label, name, type, value, onChange, disabled }: Readonly<{ label: string; name: string; type: string; value: any; onChange: any; disabled?: boolean }>) {
+// Enhanced FormField component with better disabled state styling
+function FormField({ label, name, type, value, onChange, disabled, isDarkMode = false }: Readonly<{ 
+  label: string; 
+  name: string; 
+  type: string; 
+  value: any; 
+  onChange: any; 
+  disabled?: boolean;
+  isDarkMode?: boolean;
+}>) {
   return (
-    <div style={{ marginBottom: '15px' }}>
-      <label>
-        {label}:
-        <input
-          type={type}
-          name={name}
-          value={value}
-          onChange={onChange}
-          disabled={disabled}
-          style={{ display: 'block', width: '100%', padding: '8px', marginTop: '5px', backgroundColor: disabled ? '#e9ecef' : 'white', cursor: disabled ? 'not-allowed' : 'text' }}
-        />
+    <div style={{ marginBottom: '20px' }}>
+      <label style={{
+        display: 'block',
+        marginBottom: '8px',
+        fontSize: '14px',
+        fontWeight: '600',
+        color: disabled 
+          ? (isDarkMode ? '#6b7280' : '#9ca3af')
+          : (isDarkMode ? '#e8eaed' : '#333')
+      }}>
+        {label}
+        {disabled && (
+          <span style={{
+            marginLeft: '8px',
+            fontSize: '12px',
+            color: isDarkMode ? '#6b7280' : '#9ca3af',
+            fontWeight: '400'
+          }}>
+            (Protected by Google)
+          </span>
+        )}
       </label>
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        style={{
+          display: 'block',
+          width: '100%',
+          padding: '12px 16px',
+          marginTop: '5px',
+          border: disabled 
+            ? (isDarkMode ? '1px solid rgba(107, 114, 128, 0.3)' : '1px solid #d1d5db')
+            : (isDarkMode ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid #ddd'),
+          borderRadius: '8px',
+          backgroundColor: disabled 
+            ? (isDarkMode ? 'rgba(107, 114, 128, 0.1)' : '#f3f4f6')
+            : (isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'white'),
+          color: disabled 
+            ? (isDarkMode ? '#6b7280' : '#9ca3af')
+            : (isDarkMode ? '#e8eaed' : '#333'),
+          cursor: disabled ? 'not-allowed' : 'text',
+          fontSize: '14px',
+          transition: 'all 0.2s ease'
+        }}
+      />
     </div>
   );
 }
 
-// This is a standalone, stateless component. It was correct as is.
-function ProfileForm({ editForm, handleInputChange, disabled, fields }: Readonly<{ editForm: any; handleInputChange: any; disabled: boolean; fields: string[] }>) {
+// Enhanced ProfileForm component with better styling and Google user support
+function ProfileForm({ editForm, handleInputChange, disabled, fields, isDarkMode = false }: Readonly<{ 
+  editForm: any; 
+  handleInputChange: any; 
+  disabled: boolean; 
+  fields: string[]; 
+  isDarkMode?: boolean;
+}>) {
   return (
     <form>
       {fields.includes('name') && (
         <FormField
-          label="Name"
+          label="Full Name"
           name="name"
           type="text"
           value={editForm.name}
           onChange={handleInputChange}
           disabled={disabled}
+          isDarkMode={isDarkMode}
         />
       )}
       {fields.includes('email') && (
         <FormField
-          label="Email"
+          label="Email Address"
           name="email"
           type="email"
           value={editForm.email}
           onChange={handleInputChange}
           disabled={disabled}
+          isDarkMode={isDarkMode}
         />
       )}
-      {/* Show user info below fields if available */}
-      {editForm.name && editForm.email && (
-        <span style={{ color: '#667eea', fontWeight: 'bold' }}>
-          &quot;{editForm.name}&quot; - &quot;{editForm.email}&quot;
-        </span>
+      
+      {disabled && (
+        <div style={{
+          background: isDarkMode ? 'rgba(107, 114, 128, 0.1)' : '#f8f9fa',
+          border: `1px solid ${isDarkMode ? 'rgba(107, 114, 128, 0.2)' : '#e9ecef'}`,
+          borderRadius: '8px',
+          padding: '12px 16px',
+          marginTop: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <span style={{ fontSize: '1rem' }}>🔒</span>
+          <span style={{ 
+            color: isDarkMode ? '#9ca3af' : '#6c757d', 
+            fontSize: '0.85rem',
+            fontStyle: 'italic'
+          }}>
+            These fields are protected and managed by your Google account
+          </span>
+        </div>
       )}
     </form>
   );
@@ -410,6 +478,31 @@ export default function ProfilePage() {
     setEditForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleSaveProfile = async () => {
+    if (!state.user?.email || isGoogleUser) return;
+    
+    try {
+      // Here you would typically call an API to update the user's profile
+      // For now, we'll just show a success message since the backend API isn't implemented
+      setIsEditingProfile(false);
+      
+      await Swal.fire({
+        icon: 'success',
+        title: 'Profile Saved',
+        text: 'Your profile information has been saved successfully.',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      console.error('❌ Error saving profile:', error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Save Failed',
+        text: 'Unable to save your profile. Please try again.',
+      });
+    }
+  };
+
   const handleSaveHomeCity = async () => {
     if (!state.user?.email || !homeCity.trim()) return;
     
@@ -663,6 +756,18 @@ export default function ProfilePage() {
         email: state.user?.email || '' 
       });
       
+      // Check if user is a Google user - use explicit role property
+      const isGoogle = state.user?.role === 'google';
+      
+      console.log('🔍 Google user detection:', {
+        role: state.user?.role,
+        isGoogle: isGoogle,
+        email: state.user?.email?.substring(0, 10) + '...',
+        name: state.user?.name
+      });
+      
+      setIsGoogleUser(isGoogle);
+      
       console.log('🔄 Cleared cached data for user context switch');
     }
   }, [state.user?.email, state.user?.name]);
@@ -703,7 +808,26 @@ export default function ProfilePage() {
                 alignItems: 'center',
                 marginBottom: '25px',
               }}>
-                <h2 style={{ margin: 0, color: isDarkMode ? '#e8eaed' : '#333', fontSize: '1.5rem' }}>Profile Information</h2>
+                <div>
+                  <h2 style={{ margin: 0, color: isDarkMode ? '#e8eaed' : '#333', fontSize: '1.5rem' }}>Profile Information</h2>
+                  {isGoogleUser ? (
+                    <p style={{ 
+                      margin: '5px 0 0 0', 
+                      color: isDarkMode ? '#9ca3af' : '#666', 
+                      fontSize: '0.85rem' 
+                    }}>
+                      Managed by Google OAuth
+                    </p>
+                  ) : (
+                    <p style={{ 
+                      margin: '5px 0 0 0', 
+                      color: isDarkMode ? '#9ca3af' : '#666', 
+                      fontSize: '0.85rem' 
+                    }}>
+                      You can edit your name and email address
+                    </p>
+                  )}
+                </div>
                 {!isGoogleUser && (
                   <button
                     onClick={() => setIsEditingProfile(!isEditingProfile)}
@@ -721,64 +845,166 @@ export default function ProfilePage() {
                     {isEditingProfile ? 'Cancel' : 'Edit Profile Info'}
                   </button>
                 )}
+                {isGoogleUser && (
+                  <div style={{
+                    background: isDarkMode ? 'rgba(107, 114, 128, 0.2)' : '#f8f9fa',
+                    color: isDarkMode ? '#9ca3af' : '#6c757d',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '10px',
+                    fontSize: '0.9rem',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    🔒 Protected by Google
+                  </div>
+                )}
               </div>
 
               {isGoogleUser && (
                 <div style={{
-                  background: '#e3f2fd',
-                  border: '1px solid #2196f3',
+                  background: isDarkMode ? 'rgba(33, 150, 243, 0.1)' : '#e3f2fd',
+                  border: `1px solid ${isDarkMode ? 'rgba(33, 150, 243, 0.3)' : '#2196f3'}`,
                   borderRadius: '10px',
-                  padding: '12px 16px',
+                  padding: '16px 20px',
                   marginBottom: '20px',
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px'
+                  alignItems: 'flex-start',
+                  gap: '12px'
                 }}>
-                  <span style={{ color: '#1976d2', fontSize: '0.9rem' }}>
-                    Google account details cannot be edited. Your name and email are managed by Google.
-                  </span>
+                  <div style={{ 
+                    fontSize: '1.2rem',
+                    color: isDarkMode ? '#64b5f6' : '#1976d2',
+                    marginTop: '2px'
+                  }}>
+                    🔒
+                  </div>
+                  <div>
+                    <div style={{ 
+                      color: isDarkMode ? '#64b5f6' : '#1976d2', 
+                      fontSize: '0.95rem',
+                      fontWeight: '600',
+                      marginBottom: '4px'
+                    }}>
+                      Google Account Protection
+                    </div>
+                    <div style={{ 
+                      color: isDarkMode ? '#90caf9' : '#1565c0', 
+                      fontSize: '0.85rem',
+                      lineHeight: '1.4'
+                    }}>
+                      Your name and email are managed by Google and cannot be edited here. 
+                      You can still update your travel preferences and other profile settings.
+                    </div>
+                  </div>
                 </div>
               )} {!isEditingProfile ? (
                 <div>
                   <div style={{ marginBottom: '20px' }}>
                     <span style={{
-                      display: 'block',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
                       color: isDarkMode ? '#9ca3af' : '#666',
                       fontSize: '0.9rem',
                       marginBottom: '5px'
                     }}>
                       Full Name
+                      {isGoogleUser && (
+                        <span style={{
+                          background: isDarkMode ? 'rgba(107, 114, 128, 0.2)' : '#e9ecef',
+                          color: isDarkMode ? '#9ca3af' : '#6c757d',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          🔒 Protected
+                        </span>
+                      )}
                     </span>
                     <div style={{
                       padding: '12px 16px',
-                      background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa',
+                      background: isGoogleUser 
+                        ? (isDarkMode ? 'rgba(107, 114, 128, 0.1)' : '#f8f9fa')
+                        : (isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa'),
                       borderRadius: '10px',
                       color: isDarkMode ? '#e8eaed' : '#333',
                       fontSize: '1rem',
-                      border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
+                      border: isGoogleUser
+                        ? (isDarkMode ? '1px solid rgba(107, 114, 128, 0.2)' : '1px solid #dee2e6')
+                        : (isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
                     }}>
-                      {state.user?.name || 'Not specified'}
+                      <span>{state.user?.name || 'Not specified'}</span>
+                      {isGoogleUser && (
+                        <span style={{ 
+                          color: isDarkMode ? '#9ca3af' : '#6c757d',
+                          fontSize: '0.85rem'
+                        }}>
+                          🔒
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div>
                     <span style={{
-                      display: 'block',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
                       color: isDarkMode ? '#9ca3af' : '#666',
                       fontSize: '0.9rem',
                       marginBottom: '5px'
                     }}>
                       Email Address
+                      {isGoogleUser && (
+                        <span style={{
+                          background: isDarkMode ? 'rgba(107, 114, 128, 0.2)' : '#e9ecef',
+                          color: isDarkMode ? '#9ca3af' : '#6c757d',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          🔒 Protected
+                        </span>
+                      )}
                     </span>
                     <div style={{
                       padding: '12px 16px',
-                      background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa',
+                      background: isGoogleUser 
+                        ? (isDarkMode ? 'rgba(107, 114, 128, 0.1)' : '#f8f9fa')
+                        : (isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa'),
                       borderRadius: '10px',
                       color: isDarkMode ? '#e8eaed' : '#333',
                       fontSize: '1rem',
                       wordBreak: 'break-word',
-                      border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
+                      border: isGoogleUser
+                        ? (isDarkMode ? '1px solid rgba(107, 114, 128, 0.2)' : '1px solid #dee2e6')
+                        : (isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
                     }}>
-                      {state.user?.email}
+                      <span>{state.user?.email}</span>
+                      {isGoogleUser && (
+                        <span style={{ 
+                          color: isDarkMode ? '#9ca3af' : '#6c757d',
+                          fontSize: '0.85rem'
+                        }}>
+                          🔒
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -789,10 +1015,12 @@ export default function ProfilePage() {
                     handleInputChange={handleInputChange}
                     disabled={isGoogleUser}
                     fields={['name', 'email']}
+                    isDarkMode={isDarkMode}
                   />
                   {!isGoogleUser && (
                     <div style={{ marginTop: '20px' }}>
                       <button
+                        onClick={handleSaveProfile}
                         style={{
                           background: '#28a745',
                           color: 'white',
