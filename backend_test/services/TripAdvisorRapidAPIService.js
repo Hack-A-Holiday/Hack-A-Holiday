@@ -1,9 +1,12 @@
 const axios = require('axios');
+const { getEnhancedHeaders, getDomainForEnvironment } = require('../middleware/tripAdvisorHeaders');
+const apiQualityMonitor = require('./ApiQualityMonitor');
 
 /**
  * TripAdvisor RapidAPI Service
  * Provides real-time travel data using RapidAPI TripAdvisor endpoints
  * Enhanced for AI agent integration with attractions, restaurants, and reviews
+ * Updated to support domain-restricted API keys
  */
 class TripAdvisorRapidAPIService {
   constructor() {
@@ -48,6 +51,7 @@ class TripAdvisorRapidAPIService {
     try {
       // Test API key with a simple search
       console.log('🧪 Testing API key with a simple search...');
+      const headers = getEnhancedHeaders();
       const testResponse = await axios.get(
         `${this.contentApiBaseUrl}/location/search`,
         {
@@ -55,6 +59,13 @@ class TripAdvisorRapidAPIService {
             key: this.contentApiKey,
             searchQuery: 'test',
             limit: 1
+          },
+          headers: {
+            'Origin': headers.Origin,
+            'Referer': headers.Referer,
+            'User-Agent': headers['User-Agent'],
+            'Accept': headers.Accept,
+            'Content-Type': headers['Content-Type']
           },
           timeout: 5000
         }
@@ -144,6 +155,7 @@ class TripAdvisorRapidAPIService {
       });
 
       const response = await this.fetchWithRetry(async () => {
+        const headers = getEnhancedHeaders();
         return await axios.get(
           `${this.contentApiBaseUrl}/location/${locationId}/details`,
           {
@@ -151,6 +163,13 @@ class TripAdvisorRapidAPIService {
               key: this.contentApiKey,
               language,
               currency
+            },
+            headers: {
+              'Origin': headers.Origin,
+              'Referer': headers.Referer,
+              'User-Agent': headers['User-Agent'],
+              'Accept': headers.Accept,
+              'Content-Type': headers['Content-Type']
             },
             timeout: 10000 // 10 second timeout
           }
@@ -239,6 +258,7 @@ class TripAdvisorRapidAPIService {
       });
 
       const response = await this.fetchWithRetry(async () => {
+        const headers = getEnhancedHeaders();
         return await axios.get(
           `${this.contentApiBaseUrl}/location/${locationId}/photos`,
           {
@@ -246,6 +266,13 @@ class TripAdvisorRapidAPIService {
               key: this.contentApiKey,
               language,
               limit
+            },
+            headers: {
+              'Origin': headers.Origin,
+              'Referer': headers.Referer,
+              'User-Agent': headers['User-Agent'],
+              'Accept': headers.Accept,
+              'Content-Type': headers['Content-Type']
             },
             timeout: 10000
           }
@@ -319,6 +346,7 @@ class TripAdvisorRapidAPIService {
       }
 
       const response = await this.fetchWithRetry(async () => {
+        const headers = getEnhancedHeaders();
         return await axios.get(
           `${this.contentApiBaseUrl}/location/${locationId}/reviews`,
           {
@@ -326,6 +354,13 @@ class TripAdvisorRapidAPIService {
               key: this.contentApiKey,
               language,
               limit
+            },
+            headers: {
+              'Origin': headers.Origin,
+              'Referer': headers.Referer,
+              'User-Agent': headers['User-Agent'],
+              'Accept': headers.Accept,
+              'Content-Type': headers['Content-Type']
             },
             timeout: 10000
           }
@@ -1644,6 +1679,8 @@ class TripAdvisorRapidAPIService {
         return this.getMockLocationSearch(searchQuery);
       }
 
+      const startTime = Date.now();
+
       // Try real API first, fallback to mock if it fails
       try {
         console.log('🔍 Attempting real TripAdvisor Content API call...');
@@ -1669,10 +1706,25 @@ class TripAdvisorRapidAPIService {
           params.category = category;
         }
         
+        const headers = getEnhancedHeaders();
+        console.log('🔧 Making TripAdvisor API call with enhanced headers:', {
+          origin: headers.Origin,
+          referer: headers.Referer,
+          endpoint: `${this.contentApiBaseUrl}/location/search`,
+          params: { ...params, key: params.key ? params.key.substring(0, 8) + '...' : 'MISSING' }
+        });
+        
         return await axios.get(
           `${this.contentApiBaseUrl}/location/search`,
           {
             params,
+            headers: {
+              'Origin': headers.Origin,
+              'Referer': headers.Referer,
+              'User-Agent': headers['User-Agent'],
+              'Accept': headers.Accept,
+              'Content-Type': headers['Content-Type']
+            },
             timeout: 10000
           }
         );
@@ -1685,9 +1737,34 @@ class TripAdvisorRapidAPIService {
       const locations = this.formatLocationSearch(response.data);
       this.setCachedData(cacheKey, locations);
 
+      // Monitor API quality
+      const expectedCount = limit;
+      const actualCount = locations.length;
+      const responseTime = Date.now() - startTime;
+      
+      apiQualityMonitor.logApiMetrics(
+        'searchLocations',
+        getDomainForEnvironment(),
+        actualCount,
+        expectedCount,
+        responseTime
+      );
+
+      const qualityAssessment = apiQualityMonitor.assessResponseQuality(actualCount, expectedCount);
+      
       console.log(`✅ Successfully found ${locations.length} locations`);
+      console.log(`📊 Quality Assessment:`, qualityAssessment);
       console.log(`📍 Sample locations:`, locations.slice(0, 3).map(l => ({ name: l.name, id: l.location_id })));
-      return locations;
+      
+      // Return enhanced response with quality information
+      return {
+        locations,
+        qualityIndicator: qualityAssessment.qualityIndicator,
+        qualityRatio: qualityAssessment.qualityRatio,
+        suggestedActions: qualityAssessment.suggestedActions,
+        responseTime,
+        timestamp: new Date().toISOString()
+      };
       } catch (apiError) {
         console.error('❌ TripAdvisor Content API Error Details:');
         console.error(`   Error Message: ${apiError.message}`);

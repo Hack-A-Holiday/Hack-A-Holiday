@@ -2,12 +2,17 @@ const express = require('express');
 const router = express.Router();
 const BedrockAgentCore = require('../services/BedrockAgentCore');
 const TripAdvisorRapidAPIService = require('../services/TripAdvisorRapidAPIService');
+const { enhanceTripAdvisorHeaders, getDomainForEnvironment } = require('../middleware/tripAdvisorHeaders');
 
 // Initialize the Bedrock Agent Core
 const agent = new BedrockAgentCore();
 
 // Initialize TripAdvisor service
 const tripAdvisorService = new TripAdvisorRapidAPIService();
+const apiQualityMonitor = require('../services/ApiQualityMonitor');
+
+// Apply TripAdvisor headers middleware to all routes
+router.use(enhanceTripAdvisorHeaders);
 
 /**
  * Search for attractions near a location
@@ -371,12 +376,22 @@ router.get('/location/search', async (req, res) => {
     
     console.log(`🔍 Searching locations for: ${searchQuery} (limit: ${searchLimit}, category: ${category || 'all'})`);
     
-    const locations = await tripAdvisorService.searchLocations(searchQuery, searchLimit, language, category);
+    const result = await tripAdvisorService.searchLocations(searchQuery, searchLimit, language, category);
+    
+    // Handle both old format (array) and new format (object with locations)
+    const locations = Array.isArray(result) ? result : result.locations || [];
+    const qualityInfo = Array.isArray(result) ? {} : {
+      qualityIndicator: result.qualityIndicator,
+      qualityRatio: result.qualityRatio,
+      suggestedActions: result.suggestedActions,
+      responseTime: result.responseTime
+    };
     
     res.json({
       success: true,
       data: locations,
       count: locations.length,
+      ...qualityInfo,
       timestamp: new Date().toISOString()
     });
     
@@ -405,6 +420,8 @@ router.get('/location/search', async (req, res) => {
  * Health check endpoint
  */
 router.get('/health', (req, res) => {
+  const healthStatus = apiQualityMonitor.getHealthStatus();
+  
   res.json({
     success: true,
     message: 'TripAdvisor RapidAPI integration is healthy',
@@ -416,8 +433,88 @@ router.get('/health', (req, res) => {
       locationSearch: !!process.env.TRIPADVISOR_API_KEY,
       attractions: true,
       restaurants: true
-    }
+    },
+    apiHealth: healthStatus
   });
+});
+
+/**
+ * API quality monitoring endpoint
+ */
+router.get('/monitoring/quality', (req, res) => {
+  const endpoint = req.query.endpoint || 'searchLocations';
+  const hours = parseInt(req.query.hours) || 24;
+  
+  const metrics = apiQualityMonitor.getQualityMetrics(endpoint, hours);
+  const healthStatus = apiQualityMonitor.getHealthStatus();
+  
+  res.json({
+    success: true,
+    endpoint,
+    timeframe: `${hours} hours`,
+    metrics,
+    overallHealth: healthStatus,
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
+ * Domain validation test endpoint
+ */
+router.get('/monitoring/domain-test', async (req, res) => {
+  try {
+    console.log('🧪 Testing domain validation for TripAdvisor API...');
+    
+    const testResult = await tripAdvisorService.searchLocations('test', 1);
+    const locations = Array.isArray(testResult) ? testResult : testResult.locations || [];
+    
+    const domainValidation = {
+      passed: locations.length > 0,
+      responseCount: locations.length,
+      expectedMinimum: 1,
+      domain: getDomainForEnvironment(),
+      timestamp: new Date().toISOString()
+    };
+    
+    apiQualityMonitor.logDomainValidation(
+      domainValidation.domain,
+      process.env.TRIPADVISOR_API_KEY,
+      domainValidation.passed,
+      domainValidation.passed ? null : 'NO_RESULTS',
+      domainValidation.passed ? null : 'Domain restriction may be blocking API access'
+    );
+    
+    res.json({
+      success: true,
+      domainValidation,
+      message: domainValidation.passed ? 
+        'Domain validation passed - API is accessible' : 
+        'Domain validation failed - check API key restrictions',
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Domain validation test failed:', error.message);
+    
+    apiQualityMonitor.logDomainValidation(
+      getDomainForEnvironment(),
+      process.env.TRIPADVISOR_API_KEY,
+      false,
+      'API_ERROR',
+      error.message
+    );
+    
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      domainValidation: {
+        passed: false,
+        domain: getDomainForEnvironment(),
+        timestamp: new Date().toISOString()
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 module.exports = router;
