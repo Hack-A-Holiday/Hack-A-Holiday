@@ -819,7 +819,7 @@ router.get('/user-sessions/:userId', async (req, res) => {
           updated_at: sess.updated_at,
           messageCount: sess.messages ? sess.messages.length : 0
         };
-      }).sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
+      }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
     res.json({ success: true, sessions: summaries });
   } catch (error) {
@@ -947,7 +947,7 @@ router.get('/user-sessions/:userId/search', async (req, res) => {
         updated_at: sess.updated_at,
         messageCount: sess.messages ? sess.messages.length : 0
       };
-    }).sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
+    }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     
     res.json({ 
       success: true, 

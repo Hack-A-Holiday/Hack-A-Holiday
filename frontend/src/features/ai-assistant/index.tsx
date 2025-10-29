@@ -35,6 +35,8 @@ export default function AIAssistant() {
   const [showChat, setShowChat] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -196,6 +198,7 @@ export default function AIAssistant() {
         console.log('🔗 Setting conversation ID from URL:', convId);
         setConversationId(convId);
         setActiveSessionId(convId); // Also set as active session
+        console.log('✅ Set active session from Plan My Adventure:', convId);
       }
 
       if (messagesStr) {
@@ -263,6 +266,17 @@ export default function AIAssistant() {
       console.log("✅ Initial data detected - showing chat directly");
       setShowChat(true);
       
+      // On desktop, ensure sidebar is visible so user can see their conversation
+      if (!isMobile) {
+        setShowSidebar(true);
+      }
+      
+      // Trigger session refresh to show the new conversation in sidebar
+      setTimeout(() => {
+        console.log("🔄 Triggering session refresh for Plan My Adventure conversation");
+        setRefreshTrigger(prev => prev + 1);
+      }, 1000); // Small delay to ensure conversation is saved first
+      
       // Clear URL parameters after processing to prevent re-processing on refresh
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
@@ -281,13 +295,15 @@ export default function AIAssistant() {
       console.log('🆕 Creating new conversation ID:', convId);
       setConversationId(convId);
       setActiveSessionId(convId);
+      console.log('✅ Set new conversation as active session:', convId);
     }
 
     // Set initial messages
     console.log("Setting initial messages. Count:", initialMessages.length);
     if (initialMessages.length > 0) {
       // We have messages from trip planning - use them directly
-      console.log("Setting messages from trip planning:", initialMessages);
+      console.log("✅ Setting messages from Plan My Adventure:", initialMessages);
+      console.log("✅ First message content preview:", initialMessages[0]?.content?.substring(0, 100) + "...");
       setMessages(initialMessages);
     } else {
       // No initial messages - show welcome message
@@ -312,6 +328,9 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
       };
       setMessages([welcomeMessage]);
     }
+    
+    // Mark as initialized to prevent re-initialization
+    setIsInitialized(true);
   }, [state.user, conversationId]);
 
   useEffect(() => {
@@ -370,11 +389,12 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
   }, [state.user, urlProcessed]);
 
   useEffect(() => {
-    // Initialize conversation only if user is present
-    if (state.user && showChat) {
+    // Initialize conversation only if user is present and not already initialized
+    if (state.user && showChat && !isInitialized) {
+      console.log("🚀 Initializing conversation for the first time");
       initializeConversation();
     }
-  }, [state.user, showChat, initializeConversation]);
+  }, [state.user, showChat, isInitialized, initializeConversation]);
 
   // Auto-save conversation when messages change (for Plan My Adventure flow)
   useEffect(() => {
@@ -419,6 +439,8 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
             
             if (response.ok) {
               console.log('✅ Auto-saved conversation successfully');
+              // Trigger session refresh to update sidebar
+              setRefreshTrigger(prev => prev + 1);
             } else {
               console.warn('⚠️ Auto-save response not OK:', response.status, response.statusText);
             }
@@ -1194,7 +1216,8 @@ In the meantime, I can still help you with general travel advice and planning!`,
 
   const handleStartChat = () => {
     setShowChat(true);
-    // Initialize conversation when starting chat
+    // Reset initialization flag and initialize conversation when starting chat
+    setIsInitialized(false);
     if (state.user) {
       initializeConversation();
     }
@@ -1283,6 +1306,7 @@ In the meantime, I can still help you with general travel advice and planning!`,
                 isMobile={isMobile}
                 userId={state.user?.id || ""}
                 activeSessionId={activeSessionId}
+                refreshTrigger={refreshTrigger}
                 onSessionSelect={handleSessionClick}
                 onNewChat={async () => {
                   // Save current chat before starting new one
@@ -1317,6 +1341,7 @@ In the meantime, I can still help you with general travel advice and planning!`,
                     .substr(2, 9)}`;
                   setConversationId(newConvId);
                   setActiveSessionId(newConvId);
+                  setIsInitialized(true); // Mark as initialized since we're setting messages manually
                   setMessages([
                     {
                       id: Date.now().toString(),
@@ -1338,6 +1363,7 @@ In the meantime, I can still help you with general travel advice and planning!`,
                       .substr(2, 9)}`;
                     setConversationId(newConvId);
                     setActiveSessionId(newConvId);
+                    setIsInitialized(true); // Mark as initialized since we're setting messages manually
                     setMessages([
                       {
                         id: Date.now().toString(),
@@ -1405,6 +1431,7 @@ In the meantime, I can still help you with general travel advice and planning!`,
                     .substr(2, 9)}`;
                   setConversationId(newConvId);
                   setActiveSessionId(newConvId);
+                  setIsInitialized(true); // Mark as initialized since we're setting messages manually
                   setMessages([
                     {
                       id: Date.now().toString(),

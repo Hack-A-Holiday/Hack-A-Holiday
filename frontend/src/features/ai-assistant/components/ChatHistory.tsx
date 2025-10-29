@@ -21,6 +21,7 @@ interface ChatHistoryProps {
   onDeleteSession: (sessionId: string) => void;
   isVisible: boolean;
   onClose: () => void;
+  refreshTrigger?: number; // Optional trigger to force refresh
 }
 
 export const ChatHistory: React.FC<ChatHistoryProps> = ({
@@ -32,7 +33,8 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
   onNewChat,
   onDeleteSession,
   isVisible,
-  onClose
+  onClose,
+  refreshTrigger
 }) => {
   const {
     sessions,
@@ -117,6 +119,14 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
       refreshSessions();
     }
   }, [isVisible, refreshSessions]);
+
+  // Refresh sessions when refresh trigger changes (for Plan My Adventure)
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      console.log("🔄 ChatHistory: Refreshing sessions due to trigger:", refreshTrigger);
+      refreshSessions();
+    }
+  }, [refreshTrigger, refreshSessions]);
 
   // Auto-refresh sessions periodically when visible
   useEffect(() => {
