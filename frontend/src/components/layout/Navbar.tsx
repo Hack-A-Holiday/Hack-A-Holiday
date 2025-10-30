@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDarkMode } from '../../contexts/DarkModeContext';
 import Swal from 'sweetalert2';
+import { buildApiUrl } from '../../config/api';
 
 export default function Navbar() {
   // Toggle user menu dropdown
@@ -357,8 +358,10 @@ export default function Navbar() {
                         if (!confirmed.isConfirmed) return;
                         setIsClearingHistory(true);
                         try {
-                          const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-                          const response = await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
+                          const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000';
+                          const fullUrl = `${baseUrl}/ai-agent/user-sessions/${state.user.id}`;
+                          console.log('Clear history API URL:', fullUrl);
+                          const response = await fetch(fullUrl, {
                             method: 'DELETE',
                             headers: {
                               'Content-Type': 'application/json',

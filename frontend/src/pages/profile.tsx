@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDarkMode } from '../contexts/DarkModeContext';
 import Navbar from '../components/layout/Navbar';
 import Swal from 'sweetalert2';
+import { buildApiUrl } from '../config/api';
 import { popularDestinations } from '../data/destinations';
 import { TravelPreferences, defaultTravelPreferences, preferenceOptions, PreferencesUtils } from '../types/preferences';
 // import { tripTrackingService, Trip } from '../services/trip-tracking'; // Original import removed
@@ -1521,8 +1522,10 @@ export default function ProfilePage() {
                     if (!confirmed.isConfirmed) return;
                     setIsClearingHistory(true);
                     try {
-                      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-                      const response = await fetch(`${apiUrl}/ai-agent/user-sessions/${state.user.id}`, {
+                      const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000';
+                      const fullUrl = `${baseUrl}/ai-agent/user-sessions/${state.user.id}`;
+                      console.log('Clear history API URL:', fullUrl);
+                      const response = await fetch(fullUrl, {
                         method: 'DELETE',
                         headers: {
                           'Content-Type': 'application/json',
