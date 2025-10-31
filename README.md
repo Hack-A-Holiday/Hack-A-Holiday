@@ -8,6 +8,47 @@
 
 An intelligent travel planning platform that creates personalized itineraries using AWS Bedrock AI. Features ChatGPT-like conversation management, real-time flight/hotel integration, and comprehensive travel assistance with context-aware responses.
 
+## 🌐 Live Application
+
+### 🚀 **Access the Deployed Application**
+- **Frontend (Live)**: [https://hacktravel.vercel.app](https://hacktravel.vercel.app)
+- **Backend API**: [https://hack-a-holiday-backend.onrender.com](https://hack-a-holiday-backend.onrender.com)
+
+**Ready to use!** No setup required - just visit the frontend link and start planning your next adventure!
+
+### ✅ **Current Application Status**
+- ✅ **Frontend**: Fully deployed and operational on Vercel
+- ✅ **Backend**: Running on Render with all APIs functional
+- ✅ **AI Assistant**: AWS Bedrock Nova models integrated and working
+- ✅ **Authentication**: Google OAuth and traditional auth both working
+- ✅ **APIs**: TripAdvisor, Booking.com, and flight search APIs operational
+- ✅ **Domain Restrictions**: Recently fixed TripAdvisor API domain issues
+- ✅ **Database**: DynamoDB tables configured and accessible
+- ✅ **CORS**: Properly configured for cross-origin requests
+
+### 🏠 **Local Development Setup**
+If you want to run the application locally for development:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/VarunGagwani/Hack-A-Holiday.git
+cd Hack-A-Holiday
+
+# 2. Start Backend Server (Terminal 1)
+cd backend_test
+npm install
+npm run dev
+# Backend runs on http://localhost:4000
+
+# 3. Start Frontend (Terminal 2) 
+cd frontend
+npm install
+npm run dev
+# Frontend runs on http://localhost:3000
+```
+
+**Note**: For local development, you'll need to configure environment variables (see [Environment Configuration](#environment-configuration) section below).
+
 ## 🚀 Features
 
 ### 🤖 **AI-Powered Travel Assistant**
@@ -117,57 +158,50 @@ Hack Travel/
 - **Data Storage**: DynamoDB for user data, trips, and conversation history
 - **External APIs**: Integration with Booking.com, TripAdvisor, and Google Flights
 
-## ⚡ Quick Start (5 minutes)
+## ⚡ Quick Start Options
 
-### Prerequisites
+### 🌐 **Option 1: Use Live Application (Recommended)**
+**No setup required!** Just visit the deployed application:
+
+1. **Visit**: [https://hacktravel.vercel.app](https://hacktravel.vercel.app)
+2. **Sign up** for a new account or login with Google
+3. **Start planning**: Use "Plan My Adventure" or chat with the AI assistant
+4. **Explore features**: Flight search, trip history, and personalized recommendations
+
+### 🏠 **Option 2: Local Development Setup**
+
+#### Prerequisites
 - **Node.js** 18+ ([Download](https://nodejs.org/))
-- **AWS CLI** configured ([Setup Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html))
-- **AWS Account** with appropriate permissions
+- **Git** ([Download](https://git-scm.com/))
 
-### 1. 📥 Clone & Install
+#### Quick Local Setup (5 minutes)
 ```bash
-git clone https://github.com/VarunGagwani/Hack Travel.git
-cd Hack Travel
-npm run install:all
-```
+# 1. Clone the repository
+git clone https://github.com/VarunGagwani/Hack-A-Holiday.git
+cd Hack-A-Holiday
 
-### 2. 🔧 Configure Environment
-```bash
-# Copy environment templates
-cp .env.example .env
-cp backend_test/.env.example backend_test/.env
-cp frontend/.env.local.example frontend/.env.local
-
-# Edit .env files with your values
-# Required variables:
-# - AWS credentials and region
-# - RapidAPI key for external services
-# - Bedrock model configurations
-```
-
-### 3. 🚀 Start Backend Server
-```bash
-# Start the Express.js backend
+# 2. Start Backend (Terminal 1)
 cd backend_test
+npm install
 npm run dev
-# Backend runs on http://localhost:5000
+# ✅ Backend runs on http://localhost:4000
+
+# 3. Start Frontend (Terminal 2)
+cd frontend  
+npm install
+npm run dev
+# ✅ Frontend runs on http://localhost:3000
 ```
 
-### 4. 🌐 Start Frontend
-```bash
-# In a new terminal
-cd frontend
-npm run dev
-# Frontend runs on http://localhost:3000
-```
-
-### 5. ✅ Test the Application
+#### Test Local Setup
 1. **Open** http://localhost:3000
 2. **Sign up** for a new account or login
 3. **Plan My Adventure**: Create a detailed trip itinerary
 4. **AI Assistant**: Chat with the AI for travel advice
-5. **Flight Search**: Search and book flights with real-time data
+5. **Flight Search**: Search flights with real-time data
 6. **Profile**: View your saved trips and travel history
+
+**Note**: Local development requires environment configuration for full functionality (see [Environment Configuration](#environment-configuration) below).
 
 ## 🔧 Detailed Setup
 
@@ -184,7 +218,7 @@ AWS_SECRET_ACCESS_KEY=your-secret-key
 RAPIDAPI_KEY=your-rapidapi-key
 
 # Application URLs
-BACKEND_URL=http://localhost:5000
+BACKEND_URL=http://localhost:4000
 FRONTEND_URL=http://localhost:3000
 ```
 
@@ -206,13 +240,13 @@ TRIPADVISOR_API_KEY=your-rapidapi-key
 KIWI_API_KEY=your-rapidapi-key
 
 # Database Configuration
-DYNAMODB_TABLE_PREFIX=Hack Travel
-USERS_TABLE=Hack Travel-users
-TRIPS_TABLE=Hack Travel-trips
-CHATS_TABLE=Hack Travel-chats
+DYNAMODB_TABLE_PREFIX=TravelCompanion
+USERS_TABLE=TravelCompanion-Users-dev
+TRIPS_TABLE=TravelCompanion-Trips-dev
+CHATS_TABLE=HackAHolidayChatHistory
 
 # Server Configuration
-PORT=5000
+PORT=4000
 NODE_ENV=development
 JWT_SECRET=your-jwt-secret-key
 ```
@@ -220,8 +254,8 @@ JWT_SECRET=your-jwt-secret-key
 #### Frontend `frontend/.env.local` file:
 ```bash
 # API Configuration
-NEXT_PUBLIC_API_URL=http://localhost:5000
-NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
+NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
 
 # Application Configuration
 NEXT_PUBLIC_APP_NAME=Hack Travel
@@ -374,38 +408,38 @@ cd frontend && npm run dev
 ### API Endpoint Testing
 ```bash
 # Health check
-curl http://localhost:5000/api/health
+curl http://localhost:4000/api/health
 
 # Test AI chat
-curl -X POST http://localhost:5000/api/ai/chat \
+curl -X POST http://localhost:4000/api/ai/chat \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{"message": "Plan a 3-day trip to Paris", "conversationId": "test-123"}'
 
 # Test trip planning
-curl -X POST http://localhost:5000/api/plan-trip \
+curl -X POST http://localhost:4000/api/plan-trip \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{"destination": "Tokyo, Japan", "duration": 5, "budget": 3000, "interests": ["culture", "food"]}'
 
 # Test flight search
-curl -X POST http://localhost:5000/api/flights/search \
+curl -X POST http://localhost:4000/api/flights/search \
   -H "Content-Type: application/json" \
   -d '{"origin": "JFK", "destination": "NRT", "departureDate": "2025-06-15", "passengers": 2}'
 
 # Test authentication endpoints
 # Traditional registration
-curl -X POST http://localhost:5000/api/auth/register \
+curl -X POST http://localhost:4000/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com", "password": "password123", "name": "Test User"}'
 
 # Traditional login
-curl -X POST http://localhost:5000/api/auth/login \
+curl -X POST http://localhost:4000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com", "password": "password123"}'
 
 # Google OAuth user creation/login
-curl -X POST http://localhost:5000/api/auth/google-user \
+curl -X POST http://localhost:4000/api/auth/google-user \
   -H "Content-Type: application/json" \
   -d '{"uid": "google-uid-123", "email": "user@gmail.com", "displayName": "John Doe", "photoURL": "https://example.com/photo.jpg"}'
 ```
@@ -462,9 +496,9 @@ cd frontend && npm run test:watch
 
 #### **Backend Server Issues**
 ```bash
-# Backend won't start - check port 5000
-netstat -ano | findstr :5000  # Windows
-lsof -ti:5000 | xargs kill -9  # macOS/Linux
+# Backend won't start - check port 4000
+netstat -ano | findstr :4000  # Windows
+lsof -ti:4000 | xargs kill -9  # macOS/Linux
 
 # AWS Bedrock connection errors
 # Verify AWS credentials and region
@@ -626,4 +660,4 @@ cd infrastructure && npm run deploy
 
 **Made with ❤️ for travelers by travelers**
 
-[![GitHub stars](https://img.shields.io/github/stars/VarunGagwani/Hack Travel?style=social)](https://github.com/VarunGagwani/Hack Travel)
+[![GitHub stars](https://img.shields.io/github/stars/VarunGagwani/Hack-A-Holiday?style=social)](https://github.com/VarunGagwani/Hack-A-Holiday)
