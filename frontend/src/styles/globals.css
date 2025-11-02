@@ -2159,3 +2159,214 @@ button,
     transform: none !important;
   }
 }
+
+/* ========================================
+   RESPONSIVE UTILITIES
+   Mobile-first responsive design
+   ======================================== */
+
+/* Base styles - Mobile first (320px+) */
+.responsive-container {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 15px;
+  box-sizing: border-box;
+}
+
+.responsive-section {
+  padding: 40px 15px;
+}
+
+.responsive-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+  width: 100%;
+}
+
+.responsive-flex {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.responsive-card {
+  width: 100%;
+  margin-bottom: 15px;
+  box-sizing: border-box;
+}
+
+/* Hide on mobile */
+.hide-mobile {
+  display: none !important;
+}
+
+/* Show only on mobile */
+.show-mobile {
+  display: block !important;
+}
+
+.show-mobile-flex {
+  display: flex !important;
+}
+
+/* Tablet styles (641px - 1024px) */
+@media (min-width: 641px) {
+  .responsive-container {
+    max-width: 768px;
+    padding: 0 30px;
+  }
+
+  .responsive-section {
+    padding: 60px 30px;
+  }
+
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .responsive-flex {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  .responsive-card {
+    margin-bottom: 20px;
+  }
+
+  .hide-tablet {
+    display: none !important;
+  }
+
+  .show-tablet {
+    display: block !important;
+  }
+
+  .show-tablet-flex {
+    display: flex !important;
+  }
+
+  .hide-mobile {
+    display: block !important;
+  }
+
+  .show-mobile, .show-mobile-flex {
+    display: none !important;
+  }
+}
+
+/* Desktop styles (1025px+) */
+@media (min-width: 1025px) {
+  .responsive-container {
+    max-width: 1200px;
+    padding: 0 40px;
+  }
+
+  .responsive-section {
+    padding: 80px 40px;
+  }
+
+  .responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+  }
+
+  .responsive-flex {
+    gap: 30px;
+  }
+
+  .responsive-card {
+    margin-bottom: 30px;
+  }
+
+  .hide-desktop {
+    display: none !important;
+  }
+
+  .show-desktop {
+    display: block !important;
+  }
+
+  .show-desktop-flex {
+    display: flex !important;
+  }
+
+  .show-tablet, .show-tablet-flex {
+    display: none !important;
+  }
+}
+
+/* Responsive text utilities */
+.responsive-text-center-mobile {
+  text-align: center;
+}
+
+@media (min-width: 641px) {
+  .responsive-text-center-mobile {
+    text-align: left;
+  }
+}
+
+/* Responsive spacing */
+.responsive-margin-bottom {
+  margin-bottom: 15px;
+}
+
+@media (min-width: 641px) {
+  .responsive-margin-bottom {
+    margin-bottom: 20px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .responsive-margin-bottom {
+    margin-bottom: 30px;
+  }
+}
+
+/* Prevent horizontal scroll on mobile */
+body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Touch-friendly buttons */
+@media (max-width: 640px) {
+  button, .button, a.button {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+  }
+
+  input, textarea, select {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+}
+
+/* Responsive table wrapper */
+.responsive-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 20px;
+}
+
+@media (min-width: 1025px) {
+  .responsive-table-wrapper {
+    overflow-x: visible;
+  }
+}
+
+/* Responsive modal/dialog */
+@media (max-width: 640px) {
+  .modal, .dialog, [role="dialog"] {
+    width: 95% !important;
+    max-width: 95vw !important;
+    margin: 20px auto !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+}

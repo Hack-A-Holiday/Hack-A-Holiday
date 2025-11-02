@@ -4,10 +4,20 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDarkMode } from '../../contexts/DarkModeContext';
+import { useResponsive } from '../../hooks/useResponsive';
 import Swal from 'sweetalert2';
 import { buildApiUrl } from '../../config/api';
 
 export default function Navbar() {
+  const { state, logout } = useAuth();
+  const router = useRouter();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
+  const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const { isMobile } = useResponsive();
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
   // Toggle user menu dropdown
   const toggleUserMenu = () => {
     setIsUserMenuOpen((prev) => !prev);
@@ -25,14 +35,6 @@ export default function Navbar() {
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
   };
-  const { state, logout } = useAuth();
-  const router = useRouter();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isClearingHistory, setIsClearingHistory] = useState(false);
-  const { isDarkMode, toggleDarkMode } = useDarkMode();
-  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Fix: Define toggleMobileMenu to toggle the mobile menu state
   const toggleMobileMenu = () => {

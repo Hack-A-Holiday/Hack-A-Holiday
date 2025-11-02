@@ -1,9 +1,14 @@
 import axios from 'axios';
 import React, { useState, useEffect, useRef } from 'react';
+import { useResponsive } from '../hooks/useResponsive';
+import { getResponsiveSidebar } from '../utils/responsive-styles';
+
 // Sidebar component for chat sessions
-const Sidebar = ({ userId, sessions, onSelect, selectedSessionId }) => (
+const Sidebar = ({ userId, sessions, onSelect, selectedSessionId, isMobile, isOpen, onClose }) => (
   <div style={{
-    width: '320px',
+    ...getResponsiveSidebar(isMobile, isOpen),
+    width: isMobile ? '85%' : '320px',
+    maxWidth: isMobile ? '320px' : '320px',
     background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
     borderRight: '1px solid #e5e7eb',
     padding: '32px 0 0 0',
@@ -12,11 +17,33 @@ const Sidebar = ({ userId, sessions, onSelect, selectedSessionId }) => (
     display: 'flex',
     flexDirection: 'column',
     boxShadow: '2px 0 12px rgba(102,126,234,0.08)',
-    position: 'relative',
-    zIndex: 2
+    zIndex: isMobile ? 1000 : 2
   }}>
-    <div style={{ fontWeight: '700', fontSize: '1.2rem', padding: '0 32px 24px 32px', color: '#667eea' }}>
-      🗂️ Chat History
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px 24px 32px' }}>
+      <div style={{ fontWeight: '700', fontSize: '1.2rem', color: '#667eea' }}>
+        🗂️ Chat History
+      </div>
+      {isMobile && (
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none',
+            border: 'none',
+            fontSize: '1.5rem',
+            cursor: 'pointer',
+            color: '#667eea',
+            padding: '0',
+            minWidth: '44px',
+            minHeight: '44px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          aria-label="Close sidebar"
+        >
+          ✕
+        </button>
+      )}
     </div>
     {sessions && sessions.length > 0 ? (
       sessions.map((session) => (
@@ -2214,6 +2241,8 @@ const AiAgentPage: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [aiModel, setAiModel] = useState<'bedrock' | 'sagemaker'>('bedrock');
+  const { isMobile } = useResponsive();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // Sidebar state and logic
   const [sidebarSessions, setSidebarSessions] = useState<any[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -2732,14 +2761,34 @@ const AiAgentPage: React.FC = () => {
           : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
       }}>
         <Navbar />
-        <main style={{ height: 'calc(100vh - 60px)', display: 'flex', flexDirection: 'row', marginTop: '60px' }}>
+        <main style={{ height: 'calc(100vh - 60px)', display: 'flex', flexDirection: 'row', marginTop: '60px', position: 'relative' }}>
+          {/* Mobile overlay */}
+          {isMobile && isSidebarOpen && (
+            <div
+              onClick={() => setIsSidebarOpen(false)}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.5)',
+                zIndex: 999
+              }}
+            />
+          )}
           {/* Sidebar for chat sessions */}
-          <Sidebar
-            userId={userContext.userId}
-            sessions={sidebarSessions}
-            onSelect={handleSidebarSelect}
-            selectedSessionId={selectedSessionId}
-          />
+          {(!isMobile || isSidebarOpen) && (
+            <Sidebar
+              userId={userContext.userId}
+              sessions={sidebarSessions}
+              onSelect={(sessionId) => {
+                handleSidebarSelect(sessionId);
+                if (isMobile) setIsSidebarOpen(false);
+              }}
+              selectedSessionId={selectedSessionId}
+              isMobile={isMobile}
+              isOpen={isSidebarOpen}
+              onClose={() => setIsSidebarOpen(false)}
+            />
+          )}
           {/* Chat Container - Full Screen */}
           <div style={{ flex: 1, width: '100%', maxWidth: '100%', margin: '0 auto', background: isDarkMode ? '#0f172a' : 'rgba(255,255,255,0.98)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {/* Sidebar state and hooks are now at the top of the component */}
@@ -2749,32 +2798,59 @@ const AiAgentPage: React.FC = () => {
                 ? 'linear-gradient(135deg, #1e3a8a 0%, #312e81 100%)'
                 : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
-              padding: '28px 48px',
+              padding: isMobile ? '20px 15px' : '28px 48px',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               borderBottom: 'none',
               boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
             }}>
-              <div>
-                <h1 style={{ 
-                  margin: 0, 
-                  fontSize: '1.8rem', 
-                  fontWeight: '700',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <span style={{ fontSize: '2rem' }}>🤖</span>
-                  <span>AI Travel Agent</span>
-                </h1>
-                <p style={{ 
-                  margin: '5px 0 0 0', 
-                  opacity: 0.9,
-                  fontSize: '0.9rem'
-                }}>
-                  Your intelligent travel planning assistant • AI-Powered
-                </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                {isMobile && (
+                  <button
+                    onClick={() => setIsSidebarOpen(true)}
+                    style={{
+                      background: 'rgba(255,255,255,0.2)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'white',
+                      fontSize: '1.2rem',
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      minWidth: '44px',
+                      minHeight: '44px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      touchAction: 'manipulation'
+                    }}
+                    aria-label="Open chat history"
+                  >
+                    ☰
+                  </button>
+                )}
+                <div style={{ flex: 1 }}>
+                  <h1 style={{ 
+                    margin: 0, 
+                    fontSize: isMobile ? '1.2rem' : '1.8rem', 
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: isMobile ? '8px' : '12px'
+                  }}>
+                    <span style={{ fontSize: isMobile ? '1.5rem' : '2rem' }}>🤖</span>
+                    <span>AI Travel Agent</span>
+                  </h1>
+                  {!isMobile && (
+                    <p style={{ 
+                      margin: '5px 0 0 0', 
+                      opacity: 0.9,
+                      fontSize: '0.9rem'
+                    }}>
+                      Your intelligent travel planning assistant • AI-Powered
+                    </p>
+                  )}
+                </div>
                 {/* User Preferences Indicator */}
                 {(userContext.preferences?.budget || userContext.preferences?.interests?.length > 0) && (
                   <div style={{
@@ -2991,16 +3067,16 @@ const AiAgentPage: React.FC = () => {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyPress}
-                    placeholder="Ask me about flights, hotels, destinations, or any travel questions..."
+                    placeholder={isMobile ? "Ask about travel..." : "Ask me about flights, hotels, destinations, or any travel questions..."}
                     disabled={loading}
                     style={{
                       width: '100%',
-                      minHeight: '64px',
-                      maxHeight: '140px',
-                      padding: '20px 24px 20px 56px',
+                      minHeight: isMobile ? '56px' : '64px',
+                      maxHeight: isMobile ? '120px' : '140px',
+                      padding: isMobile ? '16px 20px 16px 48px' : '20px 24px 20px 56px',
                       border: isDarkMode ? '2px solid #3b82f6' : '2px solid #667eea',
-                      borderRadius: '32px',
-                      fontSize: '1.05rem',
+                      borderRadius: isMobile ? '24px' : '32px',
+                      fontSize: isMobile ? '16px' : '1.05rem',
                       resize: 'none',
                       outline: 'none',
                       fontFamily: 'inherit',
@@ -3032,12 +3108,14 @@ const AiAgentPage: React.FC = () => {
                       : 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
                     color: 'white',
                     border: 'none',
-                    padding: '18px 36px',
-                    borderRadius: '32px',
+                    padding: isMobile ? '16px 24px' : '18px 36px',
+                    borderRadius: isMobile ? '24px' : '32px',
                     cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
-                    fontSize: '1.15rem',
+                    fontSize: isMobile ? '14px' : '1.15rem',
                     fontWeight: '700',
-                    minWidth: '120px',
+                    minWidth: isMobile ? '80px' : '120px',
+                    minHeight: isMobile ? '48px' : 'auto',
+                    touchAction: 'manipulation',
                     transition: 'all 0.3s ease',
                     boxShadow: loading || !input.trim() ? 'none' : '0 6px 20px rgba(59, 130, 246, 0.4)',
                     display: 'flex',
