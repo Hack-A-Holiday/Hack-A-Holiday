@@ -4,6 +4,7 @@ import Head from 'next/head';
 import Swal from 'sweetalert2';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDarkMode } from '@/contexts/DarkModeContext';
+import { useResponsive } from '@/hooks/useResponsive';
 import Navbar from '@/components/layout/Navbar';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import { TravelPreferences, defaultTravelPreferences, PreferencesUtils } from '@/types/preferences';
@@ -17,18 +18,7 @@ import { userProfileApiService } from '@/services/user-profile-api';
 export default function PlanTrip() {
 	const { state } = useAuth();
 	const { isDarkMode } = useDarkMode();
-	const [isMobile, setIsMobile] = useState(false);
-	const [isTablet, setIsTablet] = useState(false);
-
-	useEffect(() => {
-		const checkScreenSize = () => {
-			setIsMobile(window.innerWidth <= 640);
-			setIsTablet(window.innerWidth <= 1024 && window.innerWidth > 640);
-		};
-		checkScreenSize();
-		window.addEventListener('resize', checkScreenSize);
-		return () => window.removeEventListener('resize', checkScreenSize);
-	}, []);
+	const { isMobile, isTablet } = useResponsive();
 
 	// Initialize travel preferences from user data or defaults
 	const [userTravelPreferences, setUserTravelPreferences] = useState<TravelPreferences>(defaultTravelPreferences);
@@ -98,6 +88,7 @@ export default function PlanTrip() {
 		};
 
 		loadUserPreferences();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [state.user?.email]);
 
 	const [preferences, setPreferences] = useState<TripPreferences>({
@@ -175,15 +166,21 @@ export default function PlanTrip() {
 
 	// Helper functions for responsive styling
 	const getContainerPadding = () => {
-		if (isMobile) return '20px 15px';
-		if (isTablet) return '30px 20px';
+		if (isMobile) return '15px';
+		if (isTablet) return '25px 20px';
 		return '40px 20px';
 	};
 
 	const getTitleFontSize = () => {
-		if (isMobile) return '2.2rem';
-		if (isTablet) return '2.6rem';
-		return '3rem';
+		if (isMobile) return '1rem';
+		if (isTablet) return '1.2rem';
+		return '1.5rem';
+	};
+
+	const getCardPadding = () => {
+		if (isMobile) return '20px 16px';
+		if (isTablet) return '30px 24px';
+		return '40px';
 	};
 
 	// Source and destination change handlers
@@ -449,31 +446,36 @@ export default function PlanTrip() {
 				<AnimatedBackground isDarkMode={isDarkMode} variant="plan-trip" />
 				<Navbar />
 				<main style={{ padding: getContainerPadding(), position: 'relative', zIndex: 1 }}>
-					<div style={{ maxWidth: '800px', margin: '0 auto' }}>
-						<div style={{ textAlign: 'center', marginBottom: isMobile ? '30px' : '40px', color: 'white' }}>
+					<div style={{ maxWidth: isMobile ? '100%' : '800px', margin: '0 auto' }}>
+						<div style={{ textAlign: 'center', marginBottom: isMobile ? '20px' : '40px', color: 'white' }}>
 							<div style={{ 
 								display: 'flex', 
 								alignItems: 'center', 
 								justifyContent: 'center', 
-								gap: isMobile ? '10px' : '15px',
-								marginBottom: '10px'
+								gap: isMobile ? '8px' : '15px',
+								marginBottom: isMobile ? '8px' : '10px'
 							}}>
 								<Image 
 									src="/Hack Travel.png" 
 									alt="Hack Travel Logo" 
-									width={isMobile ? 200 : 300}
-									height={isMobile ? 80 : 120}
+									width={isMobile ? 180 : 300}
+									height={isMobile ? 72 : 120}
 									style={{ objectFit: 'contain' }}
 								/>
 							</div>
-							<p style={{ fontSize: getTitleFontSize(), opacity: 0.9, lineHeight: '1.4' }}>
+							<p style={{ 
+								fontSize: getTitleFontSize(), 
+								opacity: 0.9, 
+								lineHeight: '1.4',
+								padding: isMobile ? '0 10px' : '0'
+							}}>
 								Your intelligent travel planning assistant
 							</p>
 						</div>
 						<div style={{ 
 							background: isDarkMode ? '#252d3d' : 'white', 
-							borderRadius: '15px', 
-							padding: getContainerPadding(), 
+							borderRadius: isMobile ? '12px' : '15px', 
+							padding: getCardPadding(), 
 							boxShadow: isDarkMode ? '0 20px 40px rgba(0,0,0,0.6)' : '0 20px 40px rgba(0,0,0,0.1)',
 							border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
 							maxWidth: '1200px',

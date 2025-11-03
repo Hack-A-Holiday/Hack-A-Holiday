@@ -47,11 +47,18 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 	globeSearchQuery
 }) => {
 	return (
-		<div style={{ marginBottom: '30px' }}>
-			<div style={{ marginBottom: '15px' }}>
-				<h3 style={{ margin: '0 0 10px 0', fontSize: isMobile ? '1.3rem' : '1.6rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+		<div style={{ marginBottom: isMobile ? '20px' : '30px' }}>
+			<div style={{ marginBottom: isMobile ? '12px' : '15px' }}>
+				<h3 style={{ 
+					margin: '0 0 10px 0', 
+					fontSize: isMobile ? '1.1rem' : '1.6rem', 
+					fontWeight: 'bold', 
+					display: 'flex', 
+					alignItems: 'center', 
+					gap: isMobile ? '6px' : '8px' 
+				}}>
 					<span style={{ 
-						fontSize: '1.5em',
+						fontSize: isMobile ? '1.3em' : '1.5em',
 						color: '#4285f4'
 					}}>🌍</span>
 					<span style={{ 
@@ -61,62 +68,81 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 						backgroundClip: 'text' 
 					}}>Select Destination</span>
 				</h3>
-				<p style={{ margin: '0 0 15px 0', color: isDarkMode ? '#9ca3af' : '#666', fontSize: '14px', fontStyle: 'italic' }}>
-					Type locations or click on the globe below
+				<p style={{ 
+					margin: '0 0 15px 0', 
+					color: isDarkMode ? '#9ca3af' : '#666', 
+					fontSize: isMobile ? '0.85rem' : '14px', 
+					fontStyle: 'italic' 
+				}}>
+					{isMobile ? 'Type or tap globe' : 'Type locations or click on the globe below'}
 				</p>
 			</div>
 			
 			{/* Instructions for Globe Selection */}
 			<div style={{ 
-				marginBottom: '20px', 
-				padding: '16px 20px',
+				marginBottom: isMobile ? '16px' : '20px', 
+				padding: isMobile ? '12px 14px' : '16px 20px',
 				background: isDarkMode 
 					? 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)' 
 					: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
 				border: `2px solid ${isDarkMode ? 'rgba(102, 126, 234, 0.3)' : 'rgba(102, 126, 234, 0.3)'}`,
-				borderRadius: '12px',
+				borderRadius: isMobile ? '10px' : '12px',
 				textAlign: 'center'
 			}}>
 				<div style={{ 
-					fontSize: '1.1rem', 
+					fontSize: isMobile ? '0.95rem' : '1.1rem', 
 					fontWeight: 'bold', 
-					marginBottom: '8px',
+					marginBottom: isMobile ? '6px' : '8px',
 					color: isDarkMode ? '#e8eaed' : '#333'
 				}}>
 					{clickStep === 'source' ? '🛫 Step 1: Click your starting location' : '🛬 Step 2: Click your destination'}
 				</div>
 				<div style={{ 
-					fontSize: '0.95rem', 
+					fontSize: isMobile ? '0.8rem' : '0.95rem', 
 					color: isDarkMode ? '#9ca3af' : '#666'
 				}}>
 					{clickStep === 'source' 
-						? 'Select where you want to travel FROM on the globe below' 
-						: 'Now select where you want to travel TO'}
+						? (isMobile ? 'Select starting point on globe' : 'Select where you want to travel FROM on the globe below')
+						: (isMobile ? 'Select destination on globe' : 'Now select where you want to travel TO')}
 				</div>
 			</div>
 			
 			{/* Source and Destination Inputs with Switch Button */}
-			<div style={{ display: 'flex', alignItems: 'flex-end', gap: '15px', marginBottom: '20px', flexDirection: isMobile ? 'column' : 'row' }}>
+			<div style={{ 
+				display: 'flex', 
+				alignItems: 'flex-end', 
+				gap: isMobile ? '12px' : '15px', 
+				marginBottom: isMobile ? '16px' : '20px', 
+				flexDirection: isMobile ? 'column' : 'row' 
+			}}>
 				{/* Source City Input */}
 				<div style={{ flex: 1, width: isMobile ? '100%' : 'auto' }}>
-					<label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+					<label style={{ 
+						display: 'block', 
+						marginBottom: '8px', 
+						fontWeight: '600', 
+						fontSize: isMobile ? '0.9rem' : '1rem',
+						color: isDarkMode ? '#e8eaed' : '#333' 
+					}}>
 						🛫 Traveling From
 					</label>
 					<input
 						type="text"
 						value={sourceDestination ? `${sourceDestination.name}, ${sourceDestination.country}` : typedSource}
 						onChange={(e) => onSourceChange(e.target.value)}
-						placeholder="Type city or click on globe..."
+						placeholder={isMobile ? "Starting city..." : "Type city or click on globe..."}
 						style={{
 							width: '100%',
-							padding: '14px 16px',
+							padding: isMobile ? '12px 14px' : '14px 16px',
 							border: `2px solid ${isDarkMode ? 'rgba(102, 126, 234, 0.5)' : 'rgba(102, 126, 234, 0.5)'}`,
-							borderRadius: '12px',
+							borderRadius: isMobile ? '10px' : '12px',
 							fontSize: '16px',
+							minHeight: isMobile ? '48px' : 'auto',
 							backgroundColor: isDarkMode ? '#1a1f2e' : '#ffffff',
 							color: isDarkMode ? '#e8eaed' : '#000',
 							outline: 'none',
-							transition: 'all 0.3s'
+							transition: 'all 0.3s',
+							touchAction: 'manipulation'
 						}}
 					/>
 				</div>
@@ -126,29 +152,34 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 					type="button"
 					onClick={onSwapLocations}
 					style={{
-						padding: '14px 16px',
+						padding: isMobile ? '12px 14px' : '14px 16px',
 						background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
 						color: 'white',
 						border: 'none',
-						borderRadius: '12px',
-						fontSize: '20px',
+						borderRadius: isMobile ? '10px' : '12px',
+						fontSize: isMobile ? '18px' : '20px',
 						cursor: 'pointer',
 						transition: 'all 0.3s',
 						boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
 						display: 'flex',
 						alignItems: 'center',
 						justifyContent: 'center',
-						minWidth: '52px',
-						height: '52px',
-						flexShrink: 0
+						minWidth: isMobile ? '48px' : '52px',
+						height: isMobile ? '48px' : '52px',
+						flexShrink: 0,
+						touchAction: 'manipulation'
 					}}
 					onMouseEnter={(e) => {
-						e.currentTarget.style.transform = 'scale(1.1) rotate(180deg)';
-						e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.5)';
+						if (!isMobile) {
+							e.currentTarget.style.transform = 'scale(1.1) rotate(180deg)';
+							e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.5)';
+						}
 					}}
 					onMouseLeave={(e) => {
-						e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-						e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+						if (!isMobile) {
+							e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+							e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+						}
 					}}
 					title="Switch locations"
 				>
@@ -157,31 +188,46 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 				
 				{/* Destination Input */}
 				<div style={{ flex: 1, width: isMobile ? '100%' : 'auto' }}>
-					<label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#333' }}>
+					<label style={{ 
+						display: 'block', 
+						marginBottom: '8px', 
+						fontWeight: '600', 
+						fontSize: isMobile ? '0.9rem' : '1rem',
+						color: isDarkMode ? '#e8eaed' : '#333' 
+					}}>
 						🛬 Traveling To
 					</label>
 					<input
 						type="text"
 						value={destinationLocation ? `${destinationLocation.name}, ${destinationLocation.country}` : typedDestination}
 						onChange={(e) => onDestinationChange(e.target.value)}
-						placeholder="Type city or click on globe..."
+						placeholder={isMobile ? "Destination..." : "Type city or click on globe..."}
 						style={{
 							width: '100%',
-							padding: '14px 16px',
+							padding: isMobile ? '12px 14px' : '14px 16px',
 							border: `2px solid ${isDarkMode ? 'rgba(118, 75, 162, 0.5)' : 'rgba(118, 75, 162, 0.5)'}`,
-							borderRadius: '12px',
+							borderRadius: isMobile ? '10px' : '12px',
 							fontSize: '16px',
+							minHeight: isMobile ? '48px' : 'auto',
 							backgroundColor: isDarkMode ? '#1a1f2e' : '#ffffff',
 							color: isDarkMode ? '#e8eaed' : '#000',
 							outline: 'none',
-							transition: 'all 0.3s'
+							transition: 'all 0.3s',
+							touchAction: 'manipulation'
 						}}
 					/>
 				</div>
 			</div>
 			
 			{/* Action Buttons */}
-			<div style={{ marginBottom: '20px', textAlign: 'center', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+			<div style={{ 
+				marginBottom: isMobile ? '16px' : '20px', 
+				textAlign: 'center', 
+				display: 'flex', 
+				gap: isMobile ? '8px' : '10px', 
+				justifyContent: 'center', 
+				flexWrap: 'wrap' 
+			}}>
 				{/* Show Route Button (for typed inputs) */}
 				{(typedSource.trim() || typedDestination.trim()) && !routeData && (
 					<button
@@ -189,16 +235,18 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 						onClick={onShowRoute}
 						disabled={!typedSource.trim() || !typedDestination.trim() || loadingRoute}
 						style={{
-							padding: '12px 28px',
+							padding: isMobile ? '10px 20px' : '12px 28px',
 							background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
 							color: 'white',
 							border: 'none',
-							borderRadius: '8px',
-							fontSize: '15px',
+							borderRadius: isMobile ? '8px' : '8px',
+							fontSize: isMobile ? '14px' : '15px',
 							fontWeight: '600',
+							minHeight: isMobile ? '44px' : 'auto',
 							cursor: (!typedSource.trim() || !typedDestination.trim() || loadingRoute) ? 'not-allowed' : 'pointer',
 							transition: 'all 0.3s',
-							opacity: (!typedSource.trim() || !typedDestination.trim() || loadingRoute) ? 0.5 : 1
+							opacity: (!typedSource.trim() || !typedDestination.trim() || loadingRoute) ? 0.5 : 1,
+							touchAction: 'manipulation'
 						}}
 					>
 						🌍 Show Route on Globe
@@ -211,15 +259,17 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 						type="button"
 						onClick={onReset}
 						style={{
-							padding: '12px 24px',
+							padding: isMobile ? '10px 20px' : '12px 24px',
 							background: isDarkMode ? 'rgba(255,255,255,0.1)' : '#f3f4f6',
 							color: isDarkMode ? '#e8eaed' : '#374151',
 							border: 'none',
 							borderRadius: '8px',
-							fontSize: '14px',
+							fontSize: isMobile ? '13px' : '14px',
 							fontWeight: '600',
+							minHeight: isMobile ? '44px' : 'auto',
 							cursor: 'pointer',
-							transition: 'all 0.3s'
+							transition: 'all 0.3s',
+							touchAction: 'manipulation'
 						}}
 					>
 						🔄 Reset Selection
