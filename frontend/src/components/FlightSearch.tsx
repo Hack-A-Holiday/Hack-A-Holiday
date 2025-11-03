@@ -1218,32 +1218,34 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
         width: '100%',
         boxSizing: 'border-box'
       }}>
-        {/* Popular Airport Codes Helper */}
-        <div className="airport-helper" style={{
-          background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa',
-          padding: isMobile ? '12px' : '15px',
-          borderRadius: '8px',
-          marginBottom: '20px',
-          fontSize: isMobile ? '12px' : '14px',
-          border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
-        }}>
-          <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', color: isDarkMode ? '#8b9cff' : '#333' }}>
-            Popular Airport Codes:
-          </p>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(120px, 1fr))',
-            gap: '8px',
-            color: isDarkMode ? '#9ca3af' : '#333'
+        {/* Popular Airport Codes Helper - Hidden on mobile */}
+        {!isMobile && (
+          <div className="airport-helper" style={{
+            background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa',
+            padding: '15px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            fontSize: '14px',
+            border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
           }}>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>New York:</strong> JFK, LGA, EWR</div>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>London:</strong> LHR, LGW, STN</div>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Paris:</strong> CDG, ORY</div>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Tokyo:</strong> NRT, HND</div>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Los Angeles:</strong> LAX</div>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Chicago:</strong> ORD, MDW</div>
+            <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', color: isDarkMode ? '#8b9cff' : '#333' }}>
+              Popular Airport Codes:
+            </p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+              gap: '8px',
+              color: isDarkMode ? '#9ca3af' : '#333'
+            }}>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>New York:</strong> JFK, LGA, EWR</div>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>London:</strong> LHR, LGW, STN</div>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Paris:</strong> CDG, ORY</div>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Tokyo:</strong> NRT, HND</div>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Los Angeles:</strong> LAX</div>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Chicago:</strong> ORD, MDW</div>
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={{ marginBottom: '20px', position: 'relative' }}>
           <label htmlFor="origin" style={{

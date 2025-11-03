@@ -1354,31 +1354,32 @@ export default function FlightSearchPage() {
             </p>
           </div>
 
-          {/* Flight Search Component */}
-          <div style={{
-            marginTop: '0px',
-            padding: isMobile ? '24px 16px' : '32px',
-            background: isDarkMode ? '#252d3d' : 'rgba(255, 255, 255, 0.95)',
-            borderRadius: '16px',
-            border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
-            boxShadow: isDarkMode ? '0 5px 20px rgba(0,0,0,0.6)' : 'none'
-          }}>
-            <h2 style={{
-              fontSize: isMobile ? '1.8rem' : '2.2rem',
-              fontWeight: '600',
-              marginBottom: '30px',
-              color: isDarkMode ? '#e8eaed' : '#1f2937'
-            }}>
-              💡 Flight Search Tips
-            </h2>
-
-            {/* Flight Search Tips Grid */}
+          {/* Flight Search Tips - Hidden on mobile */}
+          {!isMobile && (
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : '1fr 1fr',
-              gap: '20px',
-              marginBottom: '40px'
+              marginTop: '0px',
+              padding: '32px',
+              background: isDarkMode ? '#252d3d' : 'rgba(255, 255, 255, 0.95)',
+              borderRadius: '16px',
+              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+              boxShadow: isDarkMode ? '0 5px 20px rgba(0,0,0,0.6)' : 'none'
             }}>
+              <h2 style={{
+                fontSize: '2.2rem',
+                fontWeight: '600',
+                marginBottom: '30px',
+                color: isDarkMode ? '#e8eaed' : '#1f2937'
+              }}>
+                💡 Flight Search Tips
+              </h2>
+
+              {/* Flight Search Tips Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isTablet ? '1fr 1fr' : '1fr 1fr',
+                gap: '20px',
+                marginBottom: '40px'
+              }}>
               {/* Tip 1 */}
               <div style={{
                 padding: '20px',
@@ -1499,7 +1500,18 @@ export default function FlightSearchPage() {
                 </p>
               </div>
             </div>
+            </div>
+          )}
 
+          {/* Flight Search Component */}
+          <div style={{
+            marginTop: '0px',
+            padding: isMobile ? '16px' : '32px',
+            background: isDarkMode ? '#252d3d' : 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '16px',
+            border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+            boxShadow: isDarkMode ? '0 5px 20px rgba(0,0,0,0.6)' : 'none'
+          }}>
             <FlightSearch
               onFlightSelect={handleFlightSelect}
               onDestinationChange={(dest: string) => {
