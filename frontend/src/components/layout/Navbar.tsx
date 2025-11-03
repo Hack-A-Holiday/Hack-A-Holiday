@@ -4,10 +4,20 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDarkMode } from '../../contexts/DarkModeContext';
+import { useResponsive } from '../../hooks/useResponsive';
 import Swal from 'sweetalert2';
 import { buildApiUrl } from '../../config/api';
 
 export default function Navbar() {
+  const { state, logout } = useAuth();
+  const router = useRouter();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
+  const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const { isMobile } = useResponsive();
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
   // Toggle user menu dropdown
   const toggleUserMenu = () => {
     setIsUserMenuOpen((prev) => !prev);
@@ -25,14 +35,6 @@ export default function Navbar() {
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
   };
-  const { state, logout } = useAuth();
-  const router = useRouter();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isClearingHistory, setIsClearingHistory] = useState(false);
-  const { isDarkMode, toggleDarkMode } = useDarkMode();
-  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Fix: Define toggleMobileMenu to toggle the mobile menu state
   const toggleMobileMenu = () => {
@@ -52,6 +54,7 @@ export default function Navbar() {
   };
 
   return (
+    <>
     <nav className="navbar" style={{
       backdropFilter: 'blur(15px)',
       padding: '0',
@@ -64,7 +67,7 @@ export default function Navbar() {
       <div style={{
         maxWidth: '1200px',
         margin: '0 auto',
-        padding: '0 15px',
+        padding: isMobile ? '0 15' : '0 15 0 0',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -74,13 +77,14 @@ export default function Navbar() {
         <Link href="/home" className="nav-brand" style={{
           display: 'flex',
           alignItems: 'center',
-          fontSize: isMobile ? '1.2rem' : '1.5rem'
+          fontSize: isMobile ? '1.2rem' : '1.5rem',
+          marginLeft: isMobile ? '0' : '-15px'
         }}>
           <Image
             src="/Hack Travel.png"
             alt="Hack Travel Logo"
-            width={isMobile ? 200 : 280}
-            height={isMobile ? 60 : 80}
+            width={isMobile ? 180 : 280}
+            height={isMobile ? 54 : 80}
             style={{
               objectFit: 'contain'
             }}
@@ -446,33 +450,85 @@ export default function Navbar() {
           </div>
         )}
       </div>
+    </nav>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu - Backdrop Overlay */}
+      {state.user && isMobile && isMobileMenuOpen && (
+        <div 
+          onClick={closeMobileMenu}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1100,
+            animation: 'fadeIn 0.3s ease'
+          }}
+        />
+      )}
+
+      {/* Mobile Menu - Slide-in Sidebar */}
       {state.user && isMobile && isMobileMenuOpen && (
         <div style={{
           position: 'fixed',
-          top: '73px',
-          left: 0,
+          top: 0,
           right: 0,
           bottom: 0,
-          background: isDarkMode ? 'rgba(20, 20, 20, 0.98)' : 'rgba(255, 255, 255, 0.98)',
-          backdropFilter: 'blur(10px)',
-          padding: '20px',
-          zIndex: 999
+          width: '80%',
+          maxWidth: '320px',
+          background: isDarkMode ? '#1a1a1a' : '#ffffff',
+          boxShadow: isDarkMode ? '-4px 0 30px rgba(0, 0, 0, 0.5)' : '-4px 0 30px rgba(0, 0, 0, 0.15)',
+          zIndex: 1101,
+          overflowY: 'auto',
+          animation: 'slideInRight 0.3s ease',
+          display: 'flex',
+          flexDirection: 'column'
         }}>
+          {/* Close Button */}
+          <button
+            onClick={closeMobileMenu}
+            style={{
+              position: 'absolute',
+              top: '15px',
+              right: '15px',
+              background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+              border: 'none',
+              borderRadius: '8px',
+              width: '40px',
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              fontSize: '20px',
+              color: isDarkMode ? '#e0e0e0' : '#333',
+              zIndex: 10,
+              touchAction: 'manipulation'
+            }}
+          >
+            ✕
+          </button>
+
+          {/* Menu Content */}
           <div style={{
+            padding: '20px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '20px'
+            gap: '20px',
+            flex: 1
           }}>
             {/* User Info */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              padding: '20px',
-              background: 'rgba(102, 126, 234, 0.1)',
-              borderRadius: '15px'
+              padding: '20px 15px',
+              background: isDarkMode ? 'rgba(102, 126, 234, 0.15)' : 'rgba(102, 126, 234, 0.1)',
+              borderRadius: '15px',
+              marginTop: '30px'
             }}>
               <div style={{
                 width: '50px',
@@ -484,15 +540,29 @@ export default function Navbar() {
                 justifyContent: 'center',
                 color: 'white',
                 fontSize: '1.2rem',
-                fontWeight: '600'
+                fontWeight: '600',
+                flexShrink: 0
               }}>
                 {state.user.name ? state.user.name[0].toUpperCase() : state.user.email[0].toUpperCase()}
               </div>
-              <div>
-                <div style={{ fontWeight: '600', color: isDarkMode ? '#e0e0e0' : '#333', fontSize: '1.1rem' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ 
+                  fontWeight: '600', 
+                  color: isDarkMode ? '#e0e0e0' : '#333', 
+                  fontSize: '1rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
                   {state.user.name || 'Travel Enthusiast'}
                 </div>
-                <div style={{ color: isDarkMode ? '#999' : '#666', fontSize: '0.9rem' }}>
+                <div style={{ 
+                  color: isDarkMode ? '#999' : '#666', 
+                  fontSize: '0.85rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
                   {state.user.email}
                 </div>
               </div>
@@ -507,75 +577,133 @@ export default function Navbar() {
               <Link href="/plantrip" onClick={closeMobileMenu} style={{
                 textDecoration: 'none',
                 color: router.pathname === '/plantrip' ? '#667eea' : (isDarkMode ? '#e0e0e0' : '#333'),
-                fontSize: '1.2rem',
-                fontWeight: router.pathname === '/plantrip' ? '600' : '400',
-                padding: '15px 20px',
-                borderRadius: '10px',
-                background: router.pathname === '/plantrip' ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
-                border: router.pathname === '/plantrip' ? '2px solid rgba(102, 126, 234, 0.2)' : '2px solid transparent',
-                display: 'block'
+                fontSize: '1rem',
+                fontWeight: router.pathname === '/plantrip' ? '600' : '500',
+                padding: '14px 15px',
+                borderRadius: '12px',
+                background: router.pathname === '/plantrip' 
+                  ? (isDarkMode ? 'rgba(102, 126, 234, 0.15)' : 'rgba(102, 126, 234, 0.1)')
+                  : 'transparent',
+                border: router.pathname === '/plantrip' 
+                  ? '2px solid rgba(102, 126, 234, 0.3)' 
+                  : '2px solid transparent',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                transition: 'all 0.2s ease',
+                touchAction: 'manipulation'
               }}>
-                ✈️ Plan Trip
+                <span style={{ fontSize: '1.3rem' }}>✈️</span>
+                <span>Plan Trip</span>
               </Link>
               <Link href="/ai-assistant" onClick={closeMobileMenu} style={{
                 textDecoration: 'none',
-                color: router.pathname === '/ai-assistant' ? '#667eea' : '#333',
-                fontSize: '1.2rem',
-                fontWeight: router.pathname === '/ai-assistant' ? '600' : '400',
-                padding: '15px 20px',
-                borderRadius: '10px',
-                background: router.pathname === '/ai-assistant' ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
-                border: router.pathname === '/ai-assistant' ? '2px solid rgba(102, 126, 234, 0.2)' : '2px solid transparent',
-                display: 'block'
+                color: router.pathname === '/ai-assistant' ? '#667eea' : (isDarkMode ? '#e0e0e0' : '#333'),
+                fontSize: '1rem',
+                fontWeight: router.pathname === '/ai-assistant' ? '600' : '500',
+                padding: '14px 15px',
+                borderRadius: '12px',
+                background: router.pathname === '/ai-assistant' 
+                  ? (isDarkMode ? 'rgba(102, 126, 234, 0.15)' : 'rgba(102, 126, 234, 0.1)')
+                  : 'transparent',
+                border: router.pathname === '/ai-assistant' 
+                  ? '2px solid rgba(102, 126, 234, 0.3)' 
+                  : '2px solid transparent',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                transition: 'all 0.2s ease',
+                touchAction: 'manipulation'
               }}>
-                🤖 AI Assistant
+                <span style={{ fontSize: '1.3rem' }}>🤖</span>
+                <span>AI Assistant</span>
               </Link>
               <Link href="/flight-search" onClick={closeMobileMenu} style={{
                 textDecoration: 'none',
                 color: router.pathname === '/flight-search' ? '#667eea' : (isDarkMode ? '#e0e0e0' : '#333'),
-                fontSize: '1.2rem',
-                fontWeight: router.pathname === '/flight-search' ? '600' : '400',
-                padding: '15px 20px',
-                borderRadius: '10px',
-                background: router.pathname === '/flight-search' ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
-                border: router.pathname === '/flight-search' ? '2px solid rgba(102, 126, 234, 0.2)' : '2px solid transparent',
-                display: 'block'
+                fontSize: '1rem',
+                fontWeight: router.pathname === '/flight-search' ? '600' : '500',
+                padding: '14px 15px',
+                borderRadius: '12px',
+                background: router.pathname === '/flight-search' 
+                  ? (isDarkMode ? 'rgba(102, 126, 234, 0.15)' : 'rgba(102, 126, 234, 0.1)')
+                  : 'transparent',
+                border: router.pathname === '/flight-search' 
+                  ? '2px solid rgba(102, 126, 234, 0.3)' 
+                  : '2px solid transparent',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                transition: 'all 0.2s ease',
+                touchAction: 'manipulation'
               }}>
-                🔍 Flight & Hotel Search
+                <span style={{ fontSize: '1.3rem' }}>🔍</span>
+                <span>Flight & Hotel Search</span>
               </Link>
               <Link href="/profile" onClick={closeMobileMenu} style={{
                 textDecoration: 'none',
                 color: router.pathname === '/profile' ? '#667eea' : (isDarkMode ? '#e0e0e0' : '#333'),
-                fontSize: '1.2rem',
-                fontWeight: router.pathname === '/profile' ? '600' : '400',
-                padding: '15px 20px',
-                borderRadius: '10px',
-                background: router.pathname === '/profile' ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
-                border: router.pathname === '/profile' ? '2px solid rgba(102, 126, 234, 0.2)' : '2px solid transparent',
-                display: 'block'
+                fontSize: '1rem',
+                fontWeight: router.pathname === '/profile' ? '600' : '500',
+                padding: '14px 15px',
+                borderRadius: '12px',
+                background: router.pathname === '/profile' 
+                  ? (isDarkMode ? 'rgba(102, 126, 234, 0.15)' : 'rgba(102, 126, 234, 0.1)')
+                  : 'transparent',
+                border: router.pathname === '/profile' 
+                  ? '2px solid rgba(102, 126, 234, 0.3)' 
+                  : '2px solid transparent',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                transition: 'all 0.2s ease',
+                touchAction: 'manipulation'
               }}>
-                � Profile
+                <span style={{ fontSize: '1.3rem' }}>👤</span>
+                <span>Profile</span>
               </Link>
             </div>
 
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={() => {
-                toggleDarkMode();
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '15px 20px',
-                borderRadius: '10px',
-                background: 'transparent',
-                border: `2px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
-                color: isDarkMode ? '#e0e0e0' : '#333',
-                fontSize: '1.1rem',
-                cursor: 'pointer'
-              }}
-            >
+            {/* Settings & Actions */}
+            <div style={{
+              borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+              paddingTop: '20px',
+              marginTop: '10px'
+            }}>
+              <div style={{
+                color: isDarkMode ? '#999' : '#666',
+                fontSize: '0.75rem',
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                marginBottom: '15px',
+                paddingLeft: '15px'
+              }}>
+                Settings
+              </div>
+
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={() => {
+                  toggleDarkMode();
+                }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '14px 15px',
+                  borderRadius: '12px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: isDarkMode ? '#e0e0e0' : '#333',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  touchAction: 'manipulation',
+                  transition: 'background 0.2s ease'
+                }}
+              >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span>{isDarkMode ? '🌙' : '☀️'}</span>
                 <span>Dark Mode</span>
@@ -600,31 +728,62 @@ export default function Navbar() {
                   boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }} />
               </div>
-            </button>
+              </button>
+            </div>
 
-            {/* Mobile Sign Out Button */}
-            <button
-              onClick={() => {
-                handleLogout();
-                closeMobileMenu();
-              }}
-              style={{
-                background: 'linear-gradient(135deg, #ff4444 0%, #cc0000 100%)',
-                color: 'white',
-                border: 'none',
-                padding: '15px 20px',
-                borderRadius: '15px',
-                cursor: 'pointer',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                marginTop: '20px'
-              }}
-            >
-              🚪 Sign Out
-            </button>
+            {/* Sign Out Section */}
+            <div style={{
+              marginTop: 'auto',
+              paddingTop: '20px',
+              borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)'
+            }}>
+              <button
+                onClick={() => {
+                  handleLogout();
+                  closeMobileMenu();
+                }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  background: 'linear-gradient(135deg, #ff4444 0%, #cc0000 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '16px 20px',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  touchAction: 'manipulation',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                  boxShadow: '0 4px 12px rgba(255, 68, 68, 0.3)'
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>🚪</span>
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
-    </nav>
+
+      {/* Add animations for mobile menu */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+      `}</style>
+    </>
   );
 }

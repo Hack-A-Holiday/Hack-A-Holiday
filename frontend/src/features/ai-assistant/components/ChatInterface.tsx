@@ -90,12 +90,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           background: isDarkMode ? 'rgba(10, 15, 28, 0.95)' : 'rgba(248, 250, 252, 0.95)',
           backdropFilter: 'blur(10px)',
           borderBottom: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
-          padding: '16px 24px',
+          padding: isMobile ? '12px 16px' : '16px 24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px' }}>
             {/* Sidebar Toggle */}
             <button
               onClick={onToggleSidebar}
@@ -214,24 +214,26 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               boxShadow: '0 0 0 2px rgba(16, 185, 129, 0.2)'
             }} />
             <span style={{
-              fontSize: '1rem',
+              fontSize: isMobile ? '0.95rem' : '1rem',
               fontWeight: '600',
               color: isDarkMode ? '#f1f5f9' : '#0f172a'
             }}>
-              AI Assistant Online
+              {isMobile ? 'AI Assistant' : 'AI Assistant Online'}
             </span>
-            <span style={{
-              fontSize: '0.8rem',
-              color: isDarkMode ? '#64748b' : '#94a3b8',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2Z"/>
-              </svg>
-              Nova AI
-            </span>
+            {!isMobile && (
+              <span style={{
+                fontSize: '0.8rem',
+                color: isDarkMode ? '#64748b' : '#94a3b8',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2Z"/>
+                </svg>
+                Nova AI
+              </span>
+            )}
           </div>
         </div>
 
@@ -240,8 +242,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: '40px 32px',
-          paddingBottom: '160px', // Space for fixed input
+          padding: isMobile ? '20px 16px' : '40px 32px',
+          paddingBottom: isMobile ? '100px' : '160px', // Space for sticky input
           maxWidth: '1100px',
           margin: '0 auto',
           width: '100%',
@@ -252,13 +254,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           {messages.length === 0 && (
             <div style={{
               textAlign: 'center',
-              padding: '80px 24px',
+              padding: isMobile ? '40px 16px' : '80px 24px',
               opacity: 0.8
             }}>
               <div style={{
-                width: '80px',
-                height: '80px',
-                margin: '0 auto 24px',
+                width: isMobile ? '60px' : '80px',
+                height: isMobile ? '60px' : '80px',
+                margin: isMobile ? '0 auto 16px' : '0 auto 24px',
                 background: isDarkMode 
                   ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)'
                   : 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)',
@@ -268,12 +270,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 justifyContent: 'center',
                 border: isDarkMode ? '2px solid rgba(99, 102, 241, 0.2)' : '2px solid rgba(99, 102, 241, 0.1)'
               }}>
-                <svg width="40" height="40" viewBox="0 0 24 24" fill={isDarkMode ? '#6366f1' : '#8b5cf6'}>
+                <svg width={isMobile ? "32" : "40"} height={isMobile ? "32" : "40"} viewBox="0 0 24 24" fill={isDarkMode ? '#6366f1' : '#8b5cf6'}>
                   <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.9 1 3 1.9 3 3V19C3 20.1 3.9 21 5 21H11V19H5V3H14L20 9H21Z"/>
                 </svg>
               </div>
               <h3 style={{
-                fontSize: '1.5rem',
+                fontSize: isMobile ? '1.25rem' : '1.5rem',
                 fontWeight: '600',
                 color: isDarkMode ? '#e2e8f0' : '#1e293b',
                 margin: '0 0 16px 0',
@@ -284,7 +286,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <p style={{
                 color: isDarkMode ? '#94a3b8' : '#64748b',
                 margin: '0 0 20px 0',
-                fontSize: '1.1rem',
+                fontSize: isMobile ? '1rem' : '1.1rem',
                 lineHeight: '1.6',
                 letterSpacing: '0.3px'
               }}>
@@ -295,22 +297,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '12px 20px',
+                gap: isMobile ? '6px' : '8px',
+                padding: isMobile ? '10px 16px' : '12px 20px',
                 background: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.05)',
                 border: isDarkMode ? '1px solid rgba(99, 102, 241, 0.2)' : '1px solid rgba(99, 102, 241, 0.1)',
                 borderRadius: '25px',
-                fontSize: '0.9rem',
+                fontSize: isMobile ? '0.85rem' : '0.9rem',
                 color: isDarkMode ? '#a5b4fc' : '#6366f1',
                 fontWeight: '500',
-                animation: 'pulse 3s infinite'
+                animation: 'pulse 3s infinite',
+                textAlign: 'center'
               }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width={isMobile ? "14" : "16"} height={isMobile ? "14" : "16"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-4"/>
                   <polyline points="9,11 12,14 15,11"/>
                   <line x1="12" y1="14" x2="12" y2="3"/>
                 </svg>
-                💡 Tip: Double-click the menu button (☰) to access your chat history
+                {isMobile ? '💡 Double-tap menu for chat history' : '💡 Tip: Double-click the menu button (☰) to access your chat history'}
               </div>
             </div>
           )}
@@ -423,20 +426,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
         {/* Fixed Input Area at Bottom (Claude-style) */}
         <div style={{
-          position: 'fixed',
+          position: 'sticky',
           bottom: 0,
           left: 0,
           right: 0,
           background: isDarkMode ? 'rgba(10, 15, 28, 0.95)' : 'rgba(248, 250, 252, 0.95)',
           backdropFilter: 'blur(10px)',
           borderTop: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
-          padding: '20px 24px'
+          padding: isMobile ? '12px 16px' : '20px 24px',
+          zIndex: 10
         }}>
           <div style={{
-            maxWidth: '900px',
+            maxWidth: isMobile ? '100%' : '900px',
             margin: '0 auto',
             display: 'flex',
-            gap: '12px',
+            gap: isMobile ? '8px' : '12px',
             alignItems: 'flex-end'
           }}>
             <div style={{ flex: 1, position: 'relative' }}>
@@ -449,15 +453,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     onSendMessage();
                   }
                 }}
-                placeholder="Ask me about destinations, flights, hotels, or anything travel-related..."
+                placeholder={isMobile ? "Ask about travel..." : "Ask me about destinations, flights, hotels, or anything travel-related..."}
                 disabled={isLoading}
                 rows={1}
                 style={{
                   width: '100%',
-                  padding: '16px 20px',
-                  paddingRight: '60px',
-                  borderRadius: '20px',
-                  fontSize: '1rem',
+                  padding: isMobile ? '14px 16px' : '16px 20px',
+                  paddingRight: isMobile ? '50px' : '60px',
+                  borderRadius: isMobile ? '16px' : '20px',
+                  fontSize: isMobile ? '16px' : '1rem',
                   outline: 'none',
                   resize: 'none',
                   fontFamily: 'inherit',
@@ -466,8 +470,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   color: isDarkMode ? '#f1f5f9' : '#0f172a',
                   border: isDarkMode ? '1px solid #374151' : '1px solid #d1d5db',
                   transition: 'all 0.2s ease',
-                  minHeight: '52px',
-                  maxHeight: '120px'
+                  minHeight: isMobile ? '48px' : '52px',
+                  maxHeight: isMobile ? '100px' : '120px',
+                  touchAction: 'manipulation'
                 }}
                 onFocus={(e) => {
                   e.currentTarget.style.borderColor = '#6366f1';
@@ -500,9 +505,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               onClick={onSendMessage}
               disabled={!inputMessage.trim() || isLoading}
               style={{
-                width: '52px',
-                height: '52px',
-                borderRadius: '16px',
+                width: isMobile ? '48px' : '52px',
+                height: isMobile ? '48px' : '52px',
+                minWidth: isMobile ? '48px' : '52px',
+                borderRadius: isMobile ? '14px' : '16px',
                 border: 'none',
                 background: inputMessage.trim() && !isLoading
                   ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
@@ -512,7 +518,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 transition: 'all 0.2s ease',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                touchAction: 'manipulation',
+                flexShrink: 0
               }}
               onMouseEnter={(e) => {
                 if (inputMessage.trim() && !isLoading) {

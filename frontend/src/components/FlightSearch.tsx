@@ -14,6 +14,8 @@ import { FlightOption, FlightSearchRequest, FlightSearchResponse, COMMON_AIRPORT
 import { KiwiApiService } from '../services/kiwi-api';
 import { useDarkMode } from '../contexts/DarkModeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useResponsive } from '../hooks/useResponsive';
+import { getTouchFriendlyButton, getResponsiveInput, getResponsiveTableWrapper } from '../utils/responsive-styles';
 import { tripTrackingService } from '../services/trip-tracking';
 import { tripApiService } from '../services/trip-api';
 import { BookingConfirmationModal } from './BookingConfirmationModal';
@@ -132,18 +134,21 @@ const getStandardizedHoverEffects = () => ({
 });
 
 // Standardized button container styling
-const getStandardizedButtonContainer = () => ({
-  marginLeft: '20px',
+const getStandardizedButtonContainer = (isMobile: boolean) => ({
+  marginLeft: isMobile ? '0' : '20px',
+  marginTop: isMobile ? '12px' : '0',
   display: 'flex',
   gap: '10px',
   flexDirection: 'column' as const,
-  minWidth: '140px', // Ensure buttons don't get too narrow
-  flexShrink: 0 // Prevent buttons from shrinking on smaller screens
+  minWidth: isMobile ? 'auto' : '140px',
+  flexShrink: 0,
+  width: isMobile ? '100%' : 'auto'
 });
 
 export default function FlightSearch({ onFlightSelect, onDestinationChange, initialSearch, className = '' }: Readonly<FlightSearchProps>) {
   const { isDarkMode } = useDarkMode();
   const { state } = useAuth();
+  const { isMobile, isTablet } = useResponsive();
   const [searchRequest, setSearchRequest] = useState<FlightSearchRequest>({
     origin: initialSearch?.origin || '',
     destination: initialSearch?.destination || '',
@@ -1128,52 +1133,64 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
 
   return (
     <div style={{
-      maxWidth: '1200px',
+      maxWidth: isMobile ? '100%' : isTablet ? '768px' : '1200px',
       margin: '0 auto',
-      padding: '20px'
+      padding: isMobile ? '10px' : '20px',
+      width: '100%',
+      boxSizing: 'border-box'
     }} className={className}>
       <div style={{
         display: 'flex',
+        flexDirection: isMobile ? 'row' : 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '25px',
-        padding: '20px',
+        marginBottom: isMobile ? '12px' : '25px',
+        padding: isMobile ? '10px 12px' : '20px',
         background: isDarkMode ? '#252d3d' : 'white',
-        borderRadius: '15px',
+        borderRadius: isMobile ? '10px' : '15px',
         boxShadow: isDarkMode ? '0 2px 10px rgba(0,0,0,0.6)' : '0 2px 10px rgba(0,0,0,0.05)',
-        border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9'
+        border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9',
+        gap: isMobile ? '8px' : '0'
       }}>
         <h2 style={{
           margin: 0,
           color: isDarkMode ? '#e8eaed' : '#495057',
-          fontSize: '2rem',
-          fontWeight: 'bold',
+          fontSize: isMobile ? '1.1rem' : '2rem',
+          fontWeight: '700',
           display: 'flex',
           alignItems: 'center',
-          gap: '10px'
+          gap: isMobile ? '6px' : '10px',
+          textAlign: 'left',
+          justifyContent: 'flex-start'
         }}>
-          ✈️ Flight Search
+          <span style={{ fontSize: isMobile ? '1rem' : '1.5rem' }}>✈️</span>
+          {isMobile ? 'Search Flights' : 'Flight Search'}
         </h2>
         <button
           onClick={toggleFilters}
           style={{
-            padding: '10px 20px',
+            padding: isMobile ? '8px 14px' : '10px 20px',
             background: showFilters ? '#28a745' : '#007bff',
             color: 'white',
             border: 'none',
-            borderRadius: '8px',
+            borderRadius: isMobile ? '8px' : '8px',
             cursor: 'pointer',
-            fontSize: '14px',
+            fontSize: isMobile ? '0.8rem' : '14px',
             fontWeight: '600',
+            minHeight: isMobile ? '36px' : 'auto',
+            touchAction: 'manipulation',
             transition: 'all 0.2s ease',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: isMobile ? '4px' : '8px',
+            whiteSpace: 'nowrap',
+            flexShrink: 0
           }}
           onMouseOver={(e) => (e.target as HTMLElement).style.background = showFilters ? '#218838' : '#0056b3'}
           onMouseOut={(e) => (e.target as HTMLElement).style.background = showFilters ? '#28a745' : '#007bff'}
         >
-          {showFilters ? '🔍 Hide Filters' : '🔧 Show Filters'}
+          <span>{showFilters ? '�️' : '🔧'}</span>
+          {isMobile ? (showFilters ? 'Hide' : 'Filters') : (showFilters ? 'Hide Filters' : 'Show Filters')}
         </button>
       </div>
 
@@ -1198,50 +1215,75 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
       <div style={{
         background: isDarkMode ? '#252d3d' : 'white',
         borderRadius: '15px',
-        padding: '30px',
+        padding: isMobile ? '15px' : '30px',
         boxShadow: isDarkMode ? '0 5px 20px rgba(0,0,0,0.6)' : '0 5px 20px rgba(0,0,0,0.08)',
         marginBottom: '25px',
-        border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9'
+        border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9',
+        width: '100%',
+        boxSizing: 'border-box'
       }}>
-        {/* Popular Airport Codes Helper */}
-        <div className="airport-helper" style={{
-          background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa',
-          padding: '15px',
-          borderRadius: '8px',
-          marginBottom: '20px',
-          fontSize: '14px',
-          border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
-        }}>
-          <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', color: isDarkMode ? '#8b9cff' : '#333' }}>
-            Popular Airport Codes:
-          </p>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-            gap: '8px',
-            color: isDarkMode ? '#9ca3af' : '#333'
+        {/* Popular Airport Codes Helper - Hidden on mobile */}
+        {!isMobile && (
+          <div className="airport-helper" style={{
+            background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa',
+            padding: '15px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            fontSize: '14px',
+            border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
           }}>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>New York:</strong> JFK, LGA, EWR</div>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>London:</strong> LHR, LGW, STN</div>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Paris:</strong> CDG, ORY</div>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Tokyo:</strong> NRT, HND</div>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Los Angeles:</strong> LAX</div>
-            <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Chicago:</strong> ORD, MDW</div>
+            <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', color: isDarkMode ? '#8b9cff' : '#333' }}>
+              Popular Airport Codes:
+            </p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+              gap: '8px',
+              color: isDarkMode ? '#9ca3af' : '#333'
+            }}>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>New York:</strong> JFK, LGA, EWR</div>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>London:</strong> LHR, LGW, STN</div>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Paris:</strong> CDG, ORY</div>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Tokyo:</strong> NRT, HND</div>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Los Angeles:</strong> LAX</div>
+              <div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Chicago:</strong> ORD, MDW</div>
+            </div>
           </div>
+        )}
+
+        {/* Section Header - Flight Route */}
+        <div style={{
+          fontSize: isMobile ? '0.75rem' : '0.85rem',
+          fontWeight: '700',
+          color: isDarkMode ? '#93c5fd' : '#3b82f6',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          marginBottom: isMobile ? '10px' : '12px',
+          marginTop: isMobile ? '8px' : '0',
+          paddingBottom: isMobile ? '6px' : '8px',
+          borderBottom: isDarkMode ? '1px solid rgba(59, 130, 246, 0.2)' : '1px solid rgba(59, 130, 246, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: isMobile ? '6px' : '8px'
+        }}>
+          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>✈️</span> Flight Route
         </div>
 
-        <div style={{ marginBottom: '20px', position: 'relative' }}>
+        <div style={{ marginBottom: isMobile ? '12px' : '16px', position: 'relative' }}>
           <label htmlFor="origin" style={{
             display: 'block',
-            marginBottom: '8px',
+            marginBottom: isMobile ? '5px' : '6px',
             fontWeight: '600',
             color: isDarkMode ? '#e8eaed' : '#495057',
-            fontSize: '14px'
+            fontSize: isMobile ? '0.8rem' : '0.9rem'
           }}>
-            ✈️ Origin Airport Code *
-            <span style={{ fontSize: '12px', fontWeight: 'normal', color: isDarkMode ? '#9ca3af' : '#6c757d', marginLeft: '8px' }}>
-              (Type country name to see all airports)
-            </span>
+            <span style={{ marginRight: '4px', fontSize: isMobile ? '0.9rem' : '1rem' }}>✈️</span>
+            Origin Airport *
+            {!isMobile && (
+              <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: isDarkMode ? '#9ca3af' : '#6c757d', marginLeft: '8px' }}>
+                (Type country name to see all airports)
+              </span>
+            )}
           </label>
           <input
             type="text"
@@ -1260,14 +1302,14 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
               // Delay to allow click on suggestion
               setTimeout(() => setShowOriginSuggestions(false), 200);
             }}
-            placeholder="e.g., JFK, India, United States"
+            placeholder={isMobile ? "JFK, India, USA..." : "e.g., JFK, India, United States"}
             required
             style={{
               width: '100%',
-              padding: '12px 16px',
+              padding: isMobile ? '10px 12px' : '12px 16px',
               border: `2px solid ${!searchRequest.origin ? '#ff6b6b' : (isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9')}`,
-              borderRadius: '10px',
-              fontSize: '16px',
+              borderRadius: isMobile ? '8px' : '10px',
+              fontSize: isMobile ? '0.9rem' : '16px',
               outline: 'none',
               transition: 'all 0.3s ease',
               background: isDarkMode ? '#1a1f2e' : '#fafbfc',
@@ -1315,18 +1357,21 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           )}
         </div>
 
-        <div style={{ marginBottom: '20px', position: 'relative' }}>
+        <div style={{ marginBottom: isMobile ? '14px' : '16px', position: 'relative' }}>
           <label htmlFor="destination" style={{
             display: 'block',
-            marginBottom: '8px',
+            marginBottom: isMobile ? '5px' : '6px',
             fontWeight: '600',
             color: isDarkMode ? '#e8eaed' : '#495057',
-            fontSize: '14px'
+            fontSize: isMobile ? '0.85rem' : '0.9rem'
           }}>
-            🛬 Destination Airport Code *
-            <span style={{ fontSize: '12px', fontWeight: 'normal', color: isDarkMode ? '#9ca3af' : '#6c757d', marginLeft: '8px' }}>
-              (Type country name to see all airports)
-            </span>
+            <span style={{ marginRight: '4px' }}>🛬</span>
+            Destination Airport *
+            {!isMobile && (
+              <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: isDarkMode ? '#9ca3af' : '#6c757d', marginLeft: '8px' }}>
+                (Type country name to see all airports)
+              </span>
+            )}
           </label>
           <input
             type="text"
@@ -1345,14 +1390,14 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
               // Delay to allow click on suggestion
               setTimeout(() => setShowDestinationSuggestions(false), 200);
             }}
-            placeholder="e.g., CDG, Japan, France"
+            placeholder={isMobile ? "CDG, Japan, France..." : "e.g., CDG, Japan, France"}
             required
             style={{
               width: '100%',
-              padding: '12px 16px',
+              padding: isMobile ? '10px 12px' : '12px 16px',
               border: `2px solid ${!searchRequest.destination ? '#ff6b6b' : (isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9')}`,
-              borderRadius: '10px',
-              fontSize: '16px',
+              borderRadius: isMobile ? '8px' : '10px',
+              fontSize: isMobile ? '0.9rem' : '16px',
               outline: 'none',
               transition: 'all 0.3s ease',
               background: isDarkMode ? '#1a1f2e' : '#fafbfc',
@@ -1400,96 +1445,132 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           )}
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label htmlFor="departureDate" style={{
-            display: 'block',
-            marginBottom: '8px',
-            fontWeight: '600',
-            color: isDarkMode ? '#e8eaed' : '#495057',
-            fontSize: '14px'
-          }}>
-            📅 Departure Date *
-          </label>
-          <input
-            type="date"
-            id="departureDate"
-            name="departureDate"
-            value={searchRequest.departureDate}
-            onChange={handleInputChange}
-            min={new Date().toISOString().split('T')[0]}
-            required
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              border: `2px solid ${!searchRequest.departureDate ? '#ff6b6b' : (isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9')}`,
-              borderRadius: '10px',
-              fontSize: '16px',
-              outline: 'none',
-              transition: 'all 0.3s ease',
-              background: isDarkMode ? '#1a1f2e' : '#fafbfc',
-              color: isDarkMode ? '#e8eaed' : '#000',
-              colorScheme: isDarkMode ? 'dark' : 'light'
-            }}
-            onFocus={(e) => e.target.style.borderColor = isDarkMode ? '#667eea' : '#007bff'}
-            onBlur={(e) => e.target.style.borderColor = !searchRequest.departureDate ? '#ff6b6b' : (isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9')}
-          />
+        {/* Section Header - Travel Dates */}
+        <div style={{
+          fontSize: isMobile ? '0.75rem' : '0.85rem',
+          fontWeight: '700',
+          color: isDarkMode ? '#a78bfa' : '#8b5cf6',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          marginBottom: isMobile ? '10px' : '12px',
+          marginTop: isMobile ? '14px' : '20px',
+          paddingBottom: isMobile ? '6px' : '8px',
+          borderBottom: isDarkMode ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid rgba(139, 92, 246, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: isMobile ? '6px' : '8px'
+        }}>
+          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>📅</span> Travel Dates
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label htmlFor="returnDate" style={{
-            display: 'block',
-            marginBottom: '8px',
-            fontWeight: '600',
-            color: isDarkMode ? '#e8eaed' : '#495057',
-            fontSize: '14px'
-          }}>
-            🔁 Return Date
-          </label>
-          <input
-            type="date"
-            id="returnDate"
-            name="returnDate"
-            value={searchRequest.returnDate || ''}
-            onChange={handleInputChange}
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
-              borderRadius: '10px',
-              fontSize: '16px',
-              outline: 'none',
-              transition: 'all 0.3s ease',
-              background: isDarkMode ? '#1a1f2e' : '#fafbfc',
-              color: isDarkMode ? '#e8eaed' : '#000',
-              colorScheme: isDarkMode ? 'dark' : 'light'
-            }}
-            onFocus={(e) => e.target.style.borderColor = isDarkMode ? '#667eea' : '#007bff'}
-            onBlur={(e) => e.target.style.borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9'}
-          />
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', 
+          gap: isMobile ? '10px' : '20px',
+          marginBottom: isMobile ? '14px' : '20px'
+        }}>
+          <div>
+            <label htmlFor="departureDate" style={{
+              display: 'block',
+              marginBottom: isMobile ? '5px' : '6px',
+              fontWeight: '600',
+              color: isDarkMode ? '#e8eaed' : '#495057',
+              fontSize: isMobile ? '0.85rem' : '0.9rem'
+            }}>
+              <span style={{ marginRight: '4px' }}>📅</span>
+              {isMobile ? 'Depart *' : 'Departure *'}
+            </label>
+            <input
+              type="date"
+              id="departureDate"
+              name="departureDate"
+              value={searchRequest.departureDate}
+              onChange={handleInputChange}
+              min={new Date().toISOString().split('T')[0]}
+              required
+              style={{
+                width: '100%',
+                padding: isMobile ? '10px 12px' : '12px 16px',
+                border: `2px solid ${!searchRequest.departureDate ? '#ff6b6b' : (isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9')}`,
+                borderRadius: isMobile ? '8px' : '10px',
+                fontSize: isMobile ? '0.9rem' : '16px',
+                outline: 'none',
+                transition: 'all 0.3s ease',
+                background: isDarkMode ? '#1a1f2e' : '#fafbfc',
+                color: isDarkMode ? '#e8eaed' : '#000',
+                colorScheme: isDarkMode ? 'dark' : 'light'
+              }}
+              onFocus={(e) => e.target.style.borderColor = isDarkMode ? '#667eea' : '#007bff'}
+              onBlur={(e) => e.target.style.borderColor = !searchRequest.departureDate ? '#ff6b6b' : (isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9')}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="returnDate" style={{
+              display: 'block',
+              marginBottom: isMobile ? '5px' : '6px',
+              fontWeight: '600',
+              color: isDarkMode ? '#e8eaed' : '#495057',
+              fontSize: isMobile ? '0.85rem' : '0.9rem'
+            }}>
+              <span style={{ marginRight: '4px' }}>🔁</span>
+              Return {!isMobile && '(Optional)'}
+            </label>
+            <input
+              type="date"
+              id="returnDate"
+              name="returnDate"
+              value={searchRequest.returnDate || ''}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: isMobile ? '10px 12px' : '12px 16px',
+                border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
+                borderRadius: isMobile ? '8px' : '10px',
+                fontSize: isMobile ? '0.9rem' : '16px',
+                outline: 'none',
+                transition: 'all 0.3s ease',
+                background: isDarkMode ? '#1a1f2e' : '#fafbfc',
+                color: isDarkMode ? '#e8eaed' : '#000',
+                colorScheme: isDarkMode ? 'dark' : 'light'
+              }}
+              onFocus={(e) => e.target.style.borderColor = isDarkMode ? '#667eea' : '#007bff'}
+              onBlur={(e) => e.target.style.borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9'}
+            />
+          </div>
         </div>
 
-        <div style={{ marginBottom: '30px' }}>
-          <label style={{
-            display: 'block',
-            marginBottom: '12px',
-            fontWeight: '600',
-            color: isDarkMode ? '#e8eaed' : '#495057',
-            fontSize: '14px'
-          }}>
-            👥 Passengers
-          </label>
+        {/* Section Header - Passengers */}
+        <div style={{
+          fontSize: isMobile ? '0.75rem' : '0.85rem',
+          fontWeight: '700',
+          color: isDarkMode ? '#34d399' : '#10b981',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          marginBottom: isMobile ? '10px' : '12px',
+          marginTop: isMobile ? '14px' : '20px',
+          paddingBottom: isMobile ? '6px' : '8px',
+          borderBottom: isDarkMode ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: isMobile ? '6px' : '8px'
+        }}>
+          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>👥</span> Passengers
+        </div>
+
+        <div style={{ marginBottom: isMobile ? '14px' : '18px' }}>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '16px'
+            gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr',
+            gap: isMobile ? '10px' : '16px'
           }}>
             <div>
               <label htmlFor="adults" style={{
                 display: 'block',
-                marginBottom: '8px',
-                fontSize: '13px',
+                marginBottom: isMobile ? '5px' : '6px',
+                fontSize: isMobile ? '0.8rem' : '0.85rem',
                 color: isDarkMode ? '#9ca3af' : '#6b7280',
-                fontWeight: '500'
+                fontWeight: '600'
               }}>
                 Adults (18+)
               </label>
@@ -1506,12 +1587,12 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                 }))}
                 style={{
                   width: '100%',
-                  padding: '12px 16px',
+                  padding: isMobile ? '10px 12px' : '12px 16px',
                   border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
-                  borderRadius: '10px',
+                  borderRadius: isMobile ? '8px' : '10px',
                   background: isDarkMode ? '#1a1f2e' : '#fafbfc',
                   color: isDarkMode ? '#e8eaed' : '#000',
-                  fontSize: '16px',
+                  fontSize: isMobile ? '0.9rem' : '16px',
                   outline: 'none',
                   transition: 'all 0.3s ease',
                   colorScheme: isDarkMode ? 'dark' : 'light'
@@ -1523,10 +1604,10 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             <div>
               <label htmlFor="children" style={{
                 display: 'block',
-                marginBottom: '8px',
-                fontSize: '13px',
+                marginBottom: isMobile ? '5px' : '6px',
+                fontSize: isMobile ? '0.8rem' : '0.85rem',
                 color: isDarkMode ? '#9ca3af' : '#6b7280',
-                fontWeight: '500'
+                fontWeight: '600'
               }}>
                 Children (0-17)
               </label>
@@ -1543,12 +1624,12 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                 }))}
                 style={{
                   width: '100%',
-                  padding: '12px 16px',
+                  padding: isMobile ? '10px 12px' : '12px 16px',
                   border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
-                  borderRadius: '10px',
+                  borderRadius: isMobile ? '8px' : '10px',
                   background: isDarkMode ? '#1a1f2e' : '#fafbfc',
                   color: isDarkMode ? '#e8eaed' : '#000',
-                  fontSize: '16px',
+                  fontSize: isMobile ? '0.9rem' : '16px',
                   outline: 'none',
                   transition: 'all 0.3s ease',
                   colorScheme: isDarkMode ? 'dark' : 'light'
@@ -1560,15 +1641,33 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           </div>
         </div>
 
-        <div style={{ marginBottom: '30px' }}>
+        {/* Section Header - Cabin Class */}
+        <div style={{
+          fontSize: isMobile ? '0.75rem' : '0.85rem',
+          fontWeight: '700',
+          color: isDarkMode ? '#fbbf24' : '#f59e0b',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          marginBottom: isMobile ? '10px' : '12px',
+          marginTop: isMobile ? '14px' : '20px',
+          paddingBottom: isMobile ? '6px' : '8px',
+          borderBottom: isDarkMode ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(245, 158, 11, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: isMobile ? '6px' : '8px'
+        }}>
+          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>💺</span> Cabin Class
+        </div>
+
+        <div style={{ marginBottom: isMobile ? '18px' : '30px' }}>
           <label htmlFor="cabinClass" style={{
-            display: 'block',
-            marginBottom: '8px',
+            display: isMobile ? 'block' : 'none',
+            marginBottom: '5px',
             fontWeight: '600',
             color: isDarkMode ? '#e8eaed' : '#495057',
-            fontSize: '14px'
+            fontSize: '0.8rem'
           }}>
-            💺 Cabin Class
+            Select class
           </label>
           <select
             id="cabinClass"
@@ -1577,12 +1676,12 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             onChange={handleInputChange}
             style={{
               width: '100%',
-              padding: '12px 16px',
+              padding: isMobile ? '10px 12px' : '12px 16px',
               border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.1)' : '2px solid #e1e5e9',
-              borderRadius: '10px',
+              borderRadius: isMobile ? '8px' : '10px',
               background: isDarkMode ? '#1a1f2e' : '#fafbfc',
               color: isDarkMode ? '#e8eaed' : '#000',
-              fontSize: '16px',
+              fontSize: isMobile ? '0.9rem' : '16px',
               outline: 'none',
               transition: 'all 0.3s ease',
               cursor: 'pointer'
@@ -1590,9 +1689,9 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             onFocus={(e) => e.target.style.borderColor = isDarkMode ? '#667eea' : '#007bff'}
             onBlur={(e) => e.target.style.borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e1e5e9'}
           >
-            <option value="economy">Economy Class</option>
-            <option value="business">Business Class</option>
-            <option value="first">First Class</option>
+            <option value="economy">{isMobile ? 'Economy' : 'Economy Class'}</option>
+            <option value="business">{isMobile ? 'Business' : 'Business Class'}</option>
+            <option value="first">{isMobile ? 'First' : 'First Class'}</option>
           </select>
         </div>
 
@@ -1601,37 +1700,42 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           disabled={loading || !searchRequest.origin || !searchRequest.destination || !searchRequest.departureDate}
           style={{
             width: '100%',
-            padding: '16px 24px',
+            padding: isMobile ? '13px 18px' : '16px 24px',
+            minHeight: isMobile ? '48px' : '44px',
+            touchAction: 'manipulation',
             background: loading || (!searchRequest.origin || !searchRequest.destination || !searchRequest.departureDate)
-              ? 'linear-gradient(135deg, #ccc 0%, #999 100%)'
-              : 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+              ? 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)'
+              : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white',
             border: 'none',
-            borderRadius: '12px',
-            fontSize: '18px',
-            fontWeight: 'bold',
+            borderRadius: isMobile ? '10px' : '12px',
+            fontSize: isMobile ? '0.95rem' : '18px',
+            fontWeight: '700',
+            letterSpacing: isMobile ? '0.3px' : 'normal',
             cursor: (!searchRequest.origin || !searchRequest.destination || !searchRequest.departureDate) ? 'not-allowed' : 'pointer',
-            transition: 'all 0.3s ease',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             boxShadow: loading || (!searchRequest.origin || !searchRequest.destination || !searchRequest.departureDate)
               ? 'none'
-              : '0 4px 15px rgba(0, 123, 255, 0.3)',
+              : isMobile
+                ? '0 4px 12px rgba(102, 126, 234, 0.4)'
+                : '0 4px 15px rgba(102, 126, 234, 0.4)',
             transform: 'translateY(0)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '10px'
+            gap: isMobile ? '8px' : '10px'
           }}
           onMouseEnter={(e) => {
             if (!loading && searchRequest.origin && searchRequest.destination && searchRequest.departureDate) {
               (e.target as HTMLElement).style.transform = 'translateY(-2px)';
-              (e.target as HTMLElement).style.boxShadow = '0 6px 20px rgba(0, 123, 255, 0.4)';
+              (e.target as HTMLElement).style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.5)';
             }
           }}
           onMouseLeave={(e) => {
             (e.target as HTMLElement).style.transform = 'translateY(0)';
             (e.target as HTMLElement).style.boxShadow = loading || (!searchRequest.origin || !searchRequest.destination || !searchRequest.departureDate)
               ? 'none'
-              : '0 4px 15px rgba(0, 123, 255, 0.3)';
+              : '0 4px 15px rgba(102, 126, 234, 0.4)';
           }}
         >
           {loading ? (
@@ -1644,35 +1748,96 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite'
               }}></div>
-              Searching Flights...
+              {isMobile ? 'Searching...' : 'Searching Flights...'}
             </>
           ) : (
             <>
-              ✈️ Search Flights
+              <span style={{ fontSize: isMobile ? '1.1rem' : '1.2rem' }}>✈️</span>
+              {isMobile ? 'Search' : 'Search Flights'}
             </>
           )}
         </button>
+
+        {/* Help text */}
+        <div style={{
+          marginTop: isMobile ? '12px' : '16px',
+          padding: isMobile ? '10px' : '12px 16px',
+          background: isDarkMode ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.05)',
+          borderRadius: isMobile ? '8px' : '10px',
+          fontSize: isMobile ? '0.75rem' : '0.85rem',
+          color: isDarkMode ? '#9ca3af' : '#6b7280',
+          textAlign: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: isMobile ? '6px' : '8px'
+        }}>
+          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>💡</span>
+          <span>{isMobile ? 'Tap' : 'Click'} filters button above to refine your search</span>
+        </div>
       </div>
+
+      {/* Mobile filters backdrop */}
+      {isMobile && showFilters && (
+        <div
+          onClick={() => setShowFilters(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 999
+          }}
+        />
+      )}
 
       {showFilters && (
         <div style={{
           background: isDarkMode ? '#252d3d' : 'white',
-          borderRadius: '15px',
-          padding: '25px',
+          borderRadius: isMobile ? '15px 15px 0 0' : '15px',
+          padding: isMobile ? '20px 15px' : '25px',
           boxShadow: isDarkMode ? '0 5px 20px rgba(0,0,0,0.6)' : '0 5px 20px rgba(0,0,0,0.08)',
-          marginBottom: '25px',
-          border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9'
+          marginBottom: isMobile ? '0' : '25px',
+          border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9',
+          position: isMobile ? 'fixed' : 'relative',
+          bottom: isMobile ? '0' : 'auto',
+          left: isMobile ? '0' : 'auto',
+          right: isMobile ? '0' : 'auto',
+          maxHeight: isMobile ? '80vh' : 'none',
+          overflowY: isMobile ? 'auto' : 'visible',
+          zIndex: isMobile ? 1000 : 'auto',
+          width: isMobile ? '100%' : 'auto',
+          boxSizing: 'border-box'
         }}>
-          <h3 style={{
-            margin: '0 0 20px 0',
-            color: isDarkMode ? '#8b9cff' : '#495057',
-            fontSize: '1.2rem',
-            fontWeight: 'bold'
-          }}>
-            🔧 Advanced Filters
-          </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{
+              margin: '0',
+              color: isDarkMode ? '#8b9cff' : '#495057',
+              fontSize: isMobile ? '1rem' : '1.2rem',
+              fontWeight: 'bold'
+            }}>
+              🔧 Advanced Filters
+            </h3>
+            {isMobile && (
+              <button
+                onClick={() => setShowFilters(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: isDarkMode ? '#8b9cff' : '#667eea',
+                  padding: '0',
+                  minWidth: '44px',
+                  minHeight: '44px'
+                }}
+                aria-label="Close filters"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(250px, 1fr))', gap: isMobile ? '15px' : '20px' }}>
             {/* Price Range */}
             <div>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057', fontSize: '14px' }}>
@@ -2026,8 +2191,24 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
               boxShadow: '0 5px 20px rgba(0,0,0,0.08)',
               border: '1px solid #e1e5e9'
             }}>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+              <div style={{ 
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                ...getResponsiveTableWrapper(isMobile)
+              }}>
+                {isMobile && (
+                  <div style={{
+                    padding: '10px 15px',
+                    background: '#fff3cd',
+                    color: '#856404',
+                    fontSize: '12px',
+                    borderBottom: '1px solid #ffeeba',
+                    textAlign: 'center'
+                  }}>
+                    ← Swipe to see all columns →
+                  </div>
+                )}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: isMobile ? '12px' : '14px', minWidth: isMobile ? '800px' : 'auto' }}>
                   <thead>
                     <tr style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
                       <th style={{ padding: '15px 12px', textAlign: 'left', fontWeight: '600', minWidth: '140px' }}>
@@ -2261,14 +2442,14 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             </div>
           ) : (
             /* Card View */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '15px' : '20px' }}>
               {filteredAndSortedFlights.map((flight: any, index: number) => (
                 <div
                   key={flight.id}
                   style={{
                     background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'white',
-                    borderRadius: '15px',
-                    padding: '25px',
+                    borderRadius: isMobile ? '12px' : '15px',
+                    padding: isMobile ? '15px' : '25px',
                     boxShadow: isDarkMode ? '0 5px 20px rgba(0,0,0,0.6)' : '0 5px 20px rgba(0,0,0,0.08)',
                     border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e1e5e9',
                     transition: 'all 0.3s ease',
@@ -2376,17 +2557,17 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                       </div>
                     </div>
 
-                    <div style={getStandardizedButtonContainer()}>
+                    <div style={getStandardizedButtonContainer(isMobile)}>
                       <button
                         onClick={() => handleBookFlight(flight)}
-                        style={getStandardizedButtonStyles(isDarkMode).bookFlight}
+                        style={{...getStandardizedButtonStyles(isDarkMode).bookFlight, ...getTouchFriendlyButton(isMobile)}}
                         {...getStandardizedHoverEffects().bookFlight}
                       >
                         🎫 Book Flight
                       </button>
                       <button
                         onClick={() => window.open(generateGoogleFlightsUrl(flight), '_blank', 'noopener,noreferrer')}
-                        style={getStandardizedButtonStyles(isDarkMode).googleFlights}
+                        style={{...getStandardizedButtonStyles(isDarkMode).googleFlights, ...getTouchFriendlyButton(isMobile)}}
                         {...getStandardizedHoverEffects().googleFlights}
                       >
                         🔍 Google Flights
@@ -2864,10 +3045,10 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                       </div>
                     </div>
 
-                    <div style={getStandardizedButtonContainer()}>
+                    <div style={getStandardizedButtonContainer(isMobile)}>
                       <button
                         onClick={() => handleBookFlight(flight)}
-                        style={getStandardizedButtonStyles(isDarkMode).bookFlight}
+                        style={{...getStandardizedButtonStyles(isDarkMode).bookFlight, ...getTouchFriendlyButton(isMobile)}}
                         {...getStandardizedHoverEffects().bookFlight}
                       >
                         🎫 Book Flight
@@ -2935,24 +3116,29 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           <div
             style={{
               background: isDarkMode ? '#1e2532' : 'white',
-              borderRadius: '20px',
-              padding: '40px',
-              maxWidth: '600px',
-              width: '90%',
-              maxHeight: '90vh',
+              borderRadius: isMobile ? '15px 15px 0 0' : '20px',
+              padding: isMobile ? '20px' : '40px',
+              maxWidth: isMobile ? '100%' : '600px',
+              width: isMobile ? '100%' : '90%',
+              maxHeight: isMobile ? '95vh' : '90vh',
               overflow: 'auto',
               boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
               animation: 'slideUp 0.3s ease',
-              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
+              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+              position: isMobile ? 'fixed' : 'relative',
+              bottom: isMobile ? '0' : 'auto',
+              left: isMobile ? '0' : 'auto',
+              right: isMobile ? '0' : 'auto',
+              margin: isMobile ? '0' : 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div style={{ marginBottom: '30px', textAlign: 'center' }}>
-              <div style={{ fontSize: '48px', marginBottom: '15px' }}>✈️</div>
+            <div style={{ marginBottom: isMobile ? '20px' : '30px', textAlign: 'center' }}>
+              <div style={{ fontSize: isMobile ? '36px' : '48px', marginBottom: isMobile ? '10px' : '15px' }}>✈️</div>
               <h2 style={{
                 margin: 0,
-                fontSize: '28px',
+                fontSize: isMobile ? '1.5rem' : '28px',
                 fontWeight: '700',
                 color: isDarkMode ? '#e8eaed' : '#2c3e50',
                 marginBottom: '10px'
@@ -2962,7 +3148,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
               <p style={{
                 margin: 0,
                 color: isDarkMode ? '#9ca3af' : '#6c757d',
-                fontSize: '14px'
+                fontSize: isMobile ? '13px' : '14px'
               }}>
                 Review your flight details
               </p>
@@ -2973,8 +3159,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
               <div style={{
                 background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa',
                 borderRadius: '15px',
-                padding: '20px',
-                marginBottom: '30px',
+                padding: isMobile ? '15px' : '20px',
+                marginBottom: isMobile ? '20px' : '30px',
                 border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e9ecef'
               }}>
                 <div style={{
@@ -2983,10 +3169,10 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                   marginBottom: '15px',
                   gap: '10px'
                 }}>
-                  <span style={{ fontSize: '24px' }}>🛫</span>
+                  <span style={{ fontSize: isMobile ? '20px' : '24px' }}>🛫</span>
                   <h3 style={{
                     margin: 0,
-                    fontSize: '18px',
+                    fontSize: isMobile ? '16px' : '18px',
                     fontWeight: '600',
                     color: isDarkMode ? '#e8eaed' : '#2c3e50'
                   }}>
@@ -2994,16 +3180,16 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                   </h3>
                 </div>
 
-                <div style={{ display: 'grid', gap: '12px', fontSize: '14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ display: 'grid', gap: '12px', fontSize: isMobile ? '13px' : '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: isMobile ? '10px' : '0' }}>
                     <span style={{ color: isDarkMode ? '#9ca3af' : '#6c757d' }}>Airline:</span>
-                    <span style={{ fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                    <span style={{ fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#2c3e50', textAlign: 'right' }}>
                       {bookingDetails.outbound.airline}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: isMobile ? '10px' : '0' }}>
                     <span style={{ color: isDarkMode ? '#9ca3af' : '#6c757d' }}>Flight:</span>
-                    <span style={{ fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                    <span style={{ fontWeight: '600', color: isDarkMode ? '#e8eaed' : '#2c3e50', textAlign: 'right' }}>
                       {bookingDetails.outbound.flightNumber}
                     </span>
                   </div>
@@ -3011,30 +3197,30 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                     display: 'grid',
                     gridTemplateColumns: '1fr auto 1fr',
                     alignItems: 'center',
-                    gap: '15px',
+                    gap: isMobile ? '10px' : '15px',
                     marginTop: '10px',
                     paddingTop: '15px',
                     borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #dee2e6'
                   }}>
                     <div>
-                      <div style={{ fontSize: '20px', fontWeight: '700', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                      <div style={{ fontSize: isMobile ? '16px' : '20px', fontWeight: '700', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
                         {bookingDetails.outbound.departure.time}
                       </div>
-                      <div style={{ fontSize: '12px', color: isDarkMode ? '#9ca3af' : '#6c757d', marginTop: '5px' }}>
+                      <div style={{ fontSize: isMobile ? '11px' : '12px', color: isDarkMode ? '#9ca3af' : '#6c757d', marginTop: '5px' }}>
                         {bookingDetails.outbound.departure.airport}
                       </div>
                     </div>
                     <div style={{ textAlign: 'center', color: isDarkMode ? '#9ca3af' : '#6c757d' }}>
-                      <div style={{ fontSize: '24px' }}>→</div>
-                      <div style={{ fontSize: '11px', marginTop: '5px' }}>
+                      <div style={{ fontSize: isMobile ? '20px' : '24px' }}>→</div>
+                      <div style={{ fontSize: isMobile ? '10px' : '11px', marginTop: '5px' }}>
                         {bookingDetails.outbound.duration}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '20px', fontWeight: '700', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
+                      <div style={{ fontSize: isMobile ? '16px' : '20px', fontWeight: '700', color: isDarkMode ? '#e8eaed' : '#2c3e50' }}>
                         {bookingDetails.outbound.arrival.time}
                       </div>
-                      <div style={{ fontSize: '12px', color: isDarkMode ? '#9ca3af' : '#6c757d', marginTop: '5px' }}>
+                      <div style={{ fontSize: isMobile ? '11px' : '12px', color: isDarkMode ? '#9ca3af' : '#6c757d', marginTop: '5px' }}>
                         {bookingDetails.outbound.arrival.airport}
                       </div>
                     </div>
@@ -3063,15 +3249,15 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             <div style={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               borderRadius: '15px',
-              padding: '20px',
-              marginBottom: '25px',
+              padding: isMobile ? '15px' : '20px',
+              marginBottom: isMobile ? '20px' : '25px',
               textAlign: 'center',
               color: 'white'
             }}>
-              <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '8px' }}>
+              <div style={{ fontSize: isMobile ? '13px' : '14px', opacity: 0.9, marginBottom: '8px' }}>
                 Total Flight Price
               </div>
-              <div style={{ fontSize: '32px', fontWeight: '700' }}>
+              <div style={{ fontSize: isMobile ? '28px' : '32px', fontWeight: '700' }}>
                 ${Math.round(bookingDetails.totalPrice || 0)}
               </div>
             </div>
@@ -3081,13 +3267,13 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
               background: isDarkMode ? 'rgba(251, 191, 36, 0.1)' : '#fff3cd',
               border: `1px solid ${isDarkMode ? 'rgba(251, 191, 36, 0.3)' : '#ffc107'}`,
               borderRadius: '12px',
-              padding: '15px',
-              marginBottom: '25px',
-              fontSize: '13px',
+              padding: isMobile ? '12px' : '15px',
+              marginBottom: isMobile ? '20px' : '25px',
+              fontSize: isMobile ? '12px' : '13px',
               color: isDarkMode ? '#fbbf24' : '#856404'
             }}>
               <div style={{ fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>ℹ️</span>
+                <span style={{ fontSize: isMobile ? '16px' : '18px' }}>ℹ️</span>
                 Important Information
               </div>
               <div style={{ lineHeight: '1.6' }}>
@@ -3101,47 +3287,25 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             {/* Action Buttons */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
               gap: '15px'
             }}>
               <button
-                onClick={() => {
-                  setShowBookingModal(false);
-                  setBookingDetails(null);
-                }}
-                style={{
-                  padding: '15px',
-                  background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e9ecef',
-                  color: isDarkMode ? '#e8eaed' : '#495057',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                  (e.target as HTMLElement).style.background = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : '#dee2e6';
-                }}
-                onMouseLeave={(e) => {
-                  (e.target as HTMLElement).style.background = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e9ecef';
-                }}
-              >
-                Cancel
-              </button>
-              <button
                 onClick={confirmBooking}
                 style={{
-                  padding: '15px',
+                  padding: isMobile ? '16px' : '15px',
+                  minHeight: isMobile ? '48px' : 'auto',
+                  order: isMobile ? 1 : 2,
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '12px',
-                  fontSize: '16px',
+                  fontSize: isMobile ? '15px' : '16px',
                   fontWeight: '600',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                  touchAction: 'manipulation'
                 }}
                 onMouseEnter={(e) => {
                   (e.target as HTMLElement).style.transform = 'translateY(-2px)';
@@ -3153,6 +3317,34 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                 }}
               >
                 Proceed to Booking
+              </button>
+              <button
+                onClick={() => {
+                  setShowBookingModal(false);
+                  setBookingDetails(null);
+                }}
+                style={{
+                  padding: isMobile ? '16px' : '15px',
+                  minHeight: isMobile ? '48px' : 'auto',
+                  order: isMobile ? 2 : 1,
+                  background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e9ecef',
+                  color: isDarkMode ? '#e8eaed' : '#495057',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: isMobile ? '15px' : '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  touchAction: 'manipulation'
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLElement).style.background = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : '#dee2e6';
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLElement).style.background = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#e9ecef';
+                }}
+              >
+                Cancel
               </button>
             </div>
           </div>

@@ -7,6 +7,7 @@ import Navbar from "@/components/layout/Navbar";
 import AnimatedBackground from "@/components/layout/AnimatedBackground";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Swal from "sweetalert2";
+import { useResponsive } from "@/hooks/useResponsive";
 
 import { ChatMessage } from "./types";
 import { renderFormattedText } from "./utils";
@@ -26,12 +27,12 @@ export default function AIAssistant() {
   const { isDarkMode } = useDarkMode();
   const { state } = useAuth();
   const router = useRouter();
+  const { isMobile, isTablet } = useResponsive();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [isMobile, setIsMobile] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -331,7 +332,7 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
     
     // Mark as initialized to prevent re-initialization
     setIsInitialized(true);
-  }, [state.user, conversationId]);
+  }, [state.user, conversationId, isMobile]);
 
   useEffect(() => {
     // Debug auth state
@@ -359,14 +360,7 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
       }
     }
 
-    // Check screen size
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    checkScreenSize();
-    window.addEventListener("resize", checkScreenSize);
-
-    return () => window.removeEventListener("resize", checkScreenSize);
+    // Note: isMobile now handled by useResponsive hook
   }, [state.user, state.token]);
 
   const [urlProcessed, setUrlProcessed] = useState(false);
@@ -454,6 +448,7 @@ Just tell me what you're looking for, and I'll search real-time data and use AI 
     // Debounce the auto-save to avoid too many API calls
     const timeoutId = setTimeout(autoSaveConversation, 2000);
     return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, conversationId, state.user?.id, state.token]);
 
   useEffect(() => {
@@ -1011,15 +1006,17 @@ In the meantime, I can still help you with general travel advice and planning!`,
       >
         <div
           style={{
-            maxWidth: isMobile ? "95%" : "80%",
+            maxWidth: isMobile ? "90%" : "80%",
             background: isUser
               ? "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)"
               : isDarkMode
               ? "rgba(30, 41, 59, 0.8)"
               : "rgba(255, 255, 255, 0.9)",
             color: isUser ? "white" : isDarkMode ? "#e2e8f0" : "#1e293b",
-            borderRadius: isUser ? "20px 20px 6px 20px" : "20px 20px 20px 6px",
-            padding: isMobile ? "18px 22px 12px 22px" : "24px 32px 16px 32px", // Less bottom padding for timestamp
+            borderRadius: isMobile 
+              ? (isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px")
+              : (isUser ? "20px 20px 6px 20px" : "20px 20px 20px 6px"),
+            padding: isMobile ? "14px 16px 10px 16px" : "24px 32px 16px 32px",
             border: isUser
               ? "none"
               : isDarkMode
@@ -1032,6 +1029,7 @@ In the meantime, I can still help you with general travel advice and planning!`,
               : "0 8px 25px rgba(0, 0, 0, 0.08)",
             backdropFilter: "blur(10px)",
             position: "relative",
+            fontSize: isMobile ? '0.95rem' : '1rem',
           }}
         >
           {/* Render different content types */}

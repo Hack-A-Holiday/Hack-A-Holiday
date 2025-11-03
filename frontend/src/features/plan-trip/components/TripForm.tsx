@@ -34,10 +34,10 @@ export const TripForm: React.FC<TripFormProps> = ({
 	};
 
 	return (
-		<form onSubmit={e => e.preventDefault()} style={{ marginTop: '30px' }}>
-			<div style={{ display: 'grid', gridTemplateColumns: getGridColumns(), gap: isMobile ? '15px' : '20px', marginBottom: '25px' }}>
+		<form onSubmit={e => e.preventDefault()} style={{ marginTop: isMobile ? '20px' : '30px' }}>
+			<div style={{ display: 'grid', gridTemplateColumns: getGridColumns(), gap: isMobile ? '15px' : '20px', marginBottom: isMobile ? '20px' : '25px' }}>
 				<div>
-					<label htmlFor="duration" className="form-label">
+					<label htmlFor="duration" className="form-label" style={{ fontSize: isMobile ? '0.95rem' : '1rem' }}>
 						Duration (days)
 					</label>
 					<input
@@ -46,14 +46,19 @@ export const TripForm: React.FC<TripFormProps> = ({
 						value={duration}
 						onChange={(e) => onDurationChange(parseInt(e.target.value))}
 						className="form-input"
-						style={{ margin: '10px 0' }}
+						style={{ 
+							margin: '10px 0',
+							minHeight: isMobile ? '48px' : '52px',
+							fontSize: isMobile ? '16px' : '1rem',
+							touchAction: 'manipulation'
+						}}
 						min="1"
 						max="30"
 						required
 					/>
 				</div>
 				<div>
-					<label htmlFor="start-date-input" className="form-label">
+					<label htmlFor="start-date-input" className="form-label" style={{ fontSize: isMobile ? '0.95rem' : '1rem' }}>
 						Start Date
 					</label>
 					<input
@@ -62,7 +67,12 @@ export const TripForm: React.FC<TripFormProps> = ({
 						value={startDate}
 						onChange={(e) => onStartDateChange(e.target.value)}
 						className="form-input"
-						style={{ margin: '10px 0' }}
+						style={{ 
+							margin: '10px 0',
+							minHeight: isMobile ? '48px' : '52px',
+							fontSize: isMobile ? '16px' : '1rem',
+							touchAction: 'manipulation'
+						}}
 						required
 					/>
 				</div>
@@ -72,17 +82,21 @@ export const TripForm: React.FC<TripFormProps> = ({
 			{!showPreferencesForm && (
 				<div style={{ 
 					background: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa', 
-					padding: '20px', 
-					borderRadius: '10px', 
-					marginBottom: '20px',
+					padding: isMobile ? '16px' : '20px', 
+					borderRadius: isMobile ? '8px' : '10px', 
+					marginBottom: isMobile ? '16px' : '20px',
 					border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'
 				}}>
-					<h4 style={{ margin: '0 0 15px 0', color: isDarkMode ? '#8b9cff' : '#495057' }}>Current Preferences</h4>
+					<h4 style={{ 
+						margin: '0 0 15px 0', 
+						color: isDarkMode ? '#8b9cff' : '#495057',
+						fontSize: isMobile ? '1rem' : '1.1rem'
+					}}>Current Preferences</h4>
 					<div style={{ 
 						display: 'grid', 
-						gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-						gap: '10px', 
-						fontSize: '0.9rem',
+						gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))', 
+						gap: isMobile ? '8px' : '10px', 
+						fontSize: isMobile ? '0.85rem' : '0.9rem',
 						color: isDarkMode ? '#9ca3af' : '#333'
 					}}>
 						<div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Style:</strong> {userTravelPreferences.travelStyle}</div>
@@ -91,7 +105,11 @@ export const TripForm: React.FC<TripFormProps> = ({
 						<div><strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Flight Class:</strong> {userTravelPreferences.flightPreferences.cabinClass}</div>
 					</div>
 					{userTravelPreferences.interests.length > 0 && (
-						<div style={{ marginTop: '10px', color: isDarkMode ? '#9ca3af' : '#333' }}>
+						<div style={{ 
+							marginTop: '10px', 
+							color: isDarkMode ? '#9ca3af' : '#333',
+							fontSize: isMobile ? '0.85rem' : '0.9rem'
+						}}>
 							<strong style={{ color: isDarkMode ? '#e8eaed' : '#000' }}>Interests:</strong> {userTravelPreferences.interests.slice(0, 3).join(', ')}
 							{userTravelPreferences.interests.length > 3 && ` +${userTravelPreferences.interests.length - 3} more`}
 						</div>
@@ -105,7 +123,10 @@ export const TripForm: React.FC<TripFormProps> = ({
 				className="btn-primary btn-large"
 				style={{ 
 					width: '100%',
-					fontSize: '18px'
+					fontSize: isMobile ? '16px' : '18px',
+					minHeight: isMobile ? '50px' : '56px',
+					padding: isMobile ? '14px 20px' : '16px 24px',
+					touchAction: 'manipulation'
 				}}
 				disabled={loading}
 			>

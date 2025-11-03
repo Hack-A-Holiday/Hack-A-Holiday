@@ -7,12 +7,13 @@ import ProtectedRoute from '../components/auth/ProtectedRoute';
 import Navbar from '../components/layout/Navbar';
 import { tripTrackingService } from '../services/trip-tracking';
 import { tripApiService, TripStats } from '../services/trip-api';
+import { useResponsive } from '../hooks/useResponsive';
+import { getResponsiveContainer, getResponsiveFontSize, getResponsivePadding, getTouchFriendlyButton } from '../utils/responsive-styles';
 
 export default function HomePage() {
   const { state } = useAuth();
   const { isDarkMode } = useDarkMode();
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
+  const { isMobile, isTablet } = useResponsive();
   const [tripStats, setTripStats] = useState<TripStats>({ 
     tripsPlanned: 0, 
     tripsCompleted: 0,
@@ -24,18 +25,6 @@ export default function HomePage() {
   
   // Cache duration: 30 seconds
   const CACHE_DURATION = 30 * 1000;
-
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth <= 640);
-      setIsTablet(window.innerWidth <= 1024 && window.innerWidth > 640);
-    };
-    
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
 
   // Load trip statistics from API with caching
   const loadStats = async (forceRefresh = false) => {
