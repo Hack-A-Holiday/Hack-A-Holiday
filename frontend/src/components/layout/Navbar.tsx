@@ -67,7 +67,7 @@ export default function Navbar() {
       <div style={{
         maxWidth: '1200px',
         margin: '0 auto',
-        padding: '0 15px',
+        padding: isMobile ? '0 15' : '0 15 0 0',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -77,13 +77,14 @@ export default function Navbar() {
         <Link href="/home" className="nav-brand" style={{
           display: 'flex',
           alignItems: 'center',
-          fontSize: isMobile ? '1.2rem' : '1.5rem'
+          fontSize: isMobile ? '1.2rem' : '1.5rem',
+          marginLeft: isMobile ? '0' : '-15px'
         }}>
           <Image
             src="/Hack Travel.png"
             alt="Hack Travel Logo"
-            width={isMobile ? 200 : 280}
-            height={isMobile ? 60 : 80}
+            width={isMobile ? 180 : 280}
+            height={isMobile ? 54 : 80}
             style={{
               objectFit: 'contain'
             }}

@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useDarkMode } from '../contexts/DarkModeContext';
+import { useResponsive } from '../hooks/useResponsive';
 import Navbar from '../components/layout/Navbar';
 import Swal from 'sweetalert2';
 import { buildApiUrl } from '../config/api';
@@ -43,7 +44,7 @@ function ProfileHeader({ isMobile, isTablet }: Readonly<{ isMobile: boolean; isT
 }
 
 // Enhanced FormField component with better disabled state styling
-function FormField({ label, name, type, value, onChange, disabled, isDarkMode = false }: Readonly<{ 
+function FormField({ label, name, type, value, onChange, disabled, isDarkMode = false, isMobile = false }: Readonly<{ 
   label: string; 
   name: string; 
   type: string; 
@@ -51,13 +52,14 @@ function FormField({ label, name, type, value, onChange, disabled, isDarkMode = 
   onChange: any; 
   disabled?: boolean;
   isDarkMode?: boolean;
+  isMobile?: boolean;
 }>) {
   return (
-    <div style={{ marginBottom: '20px' }}>
+    <div style={{ marginBottom: isMobile ? '16px' : '20px' }}>
       <label style={{
         display: 'block',
         marginBottom: '8px',
-        fontSize: '14px',
+        fontSize: isMobile ? '13px' : '14px',
         fontWeight: '600',
         color: disabled 
           ? (isDarkMode ? '#6b7280' : '#9ca3af')
@@ -67,7 +69,7 @@ function FormField({ label, name, type, value, onChange, disabled, isDarkMode = 
         {disabled && (
           <span style={{
             marginLeft: '8px',
-            fontSize: '12px',
+            fontSize: isMobile ? '11px' : '12px',
             color: isDarkMode ? '#6b7280' : '#9ca3af',
             fontWeight: '400'
           }}>
@@ -84,7 +86,8 @@ function FormField({ label, name, type, value, onChange, disabled, isDarkMode = 
         style={{
           display: 'block',
           width: '100%',
-          padding: '12px 16px',
+          padding: isMobile ? '14px' : '12px 16px',
+          minHeight: isMobile ? '48px' : 'auto',
           marginTop: '5px',
           border: disabled 
             ? (isDarkMode ? '1px solid rgba(107, 114, 128, 0.3)' : '1px solid #d1d5db')
@@ -97,8 +100,9 @@ function FormField({ label, name, type, value, onChange, disabled, isDarkMode = 
             ? (isDarkMode ? '#6b7280' : '#9ca3af')
             : (isDarkMode ? '#e8eaed' : '#333'),
           cursor: disabled ? 'not-allowed' : 'text',
-          fontSize: '14px',
-          transition: 'all 0.2s ease'
+          fontSize: isMobile ? '16px' : '14px',
+          transition: 'all 0.2s ease',
+          touchAction: 'manipulation'
         }}
       />
     </div>
@@ -106,12 +110,13 @@ function FormField({ label, name, type, value, onChange, disabled, isDarkMode = 
 }
 
 // Enhanced ProfileForm component with better styling and Google user support
-function ProfileForm({ editForm, handleInputChange, disabled, fields, isDarkMode = false }: Readonly<{ 
+function ProfileForm({ editForm, handleInputChange, disabled, fields, isDarkMode = false, isMobile = false }: Readonly<{ 
   editForm: any; 
   handleInputChange: any; 
   disabled: boolean; 
   fields: string[]; 
   isDarkMode?: boolean;
+  isMobile?: boolean;
 }>) {
   return (
     <form>
@@ -124,6 +129,7 @@ function ProfileForm({ editForm, handleInputChange, disabled, fields, isDarkMode
           onChange={handleInputChange}
           disabled={disabled}
           isDarkMode={isDarkMode}
+          isMobile={isMobile}
         />
       )}
       {fields.includes('email') && (
@@ -135,6 +141,7 @@ function ProfileForm({ editForm, handleInputChange, disabled, fields, isDarkMode
           onChange={handleInputChange}
           disabled={disabled}
           isDarkMode={isDarkMode}
+          isMobile={isMobile}
         />
       )}
       
@@ -445,6 +452,7 @@ export default function ProfilePage() {
   // These were used in your JSX but not defined. I've created placeholders for them.
   const { state } = useAuth(); // Assuming state comes from your auth context
   const { isDarkMode } = useDarkMode(); // Assuming isDarkMode comes from your dark mode context
+  const { isMobile, isTablet } = useResponsive();
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isGoogleUser, setIsGoogleUser] = useState(false); // Example state
@@ -791,31 +799,33 @@ export default function ProfilePage() {
           : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
       }}>
         <Navbar />
-        <main style={{ padding: '40px 20px' }}>
+        <main style={{ padding: isMobile ? '20px 15px' : '40px 20px' }}>
           <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
 
             {/* Profile Information */}
             <div style={{
               background: isDarkMode ? '#252d3d' : 'rgba(255, 255, 255, 0.95)',
-              borderRadius: '20px',
-              padding: '40px',
-              marginBottom: '30px',
+              borderRadius: isMobile ? '15px' : '20px',
+              padding: isMobile ? '20px' : '40px',
+              marginBottom: isMobile ? '20px' : '30px',
               boxShadow: isDarkMode ? '0 10px 30px rgba(0, 0, 0, 0.6)' : '0 10px 30px rgba(0, 0, 0, 0.1)',
               border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
             }}>
               <div style={{
                 display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
                 justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '25px',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                marginBottom: isMobile ? '20px' : '25px',
+                gap: isMobile ? '15px' : '0'
               }}>
                 <div>
-                  <h2 style={{ margin: 0, color: isDarkMode ? '#e8eaed' : '#333', fontSize: '1.5rem' }}>Profile Information</h2>
+                  <h2 style={{ margin: 0, color: isDarkMode ? '#e8eaed' : '#333', fontSize: isMobile ? '1.3rem' : '1.5rem' }}>Profile Information</h2>
                   {isGoogleUser ? (
                     <p style={{ 
                       margin: '5px 0 0 0', 
                       color: isDarkMode ? '#9ca3af' : '#666', 
-                      fontSize: '0.85rem' 
+                      fontSize: isMobile ? '0.8rem' : '0.85rem' 
                     }}>
                       Managed by Google OAuth
                     </p>
@@ -823,7 +833,7 @@ export default function ProfilePage() {
                     <p style={{ 
                       margin: '5px 0 0 0', 
                       color: isDarkMode ? '#9ca3af' : '#666', 
-                      fontSize: '0.85rem' 
+                      fontSize: isMobile ? '0.8rem' : '0.85rem' 
                     }}>
                       You can edit your name and email address
                     </p>
@@ -836,11 +846,14 @@ export default function ProfilePage() {
                       background: isEditingProfile ? '#6c757d' : '#667eea',
                       color: 'white',
                       border: 'none',
-                      padding: '10px 20px',
+                      padding: isMobile ? '12px 20px' : '10px 20px',
+                      minHeight: isMobile ? '44px' : 'auto',
                       borderRadius: '10px',
                       cursor: 'pointer',
-                      fontSize: '0.9rem',
+                      fontSize: isMobile ? '0.85rem' : '0.9rem',
                       fontWeight: '500',
+                      width: isMobile ? '100%' : 'auto',
+                      touchAction: 'manipulation'
                     }}
                   >
                     {isEditingProfile ? 'Cancel' : 'Edit Profile Info'}
@@ -1017,14 +1030,18 @@ export default function ProfilePage() {
                     disabled={isGoogleUser}
                     fields={['name', 'email']}
                     isDarkMode={isDarkMode}
+                    isMobile={isMobile}
                   />
                   {!isGoogleUser && (
-                    <div style={{ marginTop: '20px' }}>
+                    <div style={{ marginTop: isMobile ? '16px' : '20px' }}>
                       <button
                         onClick={handleSaveProfile}
                         style={{
+                          width: isMobile ? '100%' : 'auto',
+                          minHeight: isMobile ? '48px' : 'auto',
                           background: '#28a745',
                           color: 'white',
+                          touchAction: 'manipulation',
                           border: 'none',
                           padding: '12px 25px',
                           borderRadius: '10px',
