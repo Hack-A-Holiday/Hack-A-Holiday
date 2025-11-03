@@ -1317,41 +1317,44 @@ export default function FlightSearchPage() {
         <div style={{
           maxWidth: '1400px',
           margin: '0 auto',
-          padding: isMobile ? '10px' : '16px',
-          paddingTop: isMobile ? '16px' : '24px'
+          padding: isMobile ? '8px' : '16px',
+          paddingTop: isMobile ? '12px' : '24px'
         }}>
-          {/* Page Header */}
+          {/* Page Header - Compact on mobile */}
           <div style={{
             textAlign: 'center',
-            marginBottom: isMobile ? '20px' : '28px',
-            color: 'white'
+            marginBottom: isMobile ? '12px' : '28px',
+            color: 'white',
+            padding: isMobile ? '0 12px' : '0'
           }}>
             <h1 style={{
-              fontSize: isMobile ? '2rem' : '3rem',
+              fontSize: isMobile ? '1.5rem' : '3rem',
               fontWeight: '700',
-              margin: '0 0 16px 0',
+              margin: isMobile ? '0 0 8px 0' : '0 0 16px 0',
               textShadow: '0 2px 4px rgba(0,0,0,0.3)',
               color: isDarkMode ? '#e8eaed' : 'white',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '16px'
+              gap: isMobile ? '10px' : '16px'
             }}>
-              <svg width={isMobile ? '32' : '48'} height={isMobile ? '32' : '48'} viewBox="0 0 24 24" fill="white">
+              <svg width={isMobile ? '24' : '48'} height={isMobile ? '24' : '48'} viewBox="0 0 24 24" fill="white">
                 <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
               </svg>
               <span>Flight Search</span>
             </h1>
-            <p style={{
-              fontSize: isMobile ? '1rem' : '1.2rem',
-              margin: '0 auto',
-              opacity: 0.9,
-              maxWidth: '600px',
-              color: isDarkMode ? '#9ca3af' : 'white'
-            }}>
-              Find the perfect flight with our intelligent search engine.
-              Compare prices, durations, and get personalized recommendations.
-            </p>
+            {!isMobile && (
+              <p style={{
+                fontSize: '1.2rem',
+                margin: '0 auto',
+                opacity: 0.9,
+                maxWidth: '600px',
+                color: isDarkMode ? '#9ca3af' : 'white'
+              }}>
+                Find the perfect flight with our intelligent search engine.
+                Compare prices, durations, and get personalized recommendations.
+              </p>
+            )}
           </div>
 
           {/* Flight Search Tips - Hidden on mobile */}
@@ -1503,14 +1506,18 @@ export default function FlightSearchPage() {
             </div>
           )}
 
-          {/* Flight Search Component */}
+          {/* Flight Search Component - Compact mobile design */}
           <div style={{
             marginTop: '0px',
-            padding: isMobile ? '16px' : '32px',
-            background: isDarkMode ? '#252d3d' : 'rgba(255, 255, 255, 0.95)',
-            borderRadius: '16px',
+            padding: isMobile ? '12px' : '32px',
+            background: isDarkMode ? '#252d3d' : 'rgba(255, 255, 255, 0.98)',
+            borderRadius: isMobile ? '12px' : '16px',
             border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
-            boxShadow: isDarkMode ? '0 5px 20px rgba(0,0,0,0.6)' : 'none'
+            boxShadow: isDarkMode 
+              ? '0 5px 20px rgba(0,0,0,0.6)' 
+              : isMobile 
+                ? '0 2px 8px rgba(0,0,0,0.1)' 
+                : '0 4px 12px rgba(0,0,0,0.08)'
           }}>
             <FlightSearch
               onFlightSelect={handleFlightSelect}
