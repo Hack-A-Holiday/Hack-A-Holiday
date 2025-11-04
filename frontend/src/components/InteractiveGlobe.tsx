@@ -54,11 +54,20 @@ export default function InteractiveGlobe({
   const globeRef = useRef<any>();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isClient, setIsClient] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   
   // Ensure we only render on client side (avoid SSR issues)
   useEffect(() => {
     setIsClient(true);
+    
+    // Check if mobile
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
     
     // Update dimensions on mount and resize
     const updateDimensions = () => {
@@ -196,7 +205,7 @@ export default function InteractiveGlobe({
     return (
       <div style={{
         width: '100%',
-        height: '600px', // Increased from 400px
+        height: isMobile ? '400px' : '600px',
         background: 'linear-gradient(135deg, #000428 0%, #004e92 100%)',
         borderRadius: '16px',
         display: 'flex',
@@ -228,10 +237,10 @@ export default function InteractiveGlobe({
       ref={containerRef}
       style={{
         width: '100%',
-        maxWidth: '900px',
-        height: '700px',
+        maxWidth: isMobile ? '100%' : '900px',
+        height: isMobile ? '400px' : '600px',
         background: 'linear-gradient(135deg, #000428 0%, #004e92 100%)',
-        borderRadius: '16px',
+        borderRadius: isMobile ? '12px' : '16px',
         position: 'relative',
         overflow: 'hidden',
         boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
@@ -245,20 +254,20 @@ export default function InteractiveGlobe({
       {/* Globe badge */}
       <div style={{
         position: 'absolute',
-        top: '20px',
-        right: '20px',
+        top: isMobile ? '12px' : '20px',
+        right: isMobile ? '12px' : '20px',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         color: 'white',
-        padding: '10px 16px',
+        padding: isMobile ? '6px 12px' : '10px 16px',
         borderRadius: '20px',
-        fontSize: '14px',
+        fontSize: isMobile ? '12px' : '14px',
         fontWeight: 'bold',
         zIndex: 10,
         boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
         backdropFilter: 'blur(10px)',
         border: '1px solid rgba(255,255,255,0.2)'
       }}>
-        🌍 Interactive Globe
+        {isMobile ? '🌍' : '🌍 Interactive Globe'}
       </div>
 
       {/* Instructions */}
