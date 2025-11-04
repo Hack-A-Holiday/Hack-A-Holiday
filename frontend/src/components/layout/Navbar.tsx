@@ -62,31 +62,39 @@ export default function Navbar() {
       position: 'sticky',
       top: 0,
       zIndex: 1000,
-      boxShadow: isDarkMode ? '0 2px 15px rgba(0, 0, 0, 0.3)' : '0 2px 15px rgba(0, 0, 0, 0.08)'
+      boxShadow: isDarkMode ? '0 2px 15px rgba(0, 0, 0, 0.3)' : '0 2px 15px rgba(0, 0, 0, 0.08)',
+      width: '100%',
+      maxWidth: '100vw',
+      overflow: 'hidden'
     }}>
       <div style={{
         maxWidth: '1200px',
         margin: '0 auto',
-        padding: isMobile ? '0 15' : '0 15 0 0',
+        padding: isMobile ? '0 16px' : '0 24px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        height: '100%'
+        height: '100%',
+        width: '100%',
+        boxSizing: 'border-box'
       }}>
         {/* Logo - Home button only */}
         <Link href="/home" className="nav-brand" style={{
           display: 'flex',
           alignItems: 'center',
           fontSize: isMobile ? '1.2rem' : '1.5rem',
-          marginLeft: isMobile ? '0' : '-15px'
+          marginLeft: 0,
+          flexShrink: 0
         }}>
           <Image
             src="/Hack Travel.png"
             alt="Hack Travel Logo"
-            width={isMobile ? 180 : 280}
-            height={isMobile ? 54 : 80}
+            width={isMobile ? 140 : 280}
+            height={isMobile ? 42 : 80}
             style={{
-              objectFit: 'contain'
+              objectFit: 'contain',
+              maxWidth: '100%',
+              height: 'auto'
             }}
           />
         </Link>
