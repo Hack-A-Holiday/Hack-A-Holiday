@@ -86,7 +86,8 @@ export default function Navbar() {
         alignItems: 'center',
         height: '100%',
         width: '100%',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        overflow: 'visible'
       }}>
         {/* Logo - Home button only */}
         <Link href="/home" className="nav-brand" style={{
@@ -94,13 +95,15 @@ export default function Navbar() {
           alignItems: 'center',
           fontSize: isMobile ? '1.2rem' : '1.5rem',
           marginLeft: 0,
-          flexShrink: 0
+          flexShrink: 0,
+          overflow: 'hidden',
+          maxHeight: isMobile ? '60px' : '80px'
         }}>
           <Image
             src="/Hack Travel.png"
             alt="Hack Travel Logo"
-            width={isMobile ? 100 : 120}
-            height={isMobile ? 25 : 30}
+            width={isMobile ? 80 : 100}
+            height={isMobile ? 18 : 25}
             style={{
               objectFit: 'contain',
               maxWidth: '100%',
