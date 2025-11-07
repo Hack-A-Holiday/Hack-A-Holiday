@@ -9,7 +9,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Swal from "sweetalert2";
 import { useResponsive } from "@/hooks/useResponsive";
 import { 
-  FaHandPaper, 
+  FaHandPeace, 
   FaPlane, 
   FaHotel, 
   FaGlobeAmericas, 
@@ -56,9 +56,9 @@ export default function AIAssistant() {
     return (
       <>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-          <FaHandPaper style={{ fontSize: '1.2rem', color: '#f59e0b' }} />
+          <FaHandPeace style={{ fontSize: '1.2rem', color: '#f59e0b' }} />
           <span style={{ fontSize: '1.1rem', fontWeight: '600' }}>
-            Hello {userName || "there"}! I'm your AI Travel Assistant.
+            Hello {userName || "there"}! I&apos;m your AI Travel Assistant.
           </span>
         </div>
         
@@ -97,7 +97,7 @@ export default function AIAssistant() {
         </div>
         
         <div style={{ marginTop: '16px', fontStyle: 'italic', opacity: 0.9 }}>
-          Just tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!
+          Just tell me what you&apos;re looking for, and I&apos;ll search real-time data and use AI to plan your perfect trip!
         </div>
       </>
     );
