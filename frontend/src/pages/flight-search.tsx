@@ -2108,8 +2108,10 @@ export default function FlightSearchPage() {
           }}>
             <div style={{
               display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
               justifyContent: 'space-between',
-              alignItems: 'center',
+              alignItems: isMobile ? 'flex-start' : 'center',
+              gap: isMobile ? '15px' : '0',
               marginBottom: '20px'
             }}>
               <h2 style={{
@@ -2131,11 +2133,13 @@ export default function FlightSearchPage() {
                     background: showTripAdvisor ? '#ef4444' : '#3b82f6',
                     color: 'white',
                     border: 'none',
-                    padding: '10px 20px',
+                    padding: isMobile ? '8px 16px' : '10px 20px',
                     borderRadius: '8px',
                     cursor: 'pointer',
-                    fontSize: '1rem',
-                    fontWeight: '500'
+                    fontSize: isMobile ? '0.9rem' : '1rem',
+                    fontWeight: '500',
+                    alignSelf: isMobile ? 'flex-start' : 'auto',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   {showTripAdvisor ? 'Hide' : 'Show'} Recommendations
