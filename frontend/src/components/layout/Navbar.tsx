@@ -89,8 +89,8 @@ export default function Navbar() {
           <Image
             src="/Hack Travel.png"
             alt="Hack Travel Logo"
-            width={isMobile ? 140 : 280}
-            height={isMobile ? 42 : 80}
+            width={isMobile ? 100 : 120}
+            height={isMobile ? 30 : 36}
             style={{
               objectFit: 'contain',
               maxWidth: '100%',
