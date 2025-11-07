@@ -65,7 +65,7 @@ export default function Navbar() {
       boxShadow: isDarkMode ? '0 2px 15px rgba(0, 0, 0, 0.3)' : '0 2px 15px rgba(0, 0, 0, 0.08)',
       width: '100%',
       maxWidth: '100vw',
-      overflow: 'hidden'
+      overflow: 'visible'
     }}>
       <div style={{
         maxWidth: '1200px',
@@ -90,7 +90,7 @@ export default function Navbar() {
             src="/Hack Travel.png"
             alt="Hack Travel Logo"
             width={isMobile ? 100 : 120}
-            height={isMobile ? 30 : 36}
+            height={isMobile ? 25 : 30}
             style={{
               objectFit: 'contain',
               maxWidth: '100%',
