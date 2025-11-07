@@ -2,6 +2,21 @@ import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import Globe from 'react-globe.gl';
 import { popularDestinations, Destination } from '../data/destinations';
 import { airportDestinations, AirportDestination } from '../data/airport-destinations';
+import { 
+  FaUmbrellaBeach, 
+  FaCity, 
+  FaTree, 
+  FaLandmark, 
+  FaMountain, 
+  FaTheaterMasks, 
+  FaMapMarkerAlt,
+  FaGlobeAmericas,
+  FaBullseye,
+  FaMousePointer,
+  FaSearchPlus,
+  FaPlaneDeparture,
+  FaPlaneArrival
+} from 'react-icons/fa';
 
 interface Coordinates {
   lat: number;
@@ -33,15 +48,16 @@ const getCategoryColor = (category: string) => {
   }
 };
 
-const getCategoryEmoji = (category: string) => {
+const getCategoryIcon = (category: string) => {
+  const iconStyle = { fontSize: '24px' };
   switch (category) {
-    case 'beach': return '🏖️';
-    case 'city': return '🏙️';
-    case 'nature': return '🌲';
-    case 'historical': return '🏛️';
-    case 'adventure': return '🏔️';
-    case 'cultural': return '🎭';
-    default: return '📍';
+    case 'beach': return <FaUmbrellaBeach style={{ ...iconStyle, color: '#20B2AA' }} />;
+    case 'city': return <FaCity style={{ ...iconStyle, color: '#4169E1' }} />;
+    case 'nature': return <FaTree style={{ ...iconStyle, color: '#32CD32' }} />;
+    case 'historical': return <FaLandmark style={{ ...iconStyle, color: '#FFD700' }} />;
+    case 'adventure': return <FaMountain style={{ ...iconStyle, color: '#FF69B4' }} />;
+    case 'cultural': return <FaTheaterMasks style={{ ...iconStyle, color: '#9370DB' }} />;
+    default: return <FaMapMarkerAlt style={{ ...iconStyle, color: '#FFFFFF' }} />;
   }
 };
 
@@ -157,7 +173,7 @@ export default function InteractiveGlobe({
         lng: routeData.source.lng,
         size: 0.7,
         color: '#ff6b6b',
-        name: `🛫 ${routeData.source.name}`,
+        name: `✈ ${routeData.source.name}`, // Using simple icon for text string
         destId: 'route-source'
       },
       {
@@ -165,7 +181,7 @@ export default function InteractiveGlobe({
         lng: routeData.destination.lng,
         size: 0.7,
         color: '#4ecdc4',
-        name: `🛬 ${routeData.destination.name}`,
+        name: `✈ ${routeData.destination.name}`, // Using simple icon for text string
         destId: 'route-dest'
       }
     ];
@@ -219,8 +235,12 @@ export default function InteractiveGlobe({
         <div style={{ textAlign: 'center' }}>
           <div style={{ 
             marginBottom: '16px', 
-            fontSize: '48px'
-          }}>🌍</div>
+            fontSize: '48px',
+            display: 'flex',
+            justifyContent: 'center'
+          }}>
+            <FaGlobeAmericas style={{ color: '#4285f4' }} />
+          </div>
           <div style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '8px' }}>
             Loading Interactive Globe...
           </div>
@@ -265,9 +285,13 @@ export default function InteractiveGlobe({
         zIndex: 10,
         boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
         backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255,255,255,0.2)'
+        border: '1px solid rgba(255,255,255,0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
       }}>
-        {isMobile ? '🌍' : '🌍 Interactive Globe'}
+        <FaGlobeAmericas />
+        {!isMobile && <span>Interactive Globe</span>}
       </div>
 
       {/* Instructions */}
@@ -286,14 +310,14 @@ export default function InteractiveGlobe({
         border: '1px solid rgba(255,255,255,0.2)',
         boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>🎯</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <FaBullseye style={{ color: '#fbbf24' }} />
           <span>Click destinations</span>
           <span style={{ opacity: 0.6 }}>•</span>
-          <span>🖱️</span>
+          <FaMousePointer style={{ color: '#3b82f6' }} />
           <span>Drag to rotate</span>
           <span style={{ opacity: 0.6 }}>•</span>
-          <span>🔍</span>
+          <FaSearchPlus style={{ color: '#10b981' }} />
           <span>Scroll to zoom</span>
         </div>
       </div>
@@ -323,9 +347,7 @@ export default function InteractiveGlobe({
             alignItems: 'center',
             gap: '8px'
           }}>
-            <span style={{ fontSize: '24px' }}>
-              {getCategoryEmoji(selectedDestination.category)}
-            </span>
+            {getCategoryIcon(selectedDestination.category)}
             <span>{selectedDestination.name}</span>
           </div>
           <div style={{ 
@@ -336,7 +358,7 @@ export default function InteractiveGlobe({
             alignItems: 'center',
             gap: '6px'
           }}>
-            <span>📍</span>
+            <FaMapMarkerAlt style={{ color: '#fbbf24' }} />
             <span>{selectedDestination.country}</span>
           </div>
           <div style={{ 
@@ -383,7 +405,7 @@ export default function InteractiveGlobe({
               ${point.name}
             </div>
             <div style="opacity: 0.8; font-size: 13px; margin-bottom: 4px;">
-              📍 ${point.country || ''}
+              ▸ ${point.country || ''}
             </div>
             <div style="opacity: 0.7; font-size: 12px; font-style: italic;">
               ${point.description || ''}
