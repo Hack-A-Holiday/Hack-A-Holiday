@@ -3,7 +3,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string | Record<string, any>;
   timestamp: number;
-  type?: 'text' | 'recommendation' | 'link' | 'itinerary' | 'hotel_cards' | 'flight_recommendations' | 'attractions_recommendations';
+  type?: 'text' | 'recommendation' | 'link' | 'itinerary' | 'hotel_cards' | 'flight_recommendations' | 'attractions_recommendations' | 'welcome';
   data?: any;
 }
 

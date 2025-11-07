@@ -9,6 +9,7 @@ import { tripTrackingService } from '../services/trip-tracking';
 import { tripApiService, TripStats } from '../services/trip-api';
 import { useResponsive } from '../hooks/useResponsive';
 import { getResponsiveContainer, getResponsiveFontSize, getResponsivePadding, getTouchFriendlyButton } from '../utils/responsive-styles';
+import { FaRocket } from 'react-icons/fa';
 
 export default function HomePage() {
   const { state } = useAuth();
@@ -427,7 +428,10 @@ export default function HomePage() {
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = '0 5px 15px rgba(102, 126, 234, 0.4)';
               }}>
-                🚀 Start Planning Now
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                  <FaRocket style={{ fontSize: '1.2rem', color: '#fbbf24' }} />
+                  <span>Start Planning Now</span>
+                </span>
               </Link>
             </div>
           </section>

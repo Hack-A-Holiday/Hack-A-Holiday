@@ -8,6 +8,18 @@ import AnimatedBackground from "@/components/layout/AnimatedBackground";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Swal from "sweetalert2";
 import { useResponsive } from "@/hooks/useResponsive";
+import { 
+  FaHandPeace, 
+  FaPlane, 
+  FaHotel, 
+  FaGlobeAmericas, 
+  FaBullseye, 
+  FaDollarSign, 
+  FaBrain,
+  FaGift,
+  FaMapMarkerAlt,
+  FaClock
+} from "react-icons/fa";
 
 import { ChatMessage } from "./types";
 import { renderFormattedText } from "./utils";
@@ -38,6 +50,58 @@ export default function AIAssistant() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Helper function to create welcome message with icons
+  const createWelcomeMessage = (userName?: string) => {
+    return (
+      <>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+          <FaHandPeace style={{ fontSize: '1.2rem', color: '#f59e0b' }} />
+          <span style={{ fontSize: '1.1rem', fontWeight: '600' }}>
+            Hello {userName || "there"}! I'm your AI Travel Assistant.
+          </span>
+        </div>
+        
+        <div style={{ marginBottom: '8px', fontWeight: '600' }}>I can help you with:</div>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginLeft: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <FaPlane style={{ fontSize: '1rem', color: '#3b82f6', marginTop: '2px', flexShrink: 0 }} />
+            <span><strong>Flight Search</strong> - Real-time flight availability and pricing from our API</span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <FaHotel style={{ fontSize: '1rem', color: '#ec4899', marginTop: '2px', flexShrink: 0 }} />
+            <span><strong>Hotel Search</strong> - Live hotel recommendations with real-time data</span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <FaGlobeAmericas style={{ fontSize: '1rem', color: '#10b981', marginTop: '2px', flexShrink: 0 }} />
+            <span><strong>Destination Ideas</strong> - Personalized travel recommendations based on your preferences</span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <FaBullseye style={{ fontSize: '1rem', color: '#8b5cf6', marginTop: '2px', flexShrink: 0 }} />
+            <span><strong>Trip Planning</strong> - Complete itinerary creation with context-aware AI</span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <FaDollarSign style={{ fontSize: '1rem', color: '#22c55e', marginTop: '2px', flexShrink: 0 }} />
+            <span><strong>Budget Optimization</strong> - Get the most value for your money</span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <FaBrain style={{ fontSize: '1rem', color: '#f97316', marginTop: '2px', flexShrink: 0 }} />
+            <span><strong>Smart Context</strong> - I remember our conversation and your preferences</span>
+          </div>
+        </div>
+        
+        <div style={{ marginTop: '16px', fontStyle: 'italic', opacity: 0.9 }}>
+          Just tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!
+        </div>
+      </>
+    );
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -228,7 +292,7 @@ export default function AIAssistant() {
         try {
           const itineraryObj = JSON.parse(itineraryStr);
           // Convert itinerary object to formatted text for display in chat
-          let itineraryText = `🎉 Here's your personalized travel itinerary!\n\n`;
+          let itineraryText = `Here's your personalized travel itinerary!\n\n`;
 
           if (itineraryObj.aiResponse) {
             itineraryText += itineraryObj.aiResponse;
@@ -236,13 +300,13 @@ export default function AIAssistant() {
             // Fallback: create a basic itinerary from the object
             itineraryText += `**Trip Details:**\n`;
             if (itineraryObj.destination) {
-              itineraryText += `📍 Destination: ${itineraryObj.destination}\n`;
+              itineraryText += `Destination: ${itineraryObj.destination}\n`;
             }
             if (itineraryObj.duration) {
-              itineraryText += `⏱️ Duration: ${itineraryObj.duration} days\n`;
+              itineraryText += `Duration: ${itineraryObj.duration} days\n`;
             }
             if (itineraryObj.budget) {
-              itineraryText += `💰 Budget: ${itineraryObj.budget}\n`;
+              itineraryText += `Budget: ${itineraryObj.budget}\n`;
             }
             itineraryText += `\nI've prepared a detailed itinerary for your trip. Feel free to ask me any questions about your travel plans!`;
           }
@@ -311,21 +375,10 @@ export default function AIAssistant() {
       const welcomeMessage: ChatMessage = {
         id: Date.now().toString(),
         role: "assistant",
-        content: `👋 Hello ${
-          state.user?.name || "there"
-        }! I'm your AI Travel Assistant.
-
-I can help you with:
-✈️ **Flight Search** - Real-time flight availability and pricing from our API
-🏨 **Hotel Search** - Live hotel recommendations with real-time data
-🌍 **Destination Ideas** - Personalized travel recommendations based on your preferences
-🎯 **Trip Planning** - Complete itinerary creation with context-aware AI
-💰 **Budget Optimization** - Get the most value for your money
-🧠 **Smart Context** - I remember our conversation and your preferences
-
-Just tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!`,
+        content: "",
         timestamp: Date.now(),
-        type: "text",
+        type: "welcome",
+        data: { userName: state.user?.name }
       };
       setMessages([welcomeMessage]);
     }
@@ -1041,9 +1094,13 @@ In the meantime, I can still help you with general travel advice and planning!`,
                   marginBottom: "16px",
                   fontWeight: "600",
                   fontSize: "1.1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px"
                 }}
               >
-                🎯 Travel Recommendations
+                <FaBullseye style={{ color: "#8b5cf6" }} />
+                <span>Travel Recommendations</span>
               </div>
               <div
                 style={{
@@ -1066,11 +1123,11 @@ In the meantime, I can still help you with general travel advice and planning!`,
                         : "1px solid rgba(0,0,0,0.1)",
                     }}
                   >
-                    <div style={{ fontWeight: "600", marginBottom: "4px" }}>
-                      {rec.type === "flight" && "✈️ "}
-                      {rec.type === "hotel" && "🏨 "}
-                      {rec.type === "destination" && "🌍 "}
-                      {rec.title}
+                    <div style={{ fontWeight: "600", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
+                      {rec.type === "flight" && <FaPlane style={{ color: "#3b82f6", fontSize: "0.9rem" }} />}
+                      {rec.type === "hotel" && <FaHotel style={{ color: "#ec4899", fontSize: "0.9rem" }} />}
+                      {rec.type === "destination" && <FaGlobeAmericas style={{ color: "#10b981", fontSize: "0.9rem" }} />}
+                      <span>{rec.title}</span>
                     </div>
                     <div style={{ fontSize: "14px", opacity: 0.8 }}>
                       {rec.description}
@@ -1081,9 +1138,13 @@ In the meantime, I can still help you with general travel advice and planning!`,
                           fontSize: "14px",
                           fontWeight: "600",
                           marginTop: "4px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px"
                         }}
                       >
-                        💰 {rec.price}
+                        <FaDollarSign style={{ color: "#22c55e", fontSize: "0.9rem" }} />
+                        <span>{rec.price}</span>
                       </div>
                     )}
                     {rec.link && (
@@ -1105,6 +1166,9 @@ In the meantime, I can still help you with general travel advice and planning!`,
                 ))}
               </div>
             </div>
+          ) : message.type === "welcome" ? (
+            // Welcome message with icons
+            createWelcomeMessage(message.data?.userName)
           ) : message.type === "hotel_cards" && message.data?.hotels ? (
             <HotelCards
               hotels={message.data.hotels}
@@ -1344,11 +1408,10 @@ In the meantime, I can still help you with general travel advice and planning!`,
                     {
                       id: Date.now().toString(),
                       role: "assistant",
-                      content: `👋 Hello ${
-                        state.user?.name || "there"
-                      }! I'm your AI Travel Assistant.\n\nI can help you with:\n✈️ **Flight Search** - Real-time flight availability and pricing from our API\n🏨 **Hotel Search** - Live hotel recommendations with real-time data\n🌍 **Destination Ideas** - Personalized travel recommendations based on your preferences\n🎯 **Trip Planning** - Complete itinerary creation with context-aware AI\n💰 **Budget Optimization** - Get the most value for your money\n🧠 **Smart Context** - I remember our conversation and your preferences\n\nJust tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!`,
+                      content: "",
                       timestamp: Date.now(),
-                      type: "text",
+                      type: "welcome",
+                      data: { userName: state.user?.name }
                     },
                   ]);
                   if (isMobile) setShowSidebar(false);
@@ -1366,11 +1429,10 @@ In the meantime, I can still help you with general travel advice and planning!`,
                       {
                         id: Date.now().toString(),
                         role: "assistant",
-                        content: `👋 Hello ${
-                          state.user?.name || "there"
-                        }! I'm your AI Travel Assistant.\n\nI can help you with:\n✈️ **Flight Search** - Real-time flight availability and pricing from our API\n🏨 **Hotel Search** - Live hotel recommendations with real-time data\n🌍 **Destination Ideas** - Personalized travel recommendations based on your preferences\n🎯 **Trip Planning** - Complete itinerary creation with context-aware AI\n💰 **Budget Optimization** - Get the most value for your money\n🧠 **Smart Context** - I remember our conversation and your preferences\n\nJust tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!`,
+                        content: "",
                         timestamp: Date.now(),
-                        type: "text",
+                        type: "welcome",
+                        data: { userName: state.user?.name }
                       },
                     ]);
                   }
@@ -1434,11 +1496,10 @@ In the meantime, I can still help you with general travel advice and planning!`,
                     {
                       id: Date.now().toString(),
                       role: "assistant",
-                      content: `👋 Hello ${
-                        state.user?.name || "there"
-                      }! I'm your AI Travel Assistant.\n\nI can help you with:\n✈️ **Flight Search** - Real-time flight availability and pricing from our API\n🏨 **Hotel Search** - Live hotel recommendations with real-time data\n🌍 **Destination Ideas** - Personalized travel recommendations based on your preferences\n🎯 **Trip Planning** - Complete itinerary creation with context-aware AI\n💰 **Budget Optimization** - Get the most value for your money\n🧠 **Smart Context** - I remember our conversation and your preferences\n\nJust tell me what you're looking for, and I'll search real-time data and use AI to plan your perfect trip!`,
+                      content: "",
                       timestamp: Date.now(),
-                      type: "text",
+                      type: "welcome",
+                      data: { userName: state.user?.name }
                     },
                   ]);
                 }}
