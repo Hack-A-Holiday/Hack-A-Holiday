@@ -20,7 +20,7 @@ import TripAdvisorSearch from '../components/TripAdvisorSearch';
 import { bookingApiService } from '../services/booking-api';
 import { COMMON_AIRPORTS } from '../types/flight';
 import { buildApiUrl } from '../config/api';
-import { FaHotel, FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaSearch, FaClock, FaLightbulb, FaLandmark, FaRedo, FaBullseye } from 'react-icons/fa';
+import { FaHotel, FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaSearch, FaClock, FaLightbulb, FaLandmark, FaRedo, FaBullseye, FaStar, FaFire, FaGem, FaCamera, FaMagic } from 'react-icons/fa';
 
 export default function FlightSearchPage() {
   const { state } = useAuth();
@@ -1796,9 +1796,14 @@ export default function FlightSearchPage() {
                 <div style={{
                   fontSize: '1.2rem',
                   color: isDarkMode ? '#e8eaed' : '#1f2937',
-                  marginBottom: '20px'
+                  marginBottom: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
                 }}>
-                  🔍 Searching for hotels in {hotelDestination}...
+                  <FaSearch style={{ fontSize: '1rem' }} />
+                  Searching for hotels in {hotelDestination}...
                 </div>
                 <div style={{
                   width: '40px',
@@ -2111,9 +2116,13 @@ export default function FlightSearchPage() {
                 fontSize: isMobile ? '1.8rem' : '2.2rem',
                 fontWeight: '600',
                 margin: 0,
-                color: isDarkMode ? '#e8eaed' : '#1f2937'
+                color: isDarkMode ? '#e8eaed' : '#1f2937',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
               }}>
-                🏛️ Discover Your Destination
+                <FaLandmark style={{ color: '#667eea' }} />
+                Discover Your Destination
               </h2>
               {autoRecommendations.length > 0 && (
                 <button
@@ -2233,7 +2242,8 @@ export default function FlightSearchPage() {
                       alignItems: 'center',
                       gap: '6px'
                     }}>
-                      ✨ Personalized for you
+                      <FaMagic style={{ fontSize: '0.85rem' }} />
+                      Personalized for you
                     </span>
                   )}
                 </div>
@@ -2376,9 +2386,9 @@ export default function FlightSearchPage() {
                         }
                       }}
                     >
-                      {tab === 'Top Rated' && '⭐ '}
-                      {tab === 'Popular' && '🔥 '}
-                      {tab === 'Hidden Gems' && '💎 '}
+                      {tab === 'Top Rated' && <FaStar style={{ fontSize: '0.85rem', marginRight: '4px' }} />}
+                      {tab === 'Popular' && <FaFire style={{ fontSize: '0.85rem', marginRight: '4px' }} />}
+                      {tab === 'Hidden Gems' && <FaGem style={{ fontSize: '0.85rem', marginRight: '4px' }} />}
                       {tab}
                     </button>
                   ))}
@@ -2559,9 +2569,13 @@ export default function FlightSearchPage() {
                                 padding: '4px 8px',
                                 borderRadius: '12px',
                                 fontSize: '0.75rem',
-                                fontWeight: '500'
+                                fontWeight: '500',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
                               }}>
-                                📸 {location.photos.length}
+                                <FaCamera style={{ fontSize: '0.7rem' }} />
+                                {location.photos.length}
                               </div>
                             )}
                           </div>
@@ -2607,7 +2621,8 @@ export default function FlightSearchPage() {
                                 alignItems: 'center',
                                 gap: '4px'
                               }}>
-                                ⭐ {parseFloat(location.rating).toFixed(1)}
+                                <FaStar style={{ fontSize: '0.75rem' }} />
+                                {parseFloat(location.rating).toFixed(1)}
                               </div>
                             )}
 
@@ -2627,7 +2642,8 @@ export default function FlightSearchPage() {
                                 alignItems: 'center',
                                 gap: '4px'
                               }}>
-                                ✨ Perfect Match
+                                <FaMagic style={{ fontSize: '0.7rem' }} />
+                                Perfect Match
                               </div>
                             )}
                           </div>
@@ -2728,9 +2744,13 @@ export default function FlightSearchPage() {
                                 padding: '4px 8px',
                                 borderRadius: '12px',
                                 fontSize: '0.7rem',
-                                fontWeight: '600'
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
                               }}>
-                                ⭐ Top Rated
+                                <FaStar style={{ fontSize: '0.65rem' }} />
+                                Top Rated
                               </span>
                             )}
                             {parseInt(location.num_reviews) > 1000 && (
@@ -2740,9 +2760,13 @@ export default function FlightSearchPage() {
                                 padding: '4px 8px',
                                 borderRadius: '12px',
                                 fontSize: '0.7rem',
-                                fontWeight: '600'
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
                               }}>
-                                🔥 Popular
+                                <FaFire style={{ fontSize: '0.65rem' }} />
+                                Popular
                               </span>
                             )}
                             {location.personalizationScore && location.personalizationScore > 0.5 && (
@@ -2752,9 +2776,13 @@ export default function FlightSearchPage() {
                                 padding: '4px 8px',
                                 borderRadius: '12px',
                                 fontSize: '0.7rem',
-                                fontWeight: '600'
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
                               }}>
-                                ✨ For You
+                                <FaMagic style={{ fontSize: '0.65rem' }} />
+                                For You
                               </span>
                             )}
                             {location.photos && location.photos.length > 5 && (
@@ -2764,9 +2792,13 @@ export default function FlightSearchPage() {
                                 padding: '4px 8px',
                                 borderRadius: '12px',
                                 fontSize: '0.7rem',
-                                fontWeight: '600'
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
                               }}>
-                                📸 {location.photos.length} Photos
+                                <FaCamera style={{ fontSize: '0.65rem' }} />
+                                {location.photos.length} Photos
                               </span>
                             )}
                           </div>
@@ -2809,7 +2841,8 @@ export default function FlightSearchPage() {
                                 e.currentTarget.style.transform = 'translateY(0)';
                               }}
                             >
-                              🌟 View on TripAdvisor
+                              <FaStar style={{ fontSize: '0.75rem' }} />
+                              View on TripAdvisor
                             </button>
 
                           </div>
@@ -2823,10 +2856,10 @@ export default function FlightSearchPage() {
                       padding: '60px 20px',
                       color: isDarkMode ? '#9ca3af' : '#6b7280'
                     }}>
-                      <div style={{ fontSize: '3rem', marginBottom: '16px' }}>
-                        {activeFilter === 'Top Rated' && '⭐'}
-                        {activeFilter === 'Popular' && '🔥'}
-                        {activeFilter === 'Hidden Gems' && '💎'}
+                      <div style={{ fontSize: '3rem', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+                        {activeFilter === 'Top Rated' && <FaStar />}
+                        {activeFilter === 'Popular' && <FaFire />}
+                        {activeFilter === 'Hidden Gems' && <FaGem />}
                       </div>
                       <h3 style={{
                         fontSize: '1.2rem',
