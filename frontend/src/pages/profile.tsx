@@ -12,6 +12,17 @@ import { TravelPreferences, defaultTravelPreferences, preferenceOptions, Prefere
 // import { tripTrackingService, Trip } from '../services/trip-tracking'; // Original import removed
 import { tripApiService, Trip as ApiTrip } from '../services/trip-api';
 import { userProfileApiService } from '../services/user-profile-api';
+import { 
+  FaHome, 
+  FaLock, 
+  FaInfoCircle, 
+  FaSearch, 
+  FaDollarSign, 
+  FaTrashAlt, 
+  FaExclamationTriangle, 
+  FaTimes,
+  FaEdit
+} from 'react-icons/fa';
 
 // ================= FIX STARTS HERE =================
 // Define a complete Trip type that matches the mock data being used.
@@ -156,7 +167,7 @@ function ProfileForm({ editForm, handleInputChange, disabled, fields, isDarkMode
           alignItems: 'center',
           gap: '8px'
         }}>
-          <span style={{ fontSize: '1rem' }}>🔒</span>
+          <FaLock style={{ fontSize: '1rem', color: isDarkMode ? '#9ca3af' : '#6c757d' }} />
           <span style={{ 
             color: isDarkMode ? '#9ca3af' : '#6c757d', 
             fontSize: '0.85rem',
@@ -779,7 +790,7 @@ export default function ProfilePage() {
       
       console.log('🔄 Cleared cached data for user context switch');
     }
-  }, [state.user?.email, state.user?.name]);
+  }, [state.user?.email, state.user?.name, state.user?.role]);
 
 
   // --- The `return` statement with all your JSX ---
@@ -795,119 +806,245 @@ export default function ProfilePage() {
       <div style={{
         minHeight: '100vh',
         background: isDarkMode
-          ? 'linear-gradient(135deg, #1a1f2e 0%, #16213e 100%)'
-          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+          ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'
+          : 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #dbeafe 100%)',
+        paddingBottom: '40px'
       }}>
         <Navbar />
         <main style={{ padding: isMobile ? '20px 15px' : '40px 20px' }}>
-          <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+
+            {/* Page Header */}
+            <div style={{
+              marginBottom: '32px',
+              textAlign: 'center'
+            }}>
+              <h1 style={{
+                fontSize: isMobile ? '2rem' : '2.5rem',
+                fontWeight: '800',
+                background: isDarkMode
+                  ? 'linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%)'
+                  : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                marginBottom: '8px'
+              }}>
+                Your Profile
+              </h1>
+              <p style={{
+                color: isDarkMode ? '#94a3b8' : '#64748b',
+                fontSize: isMobile ? '0.95rem' : '1.05rem',
+                maxWidth: '600px',
+                margin: '0 auto'
+              }}>
+                Manage your account settings and travel preferences
+              </p>
+            </div>
 
             {/* Profile Information */}
             <div style={{
-              background: isDarkMode ? '#252d3d' : 'rgba(255, 255, 255, 0.95)',
-              borderRadius: isMobile ? '15px' : '20px',
-              padding: isMobile ? '20px' : '40px',
-              marginBottom: isMobile ? '20px' : '30px',
-              boxShadow: isDarkMode ? '0 10px 30px rgba(0, 0, 0, 0.6)' : '0 10px 30px rgba(0, 0, 0, 0.1)',
-              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
+              background: isDarkMode 
+                ? 'linear-gradient(135deg, #1e293b 0%, #334155 100%)' 
+                : 'white',
+              borderRadius: '24px',
+              padding: isMobile ? '24px' : '40px',
+              marginBottom: '24px',
+              boxShadow: isDarkMode 
+                ? '0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)' 
+                : '0 20px 60px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)',
+              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.05)',
+              position: 'relative',
+              overflow: 'hidden'
             }}>
+              {/* Decorative Background Elements */}
               <div style={{
-                display: 'flex',
-                flexDirection: isMobile ? 'column' : 'row',
-                justifyContent: 'space-between',
-                alignItems: isMobile ? 'flex-start' : 'center',
-                marginBottom: isMobile ? '20px' : '25px',
-                gap: isMobile ? '15px' : '0'
+                position: 'absolute',
+                top: '-50px',
+                right: '-50px',
+                width: '200px',
+                height: '200px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                opacity: '0.05',
+                filter: 'blur(40px)'
+              }} />
+              
+              <div style={{
+                position: 'relative',
+                zIndex: 1
               }}>
-                <div>
-                  <h2 style={{ margin: 0, color: isDarkMode ? '#e8eaed' : '#333', fontSize: isMobile ? '1.3rem' : '1.5rem' }}>Profile Information</h2>
-                  {isGoogleUser ? (
-                    <p style={{ 
-                      margin: '5px 0 0 0', 
-                      color: isDarkMode ? '#9ca3af' : '#666', 
-                      fontSize: isMobile ? '0.8rem' : '0.85rem' 
+                <div style={{
+                  display: 'flex',
+                  flexDirection: isMobile ? 'column' : 'row',
+                  justifyContent: 'space-between',
+                  alignItems: isMobile ? 'flex-start' : 'center',
+                  marginBottom: isMobile ? '24px' : '32px',
+                  gap: isMobile ? '15px' : '0'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{
+                      width: isMobile ? '56px' : '72px',
+                      height: isMobile ? '56px' : '72px',
+                      borderRadius: '20px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontSize: isMobile ? '1.5rem' : '2rem',
+                      fontWeight: '700',
+                      boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)'
                     }}>
-                      Managed by Google OAuth
-                    </p>
-                  ) : (
-                    <p style={{ 
-                      margin: '5px 0 0 0', 
-                      color: isDarkMode ? '#9ca3af' : '#666', 
-                      fontSize: isMobile ? '0.8rem' : '0.85rem' 
+                      {state.user?.name ? state.user.name[0].toUpperCase() : state.user?.email?.[0].toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <h2 style={{ 
+                        margin: 0, 
+                        color: isDarkMode ? '#f1f5f9' : '#1e293b', 
+                        fontSize: isMobile ? '1.4rem' : '1.75rem',
+                        fontWeight: '700',
+                        marginBottom: '4px'
+                      }}>
+                        Profile Information
+                      </h2>
+                      {isGoogleUser ? (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: isMobile ? '0.8rem' : '0.875rem',
+                          color: isDarkMode ? '#94a3b8' : '#64748b'
+                        }}>
+                          <FaLock style={{ fontSize: '0.75rem' }} />
+                          <span>Managed by Google OAuth</span>
+                        </div>
+                      ) : (
+                        <p style={{ 
+                          margin: 0,
+                          color: isDarkMode ? '#94a3b8' : '#64748b', 
+                          fontSize: isMobile ? '0.8rem' : '0.9rem' 
+                        }}>
+                          Manage your account details
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {!isGoogleUser && (
+                    <button
+                      onClick={() => setIsEditingProfile(!isEditingProfile)}
+                      style={{
+                        background: isEditingProfile 
+                          ? (isDarkMode ? '#475569' : '#cbd5e1')
+                          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        padding: isMobile ? '12px 24px' : '12px 28px',
+                        minHeight: isMobile ? '48px' : 'auto',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontSize: isMobile ? '0.9rem' : '0.95rem',
+                        fontWeight: '500',
+                        width: isMobile ? '100%' : 'auto',
+                        touchAction: 'manipulation',
+                        boxShadow: isEditingProfile 
+                          ? 'none' 
+                          : '0 2px 8px rgba(102, 126, 234, 0.2)',
+                        transition: 'all 0.3s ease',
+                        transform: isEditingProfile ? 'scale(0.98)' : 'scale(1)'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isEditingProfile) {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.25)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isEditingProfile) {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.2)';
+                        }
+                      }}
+                    >
+                      {isEditingProfile ? (
+                        <>
+                          <FaTimes style={{ fontSize: '0.9rem' }} /> Cancel
+                        </>
+                      ) : (
+                        <>
+                          <FaEdit style={{ fontSize: '0.9rem' }} /> Edit Profile
+                        </>
+                      )}
+                    </button>
+                  )}
+                  
+                  {isGoogleUser && (
+                    <div style={{
+                      background: isDarkMode ? 'rgba(148, 163, 184, 0.1)' : 'rgba(241, 245, 249, 0.8)',
+                      color: isDarkMode ? '#94a3b8' : '#64748b',
+                      border: isDarkMode ? '1px solid rgba(148, 163, 184, 0.2)' : '1px solid #e2e8f0',
+                      padding: '10px 20px',
+                      borderRadius: '12px',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      width: isMobile ? '100%' : 'auto',
+                      justifyContent: isMobile ? 'center' : 'flex-start'
                     }}>
-                      You can edit your name and email address
-                    </p>
+                      <FaLock style={{ fontSize: '0.85rem' }} />
+                      <span>Protected by Google</span>
+                    </div>
                   )}
                 </div>
-                {!isGoogleUser && (
-                  <button
-                    onClick={() => setIsEditingProfile(!isEditingProfile)}
-                    style={{
-                      background: isEditingProfile ? '#6c757d' : '#667eea',
-                      color: 'white',
-                      border: 'none',
-                      padding: isMobile ? '12px 20px' : '10px 20px',
-                      minHeight: isMobile ? '44px' : 'auto',
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      fontSize: isMobile ? '0.85rem' : '0.9rem',
-                      fontWeight: '500',
-                      width: isMobile ? '100%' : 'auto',
-                      touchAction: 'manipulation'
-                    }}
-                  >
-                    {isEditingProfile ? 'Cancel' : 'Edit Profile Info'}
-                  </button>
-                )}
-                {isGoogleUser && (
-                  <div style={{
-                    background: isDarkMode ? 'rgba(107, 114, 128, 0.2)' : '#f8f9fa',
-                    color: isDarkMode ? '#9ca3af' : '#6c757d',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '10px',
-                    fontSize: '0.9rem',
-                    fontWeight: '500',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    🔒 Protected by Google
-                  </div>
-                )}
-              </div>
 
               {isGoogleUser && (
                 <div style={{
-                  background: isDarkMode ? 'rgba(33, 150, 243, 0.1)' : '#e3f2fd',
-                  border: `1px solid ${isDarkMode ? 'rgba(33, 150, 243, 0.3)' : '#2196f3'}`,
-                  borderRadius: '10px',
-                  padding: '16px 20px',
-                  marginBottom: '20px',
+                  background: isDarkMode 
+                    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)'
+                    : 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)',
+                  border: `1.5px solid ${isDarkMode ? 'rgba(96, 165, 250, 0.3)' : 'rgba(59, 130, 246, 0.2)'}`,
+                  borderRadius: '16px',
+                  padding: '20px 24px',
+                  marginBottom: '28px',
                   display: 'flex',
                   alignItems: 'flex-start',
-                  gap: '12px'
+                  gap: '14px',
+                  boxShadow: isDarkMode 
+                    ? '0 4px 12px rgba(59, 130, 246, 0.1)' 
+                    : '0 4px 12px rgba(59, 130, 246, 0.08)'
                 }}>
-                  <div style={{ 
-                    fontSize: '1.2rem',
-                    color: isDarkMode ? '#64b5f6' : '#1976d2',
-                    marginTop: '2px'
+                  <div style={{
+                    background: isDarkMode 
+                      ? 'linear-gradient(135deg, #3b82f6 0%, #9333ea 100%)'
+                      : 'linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%)',
+                    padding: '10px',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
                   }}>
-                    🔒
+                    <FaLock style={{ 
+                      fontSize: '1.1rem',
+                      color: 'white'
+                    }} />
                   </div>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ 
-                      color: isDarkMode ? '#64b5f6' : '#1976d2', 
-                      fontSize: '0.95rem',
-                      fontWeight: '600',
-                      marginBottom: '4px'
+                      color: isDarkMode ? '#93c5fd' : '#2563eb', 
+                      fontSize: '1rem',
+                      fontWeight: '700',
+                      marginBottom: '6px',
+                      letterSpacing: '-0.01em'
                     }}>
                       Google Account Protection
                     </div>
                     <div style={{ 
-                      color: isDarkMode ? '#90caf9' : '#1565c0', 
-                      fontSize: '0.85rem',
-                      lineHeight: '1.4'
+                      color: isDarkMode ? '#cbd5e1' : '#475569', 
+                      fontSize: '0.9rem',
+                      lineHeight: '1.6'
                     }}>
                       Your name and email are managed by Google and cannot be edited here. 
                       You can still update your travel preferences and other profile settings.
@@ -915,109 +1052,131 @@ export default function ProfilePage() {
                   </div>
                 </div>
               )} {!isEditingProfile ? (
-                <div>
-                  <div style={{ marginBottom: '20px' }}>
-                    <span style={{
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  <div>
+                    <label style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      color: isDarkMode ? '#9ca3af' : '#666',
-                      fontSize: '0.9rem',
-                      marginBottom: '5px'
+                      color: isDarkMode ? '#94a3b8' : '#64748b',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
                     }}>
                       Full Name
                       {isGoogleUser && (
                         <span style={{
-                          background: isDarkMode ? 'rgba(107, 114, 128, 0.2)' : '#e9ecef',
-                          color: isDarkMode ? '#9ca3af' : '#6c757d',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          fontSize: '0.75rem',
-                          fontWeight: '500',
+                          background: isDarkMode 
+                            ? 'linear-gradient(135deg, rgba(100, 116, 139, 0.2) 0%, rgba(71, 85, 105, 0.2) 100%)' 
+                            : 'linear-gradient(135deg, rgba(226, 232, 240, 1) 0%, rgba(203, 213, 225, 1) 100%)',
+                          color: isDarkMode ? '#94a3b8' : '#64748b',
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          fontSize: '0.7rem',
+                          fontWeight: '600',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '4px'
+                          gap: '5px',
+                          border: `1px solid ${isDarkMode ? 'rgba(148, 163, 184, 0.2)' : 'rgba(148, 163, 184, 0.3)'}`
                         }}>
-                          🔒 Protected
+                          <FaLock style={{ fontSize: '0.65rem' }} />
+                          <span>PROTECTED</span>
                         </span>
                       )}
-                    </span>
+                    </label>
                     <div style={{
-                      padding: '12px 16px',
+                      padding: '16px 20px',
                       background: isGoogleUser 
-                        ? (isDarkMode ? 'rgba(107, 114, 128, 0.1)' : '#f8f9fa')
-                        : (isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa'),
-                      borderRadius: '10px',
-                      color: isDarkMode ? '#e8eaed' : '#333',
+                        ? (isDarkMode ? 'rgba(51, 65, 85, 0.5)' : 'rgba(248, 250, 252, 1)')
+                        : (isDarkMode ? 'rgba(30, 41, 59, 0.5)' : '#ffffff'),
+                      borderRadius: '12px',
+                      color: isDarkMode ? '#f1f5f9' : '#1e293b',
                       fontSize: '1rem',
+                      fontWeight: '500',
                       border: isGoogleUser
-                        ? (isDarkMode ? '1px solid rgba(107, 114, 128, 0.2)' : '1px solid #dee2e6')
-                        : (isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'),
+                        ? (isDarkMode ? '1.5px solid rgba(100, 116, 139, 0.3)' : '1.5px solid rgba(226, 232, 240, 1)')
+                        : (isDarkMode ? '1.5px solid rgba(51, 65, 85, 0.5)' : '1.5px solid #e2e8f0'),
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between'
+                      justifyContent: 'space-between',
+                      boxShadow: isDarkMode 
+                        ? '0 2px 8px rgba(0, 0, 0, 0.2)' 
+                        : '0 2px 8px rgba(0, 0, 0, 0.04)',
+                      cursor: isGoogleUser ? 'not-allowed' : 'default',
+                      opacity: isGoogleUser ? 0.7 : 1
                     }}>
                       <span>{state.user?.name || 'Not specified'}</span>
                       {isGoogleUser && (
-                        <span style={{ 
-                          color: isDarkMode ? '#9ca3af' : '#6c757d',
-                          fontSize: '0.85rem'
-                        }}>
-                          🔒
-                        </span>
+                        <FaLock style={{ 
+                          color: isDarkMode ? '#94a3b8' : '#64748b',
+                          fontSize: '0.9rem'
+                        }} />
                       )}
                     </div>
                   </div>
                   <div>
-                    <span style={{
+                    <label style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      color: isDarkMode ? '#9ca3af' : '#666',
-                      fontSize: '0.9rem',
-                      marginBottom: '5px'
+                      color: isDarkMode ? '#94a3b8' : '#64748b',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
                     }}>
                       Email Address
                       {isGoogleUser && (
                         <span style={{
-                          background: isDarkMode ? 'rgba(107, 114, 128, 0.2)' : '#e9ecef',
-                          color: isDarkMode ? '#9ca3af' : '#6c757d',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          fontSize: '0.75rem',
-                          fontWeight: '500',
+                          background: isDarkMode 
+                            ? 'linear-gradient(135deg, rgba(100, 116, 139, 0.2) 0%, rgba(71, 85, 105, 0.2) 100%)' 
+                            : 'linear-gradient(135deg, rgba(226, 232, 240, 1) 0%, rgba(203, 213, 225, 1) 100%)',
+                          color: isDarkMode ? '#94a3b8' : '#64748b',
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          fontSize: '0.7rem',
+                          fontWeight: '600',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '4px'
+                          gap: '5px',
+                          border: `1px solid ${isDarkMode ? 'rgba(148, 163, 184, 0.2)' : 'rgba(148, 163, 184, 0.3)'}`
                         }}>
-                          🔒 Protected
+                          <FaLock style={{ fontSize: '0.65rem' }} />
+                          <span>PROTECTED</span>
                         </span>
                       )}
-                    </span>
+                    </label>
                     <div style={{
-                      padding: '12px 16px',
+                      padding: '16px 20px',
                       background: isGoogleUser 
-                        ? (isDarkMode ? 'rgba(107, 114, 128, 0.1)' : '#f8f9fa')
-                        : (isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f9fa'),
-                      borderRadius: '10px',
-                      color: isDarkMode ? '#e8eaed' : '#333',
+                        ? (isDarkMode ? 'rgba(51, 65, 85, 0.5)' : 'rgba(248, 250, 252, 1)')
+                        : (isDarkMode ? 'rgba(30, 41, 59, 0.5)' : '#ffffff'),
+                      borderRadius: '12px',
+                      color: isDarkMode ? '#f1f5f9' : '#1e293b',
                       fontSize: '1rem',
+                      fontWeight: '500',
                       wordBreak: 'break-word',
                       border: isGoogleUser
-                        ? (isDarkMode ? '1px solid rgba(107, 114, 128, 0.2)' : '1px solid #dee2e6')
-                        : (isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : 'none'),
+                        ? (isDarkMode ? '1.5px solid rgba(100, 116, 139, 0.3)' : '1.5px solid rgba(226, 232, 240, 1)')
+                        : (isDarkMode ? '1.5px solid rgba(51, 65, 85, 0.5)' : '1.5px solid #e2e8f0'),
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between'
+                      justifyContent: 'space-between',
+                      boxShadow: isDarkMode 
+                        ? '0 2px 8px rgba(0, 0, 0, 0.2)' 
+                        : '0 2px 8px rgba(0, 0, 0, 0.04)',
+                      cursor: isGoogleUser ? 'not-allowed' : 'default',
+                      opacity: isGoogleUser ? 0.7 : 1
                     }}>
                       <span>{state.user?.email}</span>
                       {isGoogleUser && (
-                        <span style={{ 
-                          color: isDarkMode ? '#9ca3af' : '#6c757d',
-                          fontSize: '0.85rem'
-                        }}>
-                          🔒
-                        </span>
+                        <FaLock style={{ 
+                          color: isDarkMode ? '#94a3b8' : '#64748b',
+                          fontSize: '0.9rem'
+                        }} />
                       )}
                     </div>
                   </div>
@@ -1057,69 +1216,199 @@ export default function ProfilePage() {
                   )}
                 </>
               )}
-            </div>
+              </div> {/* Close position: relative div */}
+            </div> {/* Close Profile Information */}
 
             {/* Home City */}
             <div style={{
-              background: isDarkMode ? '#252d3d' : 'rgba(255, 255, 255, 0.95)',
-              borderRadius: '20px',
-              padding: '40px',
-              marginBottom: '30px',
-              boxShadow: isDarkMode ? '0 10px 30px rgba(0, 0, 0, 0.6)' : '0 10px 30px rgba(0, 0, 0, 0.1)',
-              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
+              background: isDarkMode 
+                ? 'linear-gradient(135deg, #1e293b 0%, #334155 100%)' 
+                : 'white',
+              borderRadius: '24px',
+              padding: isMobile ? '24px' : '40px',
+              marginBottom: '24px',
+              boxShadow: isDarkMode 
+                ? '0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)' 
+                : '0 20px 60px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)',
+              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.05)',
+              position: 'relative',
+              overflow: 'hidden'
             }}>
+              {/* Decorative Background Elements */}
               <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '25px',
+                position: 'absolute',
+                top: '-50px',
+                left: '-50px',
+                width: '200px',
+                height: '200px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                opacity: '0.05',
+                filter: 'blur(40px)'
+              }} />
+              
+              <div style={{
+                position: 'relative',
+                zIndex: 1
               }}>
-                <div>
-                  <h2 style={{ margin: 0, color: isDarkMode ? '#e8eaed' : '#333', fontSize: '1.5rem' }}>🏠 Home City</h2>
-                  <p style={{ margin: '5px 0 0 0', color: isDarkMode ? '#9ca3af' : '#666', fontSize: '0.9rem' }}>
-                    Set your default origin city for flight searches
-                  </p>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: isMobile ? 'column' : 'row',
+                  justifyContent: 'space-between',
+                  alignItems: isMobile ? 'flex-start' : 'center',
+                  marginBottom: isMobile ? '24px' : '32px',
+                  gap: isMobile ? '15px' : '0'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{
+                      width: isMobile ? '48px' : '60px',
+                      height: isMobile ? '48px' : '60px',
+                      borderRadius: '16px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontSize: isMobile ? '1.3rem' : '1.6rem',
+                      boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)'
+                    }}>
+                      <FaHome />
+                    </div>
+                    <div>
+                      <h2 style={{ 
+                        margin: 0, 
+                        color: isDarkMode ? '#f1f5f9' : '#1e293b', 
+                        fontSize: isMobile ? '1.3rem' : '1.6rem',
+                        fontWeight: '700',
+                        marginBottom: '4px'
+                      }}>
+                        Home City
+                      </h2>
+                      <p style={{ 
+                        margin: 0,
+                        color: isDarkMode ? '#94a3b8' : '#64748b', 
+                        fontSize: isMobile ? '0.8rem' : '0.9rem' 
+                      }}>
+                        Set your default origin city
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsEditingHomeCity(!isEditingHomeCity)}
+                    style={{
+                      background: isEditingHomeCity 
+                        ? (isDarkMode ? '#475569' : '#cbd5e1')
+                        : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      border: 'none',
+                      padding: isMobile ? '12px 24px' : '12px 28px',
+                      minHeight: isMobile ? '48px' : 'auto',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontSize: isMobile ? '0.9rem' : '0.95rem',
+                      fontWeight: '500',
+                      width: isMobile ? '100%' : 'auto',
+                      touchAction: 'manipulation',
+                      boxShadow: isEditingHomeCity 
+                        ? 'none' 
+                        : '0 2px 8px rgba(102, 126, 234, 0.2)',
+                      transition: 'all 0.3s ease',
+                      transform: isEditingHomeCity ? 'scale(0.98)' : 'scale(1)'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isEditingHomeCity) {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.25)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isEditingHomeCity) {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.2)';
+                      }
+                    }}
+                  >
+                    {isEditingHomeCity ? (
+                      <>
+                        <FaTimes style={{ fontSize: '0.9rem' }} /> Cancel
+                      </>
+                    ) : (
+                      <>
+                        <FaEdit style={{ fontSize: '0.9rem' }} /> Edit Home City
+                      </>
+                    )}
+                  </button>
                 </div>
-                <button
-                  onClick={() => setIsEditingHomeCity(!isEditingHomeCity)}
-                  style={{
-                    background: isEditingHomeCity ? '#6c757d' : '#667eea',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: '500',
-                  }}
-                >
-                  {isEditingHomeCity ? 'Cancel' : 'Edit Home City'}
-                </button>
-              </div>
 
               {!isEditingHomeCity ? (
                 <div style={{
-                  padding: '20px',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  borderRadius: '15px',
-                  color: 'white'
+                  padding: isMobile ? '24px' : '32px',
+                  background: isDarkMode
+                    ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                    : 'linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%)',
+                  borderRadius: '20px',
+                  color: 'white',
+                  boxShadow: '0 12px 32px rgba(102, 126, 234, 0.25)',
+                  position: 'relative',
+                  overflow: 'hidden'
                 }}>
-                  <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '8px' }}>
-                    Your Home City
-                  </div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>
-                    {homeCity || 'Not set'}
-                  </div>
-                  {homeCity && (
-                    <div style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: '10px' }}>
-                      AI will use {homeCity} as your default origin when you search for flights
+                  {/* Pattern overlay */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    width: '100%',
+                    height: '100%',
+                    background: 'radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.1) 0%, transparent 50%)',
+                    pointerEvents: 'none'
+                  }} />
+                  
+                  <div style={{ position: 'relative', zIndex: 1 }}>
+                    <div style={{ 
+                      fontSize: '0.85rem', 
+                      opacity: 0.9, 
+                      marginBottom: '12px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      fontWeight: '600'
+                    }}>
+                      Your Home City
                     </div>
-                  )}
-                  {!homeCity && (
-                    <div style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: '10px' }}>
+                    <div style={{ 
+                      fontSize: isMobile ? '1.8rem' : '2.2rem', 
+                      fontWeight: '800',
+                      marginBottom: '12px',
+                      letterSpacing: '-0.02em'
+                    }}>
+                      {homeCity || 'Not set'}
+                    </div>
+                    {homeCity && (
+                      <div style={{ 
+                        fontSize: '0.9rem', 
+                        opacity: 0.95, 
+                        lineHeight: '1.6',
+                        background: 'rgba(255, 255, 255, 0.15)',
+                        padding: '12px 16px',
+                        borderRadius: '12px',
+                        backdropFilter: 'blur(10px)'
+                      }}>
+                        💡 AI will use <strong>{homeCity}</strong> as your default origin when you search for flights
+                      </div>
+                    )}
+                    {!homeCity && (
+                      <div style={{ 
+                        fontSize: '0.9rem', 
+                        opacity: 0.95, 
+                        lineHeight: '1.6',
+                        background: 'rgba(255, 255, 255, 0.15)',
+                        padding: '12px 16px',
+                        borderRadius: '12px',
+                        backdropFilter: 'blur(10px)'
+                      }}>
                       Click &quot;Edit Home City&quot; to set your default origin city
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div>
@@ -1166,7 +1455,7 @@ export default function ProfilePage() {
                         transform: 'translateY(-50%)',
                         color: isDarkMode ? '#9ca3af' : '#666'
                       }}>
-                        🔍
+                        <FaSearch style={{ fontSize: '1rem' }} />
                       </div>
                     )}
                     
@@ -1233,7 +1522,8 @@ export default function ProfilePage() {
                   </button>
                 </div>
               )}
-            </div>
+              </div> {/* Close position: relative div */}
+            </div> {/* Close Home City */}
 
             {/* Travel Preferences */}
             <div style={{
@@ -1276,17 +1566,49 @@ export default function ProfilePage() {
                   <button
                     onClick={() => setIsEditingPreferences(!isEditingPreferences)}
                     style={{
-                      background: isEditingPreferences ? '#6c757d' : '#667eea',
+                      background: isEditingPreferences 
+                        ? (isDarkMode ? '#475569' : '#cbd5e1')
+                        : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                       color: 'white',
                       border: 'none',
-                      padding: '10px 20px',
-                      borderRadius: '10px',
+                      padding: isMobile ? '12px 24px' : '12px 28px',
+                      minHeight: isMobile ? '48px' : 'auto',
+                      borderRadius: '12px',
                       cursor: 'pointer',
-                      fontSize: '0.9rem',
+                      fontSize: isMobile ? '0.9rem' : '0.95rem',
                       fontWeight: '500',
+                      touchAction: 'manipulation',
+                      boxShadow: isEditingPreferences 
+                        ? 'none' 
+                        : '0 2px 8px rgba(102, 126, 234, 0.2)',
+                      transition: 'all 0.3s ease',
+                      transform: isEditingPreferences ? 'scale(0.98)' : 'scale(1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isEditingPreferences) {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.25)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isEditingPreferences) {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.2)';
+                      }
                     }}
                   >
-                    {isEditingPreferences ? 'Cancel' : 'Edit Preferences'}
+                    {isEditingPreferences ? (
+                      <>
+                        <FaTimes style={{ fontSize: '0.9rem' }} /> Cancel
+                      </>
+                    ) : (
+                      <>
+                        <FaEdit style={{ fontSize: '0.9rem' }} /> Edit Preferences
+                      </>
+                    )}
                   </button>
                   {isEditingPreferences && (
                     <button
@@ -1374,8 +1696,16 @@ export default function ProfilePage() {
                         </div>
                       </div>
                       {trip.details?.totalPrice && (
-                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', marginTop: '10px' }}>
-                          💰 ${Math.round(trip.details.totalPrice)}
+                        <div style={{ 
+                          fontSize: '1.1rem', 
+                          fontWeight: 'bold', 
+                          marginTop: '10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          <FaDollarSign style={{ fontSize: '1rem' }} />
+                          ${Math.round(trip.details.totalPrice)}
                         </div>
                       )}
                       {trip.cancellationReason && (
@@ -1385,9 +1715,13 @@ export default function ProfilePage() {
                           marginTop: '10px',
                           padding: '8px 12px',
                           background: 'rgba(0, 0, 0, 0.2)',
-                          borderRadius: '8px'
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
                         }}>
-                          ❌ Cancelled: {trip.cancellationReason}
+                          <FaTimes style={{ fontSize: '0.9rem' }} />
+                          Cancelled: {trip.cancellationReason}
                         </div>
                       )}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
@@ -1469,7 +1803,10 @@ export default function ProfilePage() {
                               cursor: 'pointer',
                               fontSize: '0.85rem',
                               fontWeight: '500',
-                              transition: 'all 0.2s ease'
+                              transition: 'all 0.2s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px'
                             }}
                             onMouseEnter={(e) => {
                               (e.target as HTMLElement).style.background = 'rgba(220, 53, 69, 1)';
@@ -1478,7 +1815,8 @@ export default function ProfilePage() {
                               (e.target as HTMLElement).style.background = 'rgba(220, 53, 69, 0.8)';
                             }}
                           >
-                            🗑️ Delete
+                            <FaTrashAlt style={{ fontSize: '0.85rem' }} />
+                            Delete
                           </button>
                         </div>
                       </div>
@@ -1499,8 +1837,14 @@ export default function ProfilePage() {
               <h2 style={{
                 margin: '0 0 15px',
                 color: '#e17055',
-                fontSize: '1.5rem'
-              }}>⚠️ Danger Zone</h2>
+                fontSize: '1.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <FaExclamationTriangle style={{ fontSize: '1.3rem' }} />
+                Danger Zone
+              </h2>
               <p style={{
                 color: isDarkMode ? '#9ca3af' : '#666',
                 marginBottom: '20px',
@@ -1512,17 +1856,34 @@ export default function ProfilePage() {
                 <button
                   onClick={handleDeleteAccount}
                   style={{
-                    background: '#dc3545',
+                    background: 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)',
                     color: 'white',
                     border: 'none',
-                    padding: '12px 25px',
-                    borderRadius: '10px',
+                    padding: isMobile ? '12px 24px' : '12px 28px',
+                    minHeight: isMobile ? '48px' : 'auto',
+                    borderRadius: '12px',
                     cursor: 'pointer',
-                    fontSize: '0.9rem',
+                    fontSize: isMobile ? '0.9rem' : '0.95rem',
                     fontWeight: '500',
-                    width: '100%'
+                    width: '100%',
+                    touchAction: 'manipulation',
+                    boxShadow: '0 2px 8px rgba(220, 53, 69, 0.2)',
+                    transition: 'all 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(220, 53, 69, 0.25)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(220, 53, 69, 0.2)';
                   }}
                 >
+                  <FaTrashAlt style={{ fontSize: '0.9rem' }} />
                   Delete Account
                 </button>
                 <button
@@ -1567,18 +1928,45 @@ export default function ProfilePage() {
                   }}
                   disabled={isClearingHistory}
                   style={{
-                    background: isClearingHistory ? '#c2410c' : '#ef4444',
+                    background: isClearingHistory 
+                      ? (isDarkMode ? '#991b1b' : '#b91c1c')
+                      : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
                     color: 'white',
                     border: 'none',
-                    padding: '12px 25px',
-                    borderRadius: '10px',
+                    padding: isMobile ? '12px 24px' : '12px 28px',
+                    minHeight: isMobile ? '48px' : 'auto',
+                    borderRadius: '12px',
                     cursor: isClearingHistory ? 'not-allowed' : 'pointer',
-                    fontSize: '0.9rem',
+                    fontSize: isMobile ? '0.9rem' : '0.95rem',
                     fontWeight: '500',
-                    width: '100%'
+                    width: '100%',
+                    touchAction: 'manipulation',
+                    boxShadow: isClearingHistory 
+                      ? 'none' 
+                      : '0 2px 8px rgba(239, 68, 68, 0.2)',
+                    transition: 'all 0.3s ease',
+                    transform: isClearingHistory ? 'scale(0.98)' : 'scale(1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    opacity: isClearingHistory ? 0.7 : 1
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isClearingHistory) {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.25)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isClearingHistory) {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.2)';
+                    }
                   }}
                 >
-                  {isClearingHistory ? 'Clearing...' : '🗑️ Clear All Chat History'}
+                  <FaTrashAlt style={{ fontSize: '0.9rem' }} />
+                  {isClearingHistory ? 'Clearing...' : 'Clear All Chat History'}
                 </button>
               </div>
             </div>
@@ -1626,9 +2014,13 @@ export default function ProfilePage() {
                 margin: '0 0 20px 0',
                 fontSize: '24px',
                 fontWeight: '700',
-                color: isDarkMode ? '#e8eaed' : '#2c3e50'
+                color: isDarkMode ? '#e8eaed' : '#2c3e50',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
               }}>
-                ❌ Cancel Trip
+                <FaTimes style={{ color: '#dc3545', fontSize: '22px' }} />
+                Cancel Trip
               </h2>
 
               <div style={{
@@ -1640,10 +2032,19 @@ export default function ProfilePage() {
                 padding: '16px',
                 marginBottom: '24px'
               }}>
-                <div style={{ fontSize: '14px', color: isDarkMode ? '#ffd54f' : '#856404', lineHeight: '1.5' }}>
-                  <strong>⚠️ Important Disclaimer:</strong>
-                  <br />
-                  This will only update your trip status in Hack Travel. You must contact your airlines, hotels, and any other booking providers directly to cancel your actual reservations and request refunds.
+                <div style={{ 
+                  fontSize: '14px', 
+                  color: isDarkMode ? '#ffd54f' : '#856404', 
+                  lineHeight: '1.5',
+                  display: 'flex',
+                  gap: '8px'
+                }}>
+                  <FaInfoCircle style={{ fontSize: '16px', marginTop: '2px', flexShrink: 0 }} />
+                  <div>
+                    <strong>Important Disclaimer:</strong>
+                    <br />
+                    This will only update your trip status in Hack Travel. You must contact your airlines, hotels, and any other booking providers directly to cancel your actual reservations and request refunds.
+                  </div>
                 </div>
               </div>
 
