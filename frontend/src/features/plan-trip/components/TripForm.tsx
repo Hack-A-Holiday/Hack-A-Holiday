@@ -1,5 +1,6 @@
 import React from 'react';
 import { TravelPreferences } from '@/types/preferences';
+import { FaRobot, FaStar } from 'react-icons/fa';
 
 interface TripFormProps {
 	isDarkMode: boolean;
@@ -130,7 +131,17 @@ export const TripForm: React.FC<TripFormProps> = ({
 				}}
 				disabled={loading}
 			>
-				{loading ? '🤖 Creating your adventure...' : '🌟 Plan My Adventure'}
+				{loading ? (
+					<span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+						<FaRobot style={{ fontSize: '1.2rem', color: '#fbbf24' }} />
+						<span>Creating your adventure...</span>
+					</span>
+				) : (
+					<span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+						<FaStar style={{ fontSize: '1.2rem', color: '#fbbf24' }} />
+						<span>Plan My Adventure</span>
+					</span>
+				)}
 			</button>
 		</form>
 	);

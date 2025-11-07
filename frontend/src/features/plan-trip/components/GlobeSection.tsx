@@ -1,6 +1,7 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 import { Destination } from '@/data/destinations';
+import { FaGlobeAmericas, FaPlaneDeparture, FaPlaneArrival, FaPlane, FaRedo } from 'react-icons/fa';
 
 const InteractiveGlobe = dynamic(() => import('@/components/InteractiveGlobe'), {
 	ssr: false,
@@ -57,10 +58,10 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 					alignItems: 'center', 
 					gap: isMobile ? '6px' : '8px' 
 				}}>
-					<span style={{ 
+					<FaGlobeAmericas style={{ 
 						fontSize: isMobile ? '1.3em' : '1.5em',
 						color: '#4285f4'
-					}}>🌍</span>
+					}} />
 					<span style={{ 
 						background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
 						WebkitBackgroundClip: 'text', 
@@ -93,9 +94,22 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 					fontSize: isMobile ? '0.95rem' : '1.1rem', 
 					fontWeight: 'bold', 
 					marginBottom: isMobile ? '6px' : '8px',
-					color: isDarkMode ? '#e8eaed' : '#333'
+					color: isDarkMode ? '#e8eaed' : '#333',
+					display: 'flex',
+					alignItems: 'center',
+					gap: '8px'
 				}}>
-					{clickStep === 'source' ? '🛫 Step 1: Click your starting location' : '🛬 Step 2: Click your destination'}
+					{clickStep === 'source' ? (
+						<>
+							<FaPlaneDeparture style={{ color: '#3b82f6' }} />
+							<span>Step 1: Click your starting location</span>
+						</>
+					) : (
+						<>
+							<FaPlaneArrival style={{ color: '#10b981' }} />
+							<span>Step 2: Click your destination</span>
+						</>
+					)}
 				</div>
 				<div style={{ 
 					fontSize: isMobile ? '0.8rem' : '0.95rem', 
@@ -118,13 +132,16 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 				{/* Source City Input */}
 				<div style={{ flex: 1, width: isMobile ? '100%' : 'auto' }}>
 					<label style={{ 
-						display: 'block', 
+						display: 'flex',
+						alignItems: 'center',
+						gap: '8px',
 						marginBottom: '8px', 
 						fontWeight: '600', 
 						fontSize: isMobile ? '0.9rem' : '1rem',
 						color: isDarkMode ? '#e8eaed' : '#333' 
 					}}>
-						🛫 Traveling From
+						<FaPlaneDeparture style={{ color: '#3b82f6', fontSize: '1rem' }} />
+						<span>Traveling From</span>
 					</label>
 					<input
 						type="text"
@@ -189,13 +206,16 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 				{/* Destination Input */}
 				<div style={{ flex: 1, width: isMobile ? '100%' : 'auto' }}>
 					<label style={{ 
-						display: 'block', 
+						display: 'flex',
+						alignItems: 'center',
+						gap: '8px',
 						marginBottom: '8px', 
 						fontWeight: '600', 
 						fontSize: isMobile ? '0.9rem' : '1rem',
 						color: isDarkMode ? '#e8eaed' : '#333' 
 					}}>
-						🛬 Traveling To
+						<FaPlaneArrival style={{ color: '#10b981', fontSize: '1rem' }} />
+						<span>Traveling To</span>
 					</label>
 					<input
 						type="text"
@@ -249,7 +269,10 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 							touchAction: 'manipulation'
 						}}
 					>
-						🌍 Show Route on Globe
+						<span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+							<FaGlobeAmericas />
+							<span>Show Route on Globe</span>
+						</span>
 					</button>
 				)}
 				
@@ -272,7 +295,10 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 							touchAction: 'manipulation'
 						}}
 					>
-						🔄 Reset Selection
+						<span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+							<FaRedo />
+							<span>Reset Selection</span>
+						</span>
 					</button>
 				)}
 			</div>
@@ -312,7 +338,7 @@ export const GlobeSection: React.FC<GlobeSectionProps> = ({
 					gap: '10px',
 					fontWeight: '600'
 				}}>
-					<span style={{ fontSize: '1.5rem' }}>✈️</span>
+					<FaPlane style={{ fontSize: '1.5rem', color: '#10b981' }} />
 					<span>Route displayed on globe!</span>
 				</div>
 			)}
