@@ -318,7 +318,7 @@ body {
   position: relative;
   display: flex;
   justify-content: center;
-  background: white;
+  background: transparent;
   padding: 0 16px;
   font-size: 0.875rem;
   color: #6b7280;
@@ -644,6 +644,15 @@ body {
 
 .dark-mode .auth-divider-text {
   background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.dark-mode .divider::before {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark-mode .divider-text {
+  background: var(--bg-secondary);
   color: var(--text-secondary);
 }
 

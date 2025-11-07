@@ -255,7 +255,7 @@ export default function AuthForm({
           ) : (
             <>
               <div className="google-icon">G</div>
-              <span>Continue with Google</span>
+              <span>Google</span>
             </>
           )}
         </button>
