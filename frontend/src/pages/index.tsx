@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import AuthForm from '../components/auth/AuthForm';
 import ForgotPasswordForm from '../components/ForgotPasswordForm';
 import { useAuth } from '../contexts/AuthContext';
+import { FaLock, FaRobot, FaGlobeAmericas, FaDollarSign } from 'react-icons/fa';
 
 export default function HomePage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -302,7 +303,7 @@ export default function HomePage() {
                 {mode === 'signup' && (
                   <div className="terms-notice">
                     <div className="terms-text">
-                      <span>🔒</span>
+                      <FaLock style={{ fontSize: '1rem', color: '#667eea' }} />
                       <span>By creating an account, you agree to our Terms of Service and Privacy Policy.</span>
                     </div>
                   </div>
@@ -325,15 +326,21 @@ export default function HomePage() {
           {/* Features preview */}
           <div className="auth-features">
             <div className="auth-feature">
-              <div className="auth-feature-icon">🤖</div>
+              <div className="auth-feature-icon">
+                <FaRobot style={{ fontSize: '1.5rem', color: '#667eea' }} />
+              </div>
               <span>AI Planning</span>
             </div>
             <div className="auth-feature">
-              <div className="auth-feature-icon">🌍</div>
+              <div className="auth-feature-icon">
+                <FaGlobeAmericas style={{ fontSize: '1.5rem', color: '#667eea' }} />
+              </div>
               <span>Global Destinations</span>
             </div>
             <div className="auth-feature">
-              <div className="auth-feature-icon">💰</div>
+              <div className="auth-feature-icon">
+                <FaDollarSign style={{ fontSize: '1.5rem', color: '#667eea' }} />
+              </div>
               <span>Smart Budgeting</span>
             </div>
           </div>

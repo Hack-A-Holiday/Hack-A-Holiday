@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FaExclamationTriangle, FaKey, FaRocket } from 'react-icons/fa';
 
 interface AuthFormProps {
   readonly mode: 'login' | 'signup';
@@ -79,7 +80,9 @@ export default function AuthForm({
       {/* Global Error */}
       {error && (
         <div className="error-alert">
-          <span className="error-icon">⚠️</span>
+          <span className="error-icon">
+            <FaExclamationTriangle style={{ fontSize: '1rem' }} />
+          </span>
           <span className="error-text">{error}</span>
         </div>
       )}
@@ -103,7 +106,7 @@ export default function AuthForm({
             />
             {formErrors.name && (
               <div className="form-error">
-                <span>⚠️</span>
+                <FaExclamationTriangle style={{ fontSize: '0.9rem' }} />
                 <span>{formErrors.name}</span>
               </div>
             )}
@@ -127,7 +130,7 @@ export default function AuthForm({
           />
           {formErrors.email && (
             <div className="form-error">
-              <span>⚠️</span>
+              <FaExclamationTriangle style={{ fontSize: '0.9rem' }} />
               <span>{formErrors.email}</span>
             </div>
           )}
@@ -176,7 +179,7 @@ export default function AuthForm({
           />
           {formErrors.password && (
             <div className="form-error">
-              <span>⚠️</span>
+              <FaExclamationTriangle style={{ fontSize: '0.9rem' }} />
               <span>{formErrors.password}</span>
             </div>
           )}
@@ -200,7 +203,7 @@ export default function AuthForm({
             />
             {formErrors.confirmPassword && (
               <div className="form-error">
-                <span>⚠️</span>
+                <FaExclamationTriangle style={{ fontSize: '0.9rem' }} />
                 <span>{formErrors.confirmPassword}</span>
               </div>
             )}
@@ -221,7 +224,11 @@ export default function AuthForm({
             </>
           ) : (
             <>
-              <span>{mode === 'login' ? '🔑' : '🚀'}</span>
+              {mode === 'login' ? (
+                <FaKey style={{ fontSize: '1.1rem' }} />
+              ) : (
+                <FaRocket style={{ fontSize: '1.1rem' }} />
+              )}
               <span>{mode === 'login' ? 'Sign In' : 'Create Account'}</span>
             </>
           )}
