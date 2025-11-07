@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Swal from 'sweetalert2';
 import { dynamoDBAuthService } from '../services/dynamoAuth';
+import { FaLock, FaEnvelope, FaLightbulb } from 'react-icons/fa';
 
 interface ForgotPasswordFormProps {
   onCancel?: () => void;
@@ -56,49 +57,13 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      padding: '40px',
-      backgroundColor: 'white',
-      borderRadius: '20px',
-      boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
-      width: '100%',
-      maxWidth: '400px',
-      margin: '0 auto'
-    }}>
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-        <h2 style={{
-          color: '#4a5568',
-          fontSize: '24px',
-          fontWeight: 'bold',
-          marginBottom: '8px'
-        }}>
-          🔐 Forgot Password
-        </h2>
-        <p style={{
-          color: '#718096',
-          fontSize: '14px',
-          lineHeight: '1.5'
-        }}>
-          Enter your email address and we&apos;ll send you a link to reset your password
-        </p>
-      </div>
-
+    <div>
       {/* Form */}
       <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-        <div style={{ marginBottom: '20px' }}>
+        <div className="form-group">
           <label 
             htmlFor="forgot-password-email"
-            style={{
-              display: 'block',
-              color: '#4a5568',
-              fontSize: '14px',
-              fontWeight: '500',
-              marginBottom: '8px'
-            }}
+            className="form-label"
           >
             Email Address
           </label>
@@ -108,53 +73,18 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              border: '2px solid #e2e8f0',
-              fontSize: '16px',
-              transition: 'all 0.2s ease',
-              outline: 'none',
-              boxSizing: 'border-box'
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = '#667eea';
-              e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = '#e2e8f0';
-              e.target.style.boxShadow = 'none';
-            }}
+            className="form-input"
             placeholder="Enter your email"
           />
         </div>
 
         {/* Buttons */}
-        <div style={{ display: 'flex', gap: '12px', marginTop: '30px' }}>
+        <div style={{ display: 'flex', gap: '12px', marginTop: '24px', marginBottom: '16px' }}>
           <button
             type="button"
             onClick={onBackToLogin || onCancel}
-            style={{
-              flex: 1,
-              padding: '12px 20px',
-              borderRadius: '12px',
-              border: '2px solid #e2e8f0',
-              background: 'white',
-              color: '#4a5568',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#f7fafc';
-              e.currentTarget.style.borderColor = '#cbd5e0';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'white';
-              e.currentTarget.style.borderColor = '#e2e8f0';
-            }}
+            className="btn-google"
+            style={{ flex: 1 }}
           >
             {onBackToLogin ? 'Back to Login' : 'Cancel'}
           </button>
@@ -162,33 +92,20 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
           <button
             type="submit"
             disabled={loading}
-            style={{
-              flex: 1,
-              padding: '12px 20px',
-              borderRadius: '12px',
-              border: 'none',
-              background: loading ? '#a0aec0' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease',
-              opacity: loading ? 0.7 : 1
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.3)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }
-            }}
+            className="btn-primary"
+            style={{ flex: 1 }}
           >
-            {loading ? '🔄 Sending...' : '📧 Send Reset Link'}
+            {loading ? (
+              <>
+                <div className="loading-spinner"></div>
+                <span>Sending...</span>
+              </>
+            ) : (
+              <>
+                <FaEnvelope style={{ fontSize: '1rem' }} />
+                <span>Send Reset Link</span>
+              </>
+            )}
           </button>
         </div>
       </form>
@@ -206,10 +123,17 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
           fontSize: '12px',
           color: '#718096',
           margin: 0,
-          lineHeight: '1.4'
+          lineHeight: '1.4',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '8px',
+          fontFamily: 'Poppins, sans-serif'
         }}>
-          💡 <strong>Note:</strong> The reset link will expire in 1 hour for security reasons. 
-          If you don&apos;t receive an email, please check your spam folder.
+          <FaLightbulb style={{ fontSize: '1rem', color: '#667eea', marginTop: '2px', flexShrink: 0 }} />
+          <span>
+            <strong>Note:</strong> The reset link will expire in 1 hour for security reasons. 
+            If you don&apos;t receive an email, please check your spam folder.
+          </span>
         </p>
       </div>
     </div>
