@@ -21,6 +21,12 @@ import { tripApiService } from '../services/trip-api';
 import { BookingConfirmationModal } from './BookingConfirmationModal';
 import Swal from 'sweetalert2';
 import Image from 'next/image';
+import { 
+  FaPlane, FaPlaneDeparture, FaPlaneArrival, FaCalendarAlt, FaUsers, 
+  FaChair, FaWrench, FaCheckCircle, FaExclamationTriangle, FaMoneyBillWave,
+  FaRedo, FaClock, FaSuitcase, FaSearch, FaSortAmountDown, FaStar,
+  FaTrash, FaLightbulb, FaArrowRight, FaTable, FaIdCard
+} from 'react-icons/fa';
 
 
 // Add CSS animation for spinner
@@ -1163,7 +1169,9 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           textAlign: 'left',
           justifyContent: 'flex-start'
         }}>
-          <span style={{ fontSize: isMobile ? '1rem' : '1.5rem' }}>✈️</span>
+          <span style={{ fontSize: isMobile ? '1rem' : '1.5rem' }}>
+            <FaPlane />
+          </span>
           {isMobile ? 'Search Flights' : 'Flight Search'}
         </h2>
         <button
@@ -1189,7 +1197,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           onMouseOver={(e) => (e.target as HTMLElement).style.background = showFilters ? '#218838' : '#0056b3'}
           onMouseOut={(e) => (e.target as HTMLElement).style.background = showFilters ? '#28a745' : '#007bff'}
         >
-          <span>{showFilters ? '�️' : '🔧'}</span>
+          <span>{showFilters ? <FaCheckCircle /> : <FaWrench />}</span>
           {isMobile ? (showFilters ? 'Hide' : 'Filters') : (showFilters ? 'Hide Filters' : 'Show Filters')}
         </button>
       </div>
@@ -1208,7 +1216,7 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           fontSize: '14px',
           fontWeight: '500'
         }}>
-          ⚠️ {error}
+          <FaExclamationTriangle /> {error}
         </div>
       )}
 
@@ -1266,19 +1274,23 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           alignItems: 'center',
           gap: isMobile ? '6px' : '8px'
         }}>
-          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>✈️</span> Flight Route
+          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>
+            <FaPlane />
+          </span> Flight Route
         </div>
 
         <div style={{ marginBottom: isMobile ? '12px' : '16px', position: 'relative' }}>
           <label htmlFor="origin" style={{
-            display: 'block',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
             marginBottom: isMobile ? '5px' : '6px',
             fontWeight: '600',
             color: isDarkMode ? '#e8eaed' : '#495057',
             fontSize: isMobile ? '0.8rem' : '0.9rem'
           }}>
-            <span style={{ marginRight: '4px', fontSize: isMobile ? '0.9rem' : '1rem' }}>✈️</span>
-            Origin Airport *
+            <FaPlaneDeparture style={{ fontSize: isMobile ? '0.9rem' : '1rem' }} />
+            <span>Origin Airport *</span>
             {!isMobile && (
               <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: isDarkMode ? '#9ca3af' : '#6c757d', marginLeft: '8px' }}>
                 (Type country name to see all airports)
@@ -1359,14 +1371,16 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
 
         <div style={{ marginBottom: isMobile ? '14px' : '16px', position: 'relative' }}>
           <label htmlFor="destination" style={{
-            display: 'block',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
             marginBottom: isMobile ? '5px' : '6px',
             fontWeight: '600',
             color: isDarkMode ? '#e8eaed' : '#495057',
             fontSize: isMobile ? '0.85rem' : '0.9rem'
           }}>
-            <span style={{ marginRight: '4px' }}>🛬</span>
-            Destination Airport *
+            <FaPlaneArrival style={{ fontSize: isMobile ? '0.9rem' : '1rem' }} />
+            <span>Destination Airport *</span>
             {!isMobile && (
               <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: isDarkMode ? '#9ca3af' : '#6c757d', marginLeft: '8px' }}>
                 (Type country name to see all airports)
@@ -1460,7 +1474,9 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           alignItems: 'center',
           gap: isMobile ? '6px' : '8px'
         }}>
-          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>📅</span> Travel Dates
+          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>
+            <FaCalendarAlt />
+          </span> Travel Dates
         </div>
 
         <div style={{ 
@@ -1471,14 +1487,16 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
         }}>
           <div>
             <label htmlFor="departureDate" style={{
-              display: 'block',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
               marginBottom: isMobile ? '5px' : '6px',
               fontWeight: '600',
               color: isDarkMode ? '#e8eaed' : '#495057',
               fontSize: isMobile ? '0.85rem' : '0.9rem'
             }}>
-              <span style={{ marginRight: '4px' }}>📅</span>
-              {isMobile ? 'Depart *' : 'Departure *'}
+              <FaCalendarAlt />
+              <span>{isMobile ? 'Depart *' : 'Departure *'}</span>
             </label>
             <input
               type="date"
@@ -1507,14 +1525,16 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
 
           <div>
             <label htmlFor="returnDate" style={{
-              display: 'block',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
               marginBottom: isMobile ? '5px' : '6px',
               fontWeight: '600',
               color: isDarkMode ? '#e8eaed' : '#495057',
               fontSize: isMobile ? '0.85rem' : '0.9rem'
             }}>
-              <span style={{ marginRight: '4px' }}>🔁</span>
-              Return {!isMobile && '(Optional)'}
+              <FaRedo />
+              <span>Return {!isMobile && '(Optional)'}</span>
             </label>
             <input
               type="date"
@@ -1555,7 +1575,9 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           alignItems: 'center',
           gap: isMobile ? '6px' : '8px'
         }}>
-          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>👥</span> Passengers
+          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>
+            <FaUsers />
+          </span> Passengers
         </div>
 
         <div style={{ marginBottom: isMobile ? '14px' : '18px' }}>
@@ -1656,7 +1678,9 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           alignItems: 'center',
           gap: isMobile ? '6px' : '8px'
         }}>
-          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>💺</span> Cabin Class
+          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>
+            <FaChair />
+          </span> Cabin Class
         </div>
 
         <div style={{ marginBottom: isMobile ? '18px' : '30px' }}>
@@ -1752,7 +1776,9 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             </>
           ) : (
             <>
-              <span style={{ fontSize: isMobile ? '1.1rem' : '1.2rem' }}>✈️</span>
+              <span style={{ fontSize: isMobile ? '1.1rem' : '1.2rem' }}>
+                <FaPlane />
+              </span>
               {isMobile ? 'Search' : 'Search Flights'}
             </>
           )}
@@ -1772,7 +1798,9 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
           justifyContent: 'center',
           gap: isMobile ? '6px' : '8px'
         }}>
-          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>💡</span>
+          <span style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>
+            <FaLightbulb />
+          </span>
           <span>{isMobile ? 'Tap' : 'Click'} filters button above to refine your search</span>
         </div>
       </div>
@@ -1815,7 +1843,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
               fontSize: isMobile ? '1rem' : '1.2rem',
               fontWeight: 'bold'
             }}>
-              🔧 Advanced Filters
+              <FaWrench style={{ marginRight: '8px' }} />
+              Advanced Filters
             </h3>
             {isMobile && (
               <button
@@ -1841,7 +1870,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             {/* Price Range */}
             <div>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057', fontSize: '14px' }}>
-                💰 Price Range
+                <FaMoneyBillWave style={{ marginRight: '6px' }} />
+                Price Range
               </label>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <input
@@ -1879,7 +1909,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             {/* Max Stops */}
             <div>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057', fontSize: '14px' }}>
-                🔄 Maximum Stops
+                <FaRedo style={{ marginRight: '6px' }} />
+                Maximum Stops
               </label>
               <select
                 value={filters.maxStops ?? ''}
@@ -1904,7 +1935,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             {/* Cabin Class Filter */}
             <div>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057', fontSize: '14px' }}>
-                💺 Cabin Class
+                <FaChair style={{ marginRight: '6px' }} />
+                Cabin Class
               </label>
               <select
                 value={filters.cabinClass || ''}
@@ -1929,7 +1961,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             {/* Checked Bags Filter */}
             <div>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057', fontSize: '14px' }}>
-                🧳 Checked Bags
+                <FaSuitcase style={{ marginRight: '6px' }} />
+                Checked Bags
               </label>
               <select
                 value={filters.checkedBags ?? ''}
@@ -1955,7 +1988,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             {/* Departure Date Range Filter */}
             <div>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057', fontSize: '14px' }}>
-                📅 Departure Date Range
+                <FaCalendarAlt style={{ marginRight: '6px' }} />
+                Departure Date Range
               </label>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <input
@@ -2000,7 +2034,10 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                 onChange={(e) => setFilters(prev => ({ ...prev, directFlightsOnly: e.target.checked }))}
                 style={{ transform: 'scale(1.2)' }}
               />
-              <span style={{ fontWeight: '500', color: '#495057' }}>✈️ Direct Flights Only</span>
+              <span style={{ fontWeight: '500', color: '#495057' }}>
+                <FaPlane style={{ marginRight: '6px' }} />
+                Direct Flights Only
+              </span>
             </label>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -2010,7 +2047,10 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                 onChange={(e) => setFilters(prev => ({ ...prev, refundable: e.target.checked }))}
                 style={{ transform: 'scale(1.2)' }}
               />
-              <span style={{ fontWeight: '500', color: '#495057' }}>💰 Refundable Only</span>
+              <span style={{ fontWeight: '500', color: '#495057' }}>
+                <FaMoneyBillWave style={{ marginRight: '6px' }} />
+                Refundable Only
+              </span>
             </label>
 
             {/* Clear Filters Button */}
@@ -2034,7 +2074,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
               onMouseOver={(e) => (e.target as HTMLElement).style.background = '#ff5252'}
               onMouseOut={(e) => (e.target as HTMLElement).style.background = '#ff6b6b'}
             >
-              🗑️ Clear All Filters
+              <FaTrash style={{ marginRight: '6px' }} />
+              Clear All Filters
             </button>
           </div>
         </div>
@@ -2050,7 +2091,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             boxShadow: isDarkMode ? '0 5px 20px rgba(0,0,0,0.6)' : '0 5px 20px rgba(0,0,0,0.08)'
           }}>
             <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>
-              ✈️ Outgoing Flights ({searchRequest.origin} → {searchRequest.destination})
+              <FaPlane style={{ marginRight: '10px' }} />
+              Outgoing Flights ({searchRequest.origin} → {searchRequest.destination})
             </h3>
             <p style={{ margin: '8px 0 0 0', fontSize: '14px', opacity: 0.9 }}>
               {searchResults.totalResults} flights for {searchRequest.departureDate} • Search completed in {searchResults.searchTime}ms
@@ -2068,7 +2110,10 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap', marginBottom: '20px' }}>
               {/* View Mode Toggle */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontWeight: '600', color: '#495057', fontSize: '14px' }}>📊 View:</span>
+                <span style={{ fontWeight: '600', color: '#495057', fontSize: '14px' }}>
+                  <FaSortAmountDown style={{ marginRight: '6px' }} />
+                  View:
+                </span>
                 <div style={{ display: 'flex', background: '#f8f9fa', borderRadius: '8px', padding: '2px' }}>
                   <button
                     onClick={() => setViewMode('cards')}
@@ -2084,7 +2129,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    🃏 Cards
+                    <FaIdCard style={{ marginRight: '4px' }} />
+                    Cards
                   </button>
                   <button
                     onClick={() => setViewMode('table')}
@@ -2100,14 +2146,18 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    📋 Table
+                    <FaTable style={{ marginRight: '4px' }} />
+                    Table
                   </button>
                 </div>
               </div>
 
               {/* Global Search */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontWeight: '600', color: '#495057', fontSize: '14px' }}>🔍 Search:</span>
+                <span style={{ fontWeight: '600', color: '#495057', fontSize: '14px' }}>
+                  <FaSearch style={{ marginRight: '6px' }} />
+                  Search:
+                </span>
                 <input
                   type="text"
                   placeholder="Search flights..."
@@ -2126,7 +2176,10 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
 
               {/* Sort Control */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <label htmlFor="sortBy" style={{ fontWeight: '600', color: '#495057', fontSize: '14px' }}>🔄 Sort:</label>
+                <label htmlFor="sortBy" style={{ fontWeight: '600', color: '#495057', fontSize: '14px' }}>
+                  <FaSortAmountDown style={{ marginRight: '6px' }} />
+                  Sort:
+                </label>
                 <select
                   id="sortBy"
                   value={sortBy}
@@ -2145,8 +2198,11 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                   <option value="price-asc">💰 Price ↑</option>
                   <option value="price-desc">💸 Price ↓</option>
                   <option value="duration-asc">⚡ Duration ↑</option>
-                  <option value="duration-desc">🐌 Duration ↓</option>
-                  <option value="departure-asc">🕐 Departure ↑</option>
+                  <option value="duration-desc">� Duration ↓</option>
+                  <option value="departure-asc">
+                    <FaClock style={{ marginRight: '4px' }} />
+                    Departure ↑
+                  </option>
                 </select>
               </div>
 
@@ -2174,7 +2230,8 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                     e.currentTarget.style.color = '#dc3545';
                   }}
                 >
-                  🗑️ Clear All
+                  <FaTrash style={{ marginRight: '4px' }} />
+                  Clear All
                 </button>
               )}
             </div>
@@ -2212,7 +2269,10 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                   <thead>
                     <tr style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
                       <th style={{ padding: '15px 12px', textAlign: 'left', fontWeight: '600', minWidth: '140px' }}>
-                        <div>✈️ Airline</div>
+                        <div>
+                          <FaPlane style={{ marginRight: '6px' }} />
+                          Airline
+                        </div>
                         <input
                           type="text"
                           placeholder="Filter..."
@@ -2317,7 +2377,10 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                         />
                       </th>
                       <th style={{ padding: '15px 12px', textAlign: 'center', fontWeight: '600', minWidth: '80px' }}>
-                        <div>🔄 Stops</div>
+                        <div>
+                          <FaRedo style={{ marginRight: '6px' }} />
+                          Stops
+                        </div>
                         <input
                           type="text"
                           placeholder="Filter..."
@@ -2338,7 +2401,10 @@ export default function FlightSearch({ onFlightSelect, onDestinationChange, init
                         />
                       </th>
                       <th style={{ padding: '15px 12px', textAlign: 'right', fontWeight: '600', minWidth: '100px' }}>
-                        <div>💰 Price</div>
+                        <div>
+                          <FaMoneyBillWave style={{ marginRight: '6px' }} />
+                          Price
+                        </div>
                         <input
                           type="text"
                           placeholder="Filter..."

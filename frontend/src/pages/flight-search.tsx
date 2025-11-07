@@ -20,6 +20,7 @@ import TripAdvisorSearch from '../components/TripAdvisorSearch';
 import { bookingApiService } from '../services/booking-api';
 import { COMMON_AIRPORTS } from '../types/flight';
 import { buildApiUrl } from '../config/api';
+import { FaHotel, FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaSearch, FaClock, FaLightbulb, FaLandmark, FaRedo, FaBullseye } from 'react-icons/fa';
 
 export default function FlightSearchPage() {
   const { state } = useAuth();
@@ -1371,9 +1372,13 @@ export default function FlightSearchPage() {
                 fontSize: '2.2rem',
                 fontWeight: '600',
                 marginBottom: '30px',
-                color: isDarkMode ? '#e8eaed' : '#1f2937'
+                color: isDarkMode ? '#e8eaed' : '#1f2937',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
               }}>
-                💡 Flight Search Tips
+                <FaLightbulb style={{ fontSize: '2rem', color: '#fbbf24' }} />
+                Flight Search Tips
               </h2>
 
               {/* Flight Search Tips Grid */}
@@ -1392,9 +1397,10 @@ export default function FlightSearchPage() {
               }}>
                 <div style={{
                   fontSize: '2rem',
-                  marginBottom: '12px'
+                  marginBottom: '12px',
+                  color: '#3b82f6'
                 }}>
-                  📅
+                  <FaCalendarAlt />
                 </div>
                 <h3 style={{
                   fontSize: '1.1rem',
@@ -1422,9 +1428,10 @@ export default function FlightSearchPage() {
               }}>
                 <div style={{
                   fontSize: '2rem',
-                  marginBottom: '12px'
+                  marginBottom: '12px',
+                  color: '#10b981'
                 }}>
-                  🕐
+                  <FaClock />
                 </div>
                 <h3 style={{
                   fontSize: '1.1rem',
@@ -1452,9 +1459,10 @@ export default function FlightSearchPage() {
               }}>
                 <div style={{
                   fontSize: '2rem',
-                  marginBottom: '12px'
+                  marginBottom: '12px',
+                  color: '#f59e0b'
                 }}>
-                  🔄
+                  <FaRedo />
                 </div>
                 <h3 style={{
                   fontSize: '1.1rem',
@@ -1482,9 +1490,10 @@ export default function FlightSearchPage() {
               }}>
                 <div style={{
                   fontSize: '2rem',
-                  marginBottom: '12px'
+                  marginBottom: '12px',
+                  color: '#8b5cf6'
                 }}>
-                  🎯
+                  <FaBullseye />
                 </div>
                 <h3 style={{
                   fontSize: '1.1rem',
@@ -1622,9 +1631,12 @@ export default function FlightSearchPage() {
               fontSize: isMobile ? '1.8rem' : '2.2rem',
               fontWeight: '600',
               marginBottom: '30px',
-              color: isDarkMode ? '#e8eaed' : '#1f2937'
+              color: isDarkMode ? '#e8eaed' : '#1f2937',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
             }}>
-              🏨 Hotel Search
+              <FaHotel style={{ fontSize: '1.8rem' }} /> Hotel Search
             </h2>
 
             <p style={{
@@ -1643,8 +1655,8 @@ export default function FlightSearchPage() {
               marginBottom: '20px'
             }}>
               <div style={{ position: 'relative' }}>
-                <label className="form-label">
-                  📍 Destination
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaMapMarkerAlt /> Destination
                 </label>
                 <input
                   type="text"
@@ -1690,7 +1702,8 @@ export default function FlightSearchPage() {
                         onMouseEnter={(e) => e.currentTarget.style.background = 'var(--calendar-hover-bg)'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       >
-                        📍 {suggestion}
+                        <FaMapMarkerAlt style={{ marginRight: '8px', fontSize: '0.9rem' }} />
+                        {suggestion}
                       </div>
                     ))}
                   </div>
@@ -1698,8 +1711,8 @@ export default function FlightSearchPage() {
               </div>
 
               <div>
-                <label className="form-label">
-                  📅 Check-in Date
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaCalendarAlt /> Check-in Date
                 </label>
                 <input
                   type="date"
@@ -1714,8 +1727,8 @@ export default function FlightSearchPage() {
               </div>
 
               <div>
-                <label className="form-label">
-                  📅 Check-out Date
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaCalendarAlt /> Check-out Date
                 </label>
                 <input
                   type="date"
@@ -1730,8 +1743,8 @@ export default function FlightSearchPage() {
               </div>
 
               <div>
-                <label className="form-label">
-                  👥 Guests
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaUsers /> Guests
                 </label>
                 <input
                   type="number"
@@ -1753,10 +1766,24 @@ export default function FlightSearchPage() {
               className="btn-primary"
               style={{
                 width: '100%',
-                borderRadius: '10px'
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px'
               }}
             >
-              {loadingHotels ? '⏳ Searching...' : '🔍 Search Hotels'}
+              {loadingHotels ? (
+                <>
+                  <FaClock style={{ fontSize: '1rem' }} />
+                  Searching...
+                </>
+              ) : (
+                <>
+                  <FaSearch style={{ fontSize: '1rem' }} />
+                  Search Hotels
+                </>
+              )}
             </button>
 
             {/* Hotel Loading State */}
@@ -2020,7 +2047,11 @@ export default function FlightSearchPage() {
                         fontWeight: '600',
                         cursor: 'pointer',
                         boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-                        transition: 'all 0.3s ease'
+                        transition: 'all 0.3s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.transform = 'translateY(-2px)';
@@ -2031,7 +2062,8 @@ export default function FlightSearchPage() {
                         e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
                       }}
                     >
-                      🔍 View All {hotelResults.length} Hotels on Booking.com
+                      <FaSearch style={{ fontSize: '1rem' }} />
+                      View All {hotelResults.length} Hotels on Booking.com
                     </button>
                   </div>
                 )}
@@ -2048,9 +2080,14 @@ export default function FlightSearchPage() {
               <p style={{
                 fontSize: '0.9rem',
                 color: isDarkMode ? '#9ca3af' : '#6b7280',
-                margin: 0
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
               }}>
-                💡 Tip: Enter your flight destination above to see hotel recommendations automatically
+                <FaLightbulb style={{ fontSize: '1rem', color: '#fbbf24' }} />
+                Tip: Enter your flight destination above to see hotel recommendations automatically
               </p>
             </div>
           </div>
