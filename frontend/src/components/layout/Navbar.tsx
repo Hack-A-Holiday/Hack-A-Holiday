@@ -7,6 +7,16 @@ import { useDarkMode } from '../../contexts/DarkModeContext';
 import { useResponsive } from '../../hooks/useResponsive';
 import Swal from 'sweetalert2';
 import { buildApiUrl } from '../../config/api';
+import { 
+  FaPlane, 
+  FaRobot, 
+  FaSearch, 
+  FaUser, 
+  FaMoon, 
+  FaSun, 
+  FaTrashAlt, 
+  FaSignOutAlt 
+} from 'react-icons/fa';
 
 export default function Navbar() {
   const { state, logout } = useAuth();
@@ -293,7 +303,7 @@ export default function Navbar() {
                         e.currentTarget.style.background = 'transparent';
                       }}
                     >
-                      <span style={{ fontSize: '1.1rem' }}>👤</span>
+                      <FaUser style={{ fontSize: '1rem', color: '#667eea' }} />
                       <span style={{ fontSize: '0.9rem' }}>Profile</span>
                     </Link>
 
@@ -325,7 +335,7 @@ export default function Navbar() {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontSize: '1.1rem' }}>{isDarkMode ? '🌙' : '☀️'}</span>
+                        {isDarkMode ? <FaMoon style={{ fontSize: '1rem', color: '#667eea' }} /> : <FaSun style={{ fontSize: '1rem', color: '#f59e0b' }} />}
                         <span>Dark Mode</span>
                       </div>
                       <div style={{
@@ -418,7 +428,7 @@ export default function Navbar() {
                         e.currentTarget.style.background = 'transparent';
                       }}
                     >
-                      <span style={{ fontSize: '1.1rem' }}>{isClearingHistory ? '...' : '🗑️'}</span>
+                      <FaTrashAlt style={{ fontSize: '1rem', color: '#ef4444' }} />
                       <span style={{ fontSize: '0.9rem' }}>{isClearingHistory ? 'Clearing...' : 'Clear All Chat History'}</span>
                     </button>
 
@@ -448,7 +458,7 @@ export default function Navbar() {
                         e.currentTarget.style.background = 'transparent';
                       }}
                     >
-                      <span style={{ fontSize: '1.1rem' }}>🚪</span>
+                      <FaSignOutAlt style={{ fontSize: '1rem' }} />
                       <span>Sign Out</span>
                     </button>
                   </div>
@@ -601,7 +611,7 @@ export default function Navbar() {
                 transition: 'all 0.2s ease',
                 touchAction: 'manipulation'
               }}>
-                <span style={{ fontSize: '1.3rem' }}>✈️</span>
+                <FaPlane style={{ fontSize: '1.2rem', color: router.pathname === '/plantrip' ? '#667eea' : (isDarkMode ? '#999' : '#666') }} />
                 <span>Plan Trip</span>
               </Link>
               <Link href="/ai-assistant" onClick={closeMobileMenu} style={{
@@ -623,7 +633,7 @@ export default function Navbar() {
                 transition: 'all 0.2s ease',
                 touchAction: 'manipulation'
               }}>
-                <span style={{ fontSize: '1.3rem' }}>🤖</span>
+                <FaRobot style={{ fontSize: '1.2rem', color: router.pathname === '/ai-assistant' ? '#667eea' : (isDarkMode ? '#999' : '#666') }} />
                 <span>AI Assistant</span>
               </Link>
               <Link href="/flight-search" onClick={closeMobileMenu} style={{
@@ -645,7 +655,7 @@ export default function Navbar() {
                 transition: 'all 0.2s ease',
                 touchAction: 'manipulation'
               }}>
-                <span style={{ fontSize: '1.3rem' }}>🔍</span>
+                <FaSearch style={{ fontSize: '1.2rem', color: router.pathname === '/flight-search' ? '#667eea' : (isDarkMode ? '#999' : '#666') }} />
                 <span>Flight & Hotel Search</span>
               </Link>
               <Link href="/profile" onClick={closeMobileMenu} style={{
@@ -667,7 +677,7 @@ export default function Navbar() {
                 transition: 'all 0.2s ease',
                 touchAction: 'manipulation'
               }}>
-                <span style={{ fontSize: '1.3rem' }}>👤</span>
+                <FaUser style={{ fontSize: '1.2rem', color: router.pathname === '/profile' ? '#667eea' : (isDarkMode ? '#999' : '#666') }} />
                 <span>Profile</span>
               </Link>
             </div>
@@ -713,7 +723,7 @@ export default function Navbar() {
                 }}
               >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span>{isDarkMode ? '🌙' : '☀️'}</span>
+                {isDarkMode ? <FaMoon style={{ fontSize: '1.1rem', color: '#667eea' }} /> : <FaSun style={{ fontSize: '1.1rem', color: '#f59e0b' }} />}
                 <span>Dark Mode</span>
               </div>
               <div style={{
@@ -769,7 +779,7 @@ export default function Navbar() {
                   boxShadow: '0 4px 12px rgba(255, 68, 68, 0.3)'
                 }}
               >
-                <span style={{ fontSize: '1.2rem' }}>🚪</span>
+                <FaSignOutAlt style={{ fontSize: '1.1rem' }} />
                 <span>Sign Out</span>
               </button>
             </div>
